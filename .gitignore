@@ -1,0 +1,16 @@
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.idea/
+*.iml
+.vscode/
+# android/ 는 CI에서 flutter create 로 생성
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+pubspec.lock

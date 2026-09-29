@@ -1,0 +1,25 @@
+name: kid_med_check
+description: 처방약이 아이 나이에 금기(DUR 특정연령대금기)인지 확인하는 앱
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: '>=1.2.0 <2.0.0'
+  shared_preferences: '>=2.2.0 <3.0.0'
+  image_picker: '>=1.1.0 <2.0.0'
+  google_mlkit_text_recognition: '>=0.13.0 <1.0.0'
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: '>=4.0.0 <7.0.0'
+
+flutter:
+  uses-material-design: true

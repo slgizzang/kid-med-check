@@ -1,0 +1,57 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android project
+        run: |
+          flutter create --platforms=android --org com.kidmedcheck --project-name kid_med_check .
+          python3 tool/prepare_android.py
+
+      - run: flutter pub get
+
+      - name: Unit tests
+        run: flutter test
+
+      - name: Build release APK
+        env:
+          DUR_API_KEY: ${{ secrets.DUR_API_KEY }}
+        run: flutter build apk --release --dart-define=DUR_API_KEY="$DUR_API_KEY"
+
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk kid-med-check-${{ github.run_number }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kid-med-check-apk
+          path: kid-med-check-${{ github.run_number }}.apk
+
+      # 휴대폰에서 바로 받을 수 있게 Releases 에도 올린다
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: 아이 약 안심체크 (빌드 ${{ github.run_number }})
+          body: 휴대폰에서 아래 APK 파일을 눌러 받고 설치하세요.
+          files: kid-med-check-${{ github.run_number }}.apk
+          make_latest: true
