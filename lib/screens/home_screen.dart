@@ -354,13 +354,12 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  KText('식약처 공공데이터로 복용자 정보에 맞춰 확인해요.', style: _noticeStyle),
-                  KText('연령·임부·병용금기는 의약품안전사용서비스(DUR),', style: _noticeStyle),
-                  KText('효능과 주의사항은 e약은요,', style: _noticeStyle),
-                  KText('성분과 전문·일반 구분은 의약품 제품 허가정보를 써요.', style: _noticeStyle),
+                  _OneLine('식약처 공공데이터로 복용자 정보에 맞춰 확인해요.'),
+                  _OneLine('금기 정보는 의약품안전사용서비스(DUR),'),
+                  _OneLine('효능과 주의사항은 e약은요,'),
+                  _OneLine('성분과 전문·일반 구분은 제품 허가정보를 써요.'),
                   SizedBox(height: 6),
-                  KText('경고가 나와도 약을 임의로 끊지 말고 약국·병원에 꼭 확인하세요.',
-                      style: _noticeStyle),
+                  _OneLine('경고가 나와도 임의로 끊지 말고 약사·의사와 상의하세요.'),
                 ],
               ),
             ),
@@ -585,3 +584,16 @@ class _EmptyBox extends StatelessWidget {
 }
 
 const _noticeStyle = TextStyle(color: AppColors.primaryDark, height: 1.45);
+
+/// 한 줄에 다 들어가게 (화면이 좁으면 글자를 살짝 줄임)
+class _OneLine extends StatelessWidget {
+  const _OneLine(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(text, maxLines: 1, softWrap: false, style: _noticeStyle),
+      );
+}
