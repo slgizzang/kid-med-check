@@ -69,7 +69,9 @@ class _ImportScreenState extends State<ImportScreen> {
         setState(() => _error = e.message);
       }
     } catch (e) {
-      setState(() => _error = '파일을 읽지 못했어요. ($e)');
+      final msg = '$e'.split('\n').first;
+      setState(() => _error =
+          '파일을 읽지 못했어요.\n(${msg.length > 120 ? '${msg.substring(0, 120)}…' : msg})');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
