@@ -105,7 +105,7 @@ class ResultDashboard extends StatelessWidget {
             _Line(
               ok: snap.mixPairs.isEmpty,
               text: snap.mixPairs.isEmpty
-                  ? '목록 안의 약끼리 함께 먹으면 안 되는 조합(병용금기) 없음'
+                  ? '함께 먹으면 안 되는 조합(병용금기) 없음'
                   : '함께 먹으면 안 되는 조합(병용금기) ${snap.mixPairs.length}개',
             ),
             for (final p in snap.mixPairs)
