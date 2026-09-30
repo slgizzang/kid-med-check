@@ -129,7 +129,8 @@ class DrugNameExtractor {
   static List<String> searchVariants(String name) {
     final out = <String>[name];
     final stem = name.replaceFirst(_trailingForm, '');
-    if (stem.length >= 2 && stem != name) out.add(stem);
+    // 너무 짧게 줄이면 엉뚱한 약이 걸리므로 3글자 이상일 때만
+    if (stem.length >= 3 && stem != name) out.add(stem);
     return out;
   }
 

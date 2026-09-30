@@ -75,6 +75,30 @@ else:
         except Exception as e:  # noqa: BLE001
             out.append(f"[{label}] 호출 실패: {type(e).__name__}: {str(e)[:200]}")
 
+    # DUR 성분정보: 성분별 특정연령대금기 (연령 기준 필드 확인용)
+    url = "https://apis.data.go.kr/1471000/DURIrdntInfoService03/getSpcifyAgrdeTabooInfoList03"
+    q = urllib.parse.urlencode({"serviceKey": key, "type": "json", "pageNo": 1, "numOfRows": 3})
+    try:
+        with urllib.request.urlopen(f"{url}?{q}", timeout=30) as r:
+            body = r.read().decode("utf-8", "replace")
+        try:
+            d = json.loads(body)
+            root = d.get("response", d)
+            b = root.get("body", {})
+            items = b.get("items", [])
+            if isinstance(items, dict):
+                items = items.get("item", [])
+            if isinstance(items, dict):
+                items = [items]
+            out.append(f"[DUR성분:연령금기] resultCode={root.get('header', {}).get('resultCode')} totalCount={b.get('totalCount')}")
+            for it in items[:3]:
+                it = it.get("item", it) if isinstance(it, dict) else it
+                out.append("  " + " | ".join(f"{k}={str(v)[:40]}" for k, v in it.items()))
+        except json.JSONDecodeError:
+            out.append(f"[DUR성분] JSON 아님: {body[:300]}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"[DUR성분] 호출 실패: {type(e).__name__}: {str(e)[:200]}")
+
 text = "\n".join(out).replace(key, "***") if key else "\n".join(out)
 print(text)
 with open("api_smoke.txt", "w", encoding="utf-8") as f:

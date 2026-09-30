@@ -84,6 +84,8 @@ void main() {
       expect(DrugNameExtractor.searchVariants('코대원포르테시럽'), ['코대원포르테시럽', '코대원포르테']);
       expect(DrugNameExtractor.searchVariants('세토펜현탁액'), ['세토펜현탁액', '세토펜']);
       expect(DrugNameExtractor.searchVariants('코대원'), ['코대원']);
+      // "포타"처럼 두 글자로 줄이면 "로포타현탁액" 같은 엉뚱한 약이 걸리므로 줄이지 않는다
+      expect(DrugNameExtractor.searchVariants('포타겔'), ['포타겔']);
     });
 
     test('검색용 이름 정리', () {
@@ -229,6 +231,18 @@ void main() {
       c.applyLabel(21);
       expect(c.status, CheckStatus.labelCaution);
     });
+  });
+
+  test('성분정보 연령 기준으로 나이 없는 금기를 보완', () {
+    final row = TabooRow.fromJson({
+      'ITEM_NAME': '명인클로르프로마진염산염정50mg',
+      'INGR_CODE': 'D000123',
+      'PROHBT_CONTENT': '추체외로증상 특히 운동장애가 나타나기 쉬움',
+    });
+    expect(row.rule.appliesTo(21), isNull);
+    row.applyAgeBase('12세 미만');
+    expect(row.rule.appliesTo(21), isTrue);
+    expect(row.ageBase, '12세 미만');
   });
 
   test('처방 기록 저장 형식', () {

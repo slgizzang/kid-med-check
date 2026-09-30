@@ -38,7 +38,7 @@ class DurApi {
   }
 
   Future<List<TabooRow>> searchAgeTaboo(String itemName) async {
-    final items = await _fetchItems(_path, itemName, 100);
+    final items = await _fetchItems(_path, {'itemName': itemName}, 100);
     return items.map(TabooRow.fromJson).toList();
   }
 
@@ -46,24 +46,63 @@ class DurApi {
   /// 설명은 부가 정보라 실패해도 예외를 던지지 않고 null을 준다.
   Future<DrugInfo?> searchDrugInfo(String itemName) async {
     try {
-      final easy = await _fetchItems(_easyPath, itemName, 5);
+      final easy = await _fetchItems(_easyPath, {'itemName': itemName}, 5);
       if (easy.isNotEmpty) return DrugInfo.fromEasy(easy.first);
     } catch (_) {}
     try {
-      final dur = await _fetchItems(_durItemPath, itemName, 5);
+      final dur = await _fetchItems(_durItemPath, {'itemName': itemName}, 5);
       if (dur.isNotEmpty) return DrugInfo.fromDur(dur.first);
     } catch (_) {}
     return null;
   }
 
+  /// DUR 성분정보: 성분 코드별 특정연령대금기 (연령 기준 포함)
+  static const _ingrAgePath =
+      '/1471000/DURIrdntInfoService03/getSpcifyAgrdeTabooInfoList03';
+
+  static final Map<String, String> _ageBaseCache = {};
+  static final RegExp _ageText = RegExp(r'\d+\s*(세|개월)|신생아|영아|소아|유아');
+
+  /// 성분 코드로 연령 기준 문구를 찾는다. 실패하거나 없으면 빈 문자열.
+  Future<String> ingredientAgeBase(String ingrCode) async {
+    if (ingrCode.isEmpty) return '';
+    final cached = _ageBaseCache[ingrCode];
+    if (cached != null) return cached;
+    var result = '';
+    try {
+      final items = await _fetchItems(_ingrAgePath, {'ingrCode': ingrCode}, 5);
+      for (final m in items) {
+        // 연령 기준 필드 우선, 없으면 연령 문구가 들어 있는 아무 필드
+        for (final k in ['AGE_BASE', 'AGE', 'SPCIFY_AGRDE', 'AGRDE']) {
+          final v = m[k];
+          if (v != null && _ageText.hasMatch('$v')) {
+            result = '$v'.trim();
+            break;
+          }
+        }
+        if (result.isEmpty) {
+          for (final e in m.entries) {
+            if (e.key.toUpperCase().contains('AGE') && _ageText.hasMatch('${e.value}')) {
+              result = '${e.value}'.trim();
+              break;
+            }
+          }
+        }
+        if (result.isNotEmpty) break;
+      }
+    } catch (_) {}
+    _ageBaseCache[ingrCode] = result;
+    return result;
+  }
+
   Future<List<Map<String, dynamic>>> _fetchItems(
-      String path, String itemName, int rows) async {
+      String path, Map<String, String> filters, int rows) async {
     final uri = Uri.https(_host, path, {
       'serviceKey': _key,
       'type': 'json',
       'pageNo': '1',
       'numOfRows': '$rows',
-      'itemName': itemName,
+      ...filters,
     });
 
     final http.Response resp;
@@ -172,6 +211,7 @@ class TabooRow {
     required this.remark,
     required this.date,
     required this.rule,
+    this.ingrCode = '',
   });
 
   final String itemName;
@@ -180,7 +220,18 @@ class TabooRow {
   final String content;
   final String remark;
   final String date;
-  final AgeRule rule;
+  final String ingrCode;
+  AgeRule rule;
+
+  /// DUR 성분정보에서 가져온 연령 기준 (예: "12세 미만")
+  String ageBase = '';
+
+  /// 성분 단위 연령 기준이 있으면 그걸 우선한다 (품목 금기내용은 사유 위주라 나이가 빠진 경우가 많음).
+  void applyAgeBase(String base) {
+    ageBase = base;
+    final r = AgeRule.parse(base);
+    if (r.isParsed && r.conditions.any((c) => !c.assumed)) rule = r;
+  }
 
   static String _pick(Map<String, dynamic> m, List<String> keys) {
     for (final k in keys) {
@@ -216,6 +267,7 @@ class TabooRow {
       remark: remark,
       date: _pick(m, ['NOTIFICATION_DATE', 'CHANGE_DATE']),
       rule: AgeRule.parse(ruleText),
+      ingrCode: _pick(m, ['INGR_CODE']),
     );
   }
 }

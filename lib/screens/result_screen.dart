@@ -32,13 +32,27 @@ class _ResultScreenState extends State<ResultScreen> {
       c.rows = const [];
       c.matchedQuery = null;
       for (final q in DrugNameExtractor.searchVariants(c.query)) {
-        final rows = await api.searchAgeTaboo(q);
+        var rows = await api.searchAgeTaboo(q);
+        // 줄인 이름으로 찾을 때는 그 이름으로 "시작하는" 제품만 인정한다.
+        // (예: "포타"로 찾으면 "로포타현탁액" 같은 엉뚱한 약이 걸리는 것 방지)
+        if (q != c.query) {
+          rows = rows.where((r) => r.itemName.startsWith(q)).toList();
+        }
         if (rows.isNotEmpty) {
           c.rows = rows;
           c.matchedQuery = q;
           break;
         }
       }
+      // 금기 내용에 나이가 없으면 DUR 성분정보에서 성분별 연령 기준을 가져온다.
+      await Future.wait(c.rows
+          .where((r) =>
+              r.ingrCode.isNotEmpty &&
+              (!r.rule.isParsed || r.rule.conditions.every((x) => x.assumed)))
+          .map((r) async {
+        final base = await api.ingredientAgeBase(r.ingrCode);
+        if (base.isNotEmpty) r.applyAgeBase(base);
+      }));
       c.evaluate(_age);
     } catch (e) {
       c.status = CheckStatus.error;
@@ -52,6 +66,7 @@ class _ResultScreenState extends State<ResultScreen> {
     c.labelFinding = null;
     for (final q in DrugNameExtractor.searchVariants(c.query)) {
       final info = await api.searchDrugInfo(q);
+      if (info != null && q != c.query && !info.itemName.startsWith(q)) continue;
       if (info != null && !info.isEmpty) {
         c.info = info;
         break;
@@ -378,6 +393,27 @@ class _CheckCard extends StatelessWidget {
                   style: theme.textTheme.bodySmall,
                 ),
               ),
+            if (shown.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 14, bottom: 2),
+                child: Row(children: [
+                  const Icon(Icons.manage_search, size: 18, color: Colors.black54),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '연령금기 목록 검색 결과 · 제품 ${rows.length}개',
+                      style: theme.textTheme.labelLarge
+                          ?.copyWith(color: Colors.black54),
+                    ),
+                  ),
+                ]),
+              ),
+            if (shown.map((r) => r.ingredient).toSet().length > 1)
+              Text(
+                '이름에 "${check.matchedQuery ?? check.query}"가 들어간 제품이 모두 나왔어요. '
+                '성분이 다른 제품도 섞여 있으니 처방받은 약 이름과 같은 줄을 보세요.',
+                style: theme.textTheme.bodySmall,
+              ),
             for (final r in shown) _RowView(row: r, age: age),
             if (rows.length > shown.length)
               Padding(
@@ -438,9 +474,31 @@ class _RowView extends StatelessWidget {
                   ? '우리 아이 해당'
                   : applies == false
                       ? '우리 아이 해당 안 됨'
-                      : '연령 자동판단 불가'),
+                      : '나이 기준 정보 없음'),
             ),
           ]),
+          if (row.ageBase.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('나이 기준(식약처 DUR 성분정보): ${row.ageBase}',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+          ],
+          if (applies == null) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                '식약처 자료에 이 제품의 나이 기준이 적혀 있지 않아요. 연령금기 목록에 올라 있는 약이니, '
+                '약사에게 "몇 살부터 먹을 수 있는 약인가요?"라고 꼭 확인하세요.',
+                style: TextStyle(color: Color(0xFF7A5200), fontSize: 13),
+              ),
+            ),
+          ],
           if (applies == true && row.rule.conditions.any((c) => c.assumed)) ...[
             const SizedBox(height: 8),
             Container(
@@ -526,6 +584,9 @@ class _InfoView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('이 약은 어떤 약?',
+              style: theme.textTheme.labelMedium?.copyWith(color: Colors.black54)),
+          const SizedBox(height: 4),
           Row(children: [
             const Icon(Icons.medication_outlined, size: 18),
             const SizedBox(width: 6),
