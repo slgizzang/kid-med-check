@@ -4,9 +4,11 @@ import '../logic/age_rule.dart';
 import '../logic/drug_name_extractor.dart';
 import '../logic/dur_api.dart';
 import '../logic/models.dart';
+import '../logic/reaction.dart';
 import '../logic/snapshot.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart';
+import '../ui/reaction_sheet.dart';
 import '../ui/theme.dart';
 
 class ResultScreen extends StatefulWidget {
@@ -15,10 +17,14 @@ class ResultScreen extends StatefulWidget {
       required this.child,
       required this.names,
       this.onReplace,
-      this.onSnapshot});
+      this.onSnapshot,
+      this.recordId = ''});
 
   final ChildProfile child;
   final List<String> names;
+
+  /// 반응 기록을 어느 처방 기록에 연결할지
+  final String recordId;
 
   /// 비슷한 약을 골랐을 때 (입력한 이름, 고른 이름) — 처방 기록에 반영
   final void Function(String oldName, String newName)? onReplace;
@@ -35,10 +41,50 @@ class _ResultScreenState extends State<ResultScreen> {
       widget.names.map((n) => DrugCheck(n)).toList();
   late final int _age = widget.child.ageInMonths();
 
+  /// 이 복용자가 적어둔 복용 후 반응 기록
+  List<ReactionNote> _notes = const [];
+
   @override
   void initState() {
     super.initState();
+    _loadNotes();
     _run();
+  }
+
+  Future<void> _loadNotes() async {
+    _notes = await AppStorage.reactions(widget.child.id);
+    if (mounted) setState(() {});
+  }
+
+  List<(ReactionNote, ReactionMatch)> _notesFor(DrugCheck c) =>
+      c.best == null ? const [] : reactionsFor(_notes, c.title, c.ingredientText);
+
+  Future<void> _addReaction(DrugCheck c) async {
+    final n = await showReactionSheet(context,
+        childId: widget.child.id,
+        drug: c.title,
+        ingredient: c.ingredientText,
+        recordId: widget.recordId);
+    if (n == null) return;
+    await _loadNotes();
+    _report();
+  }
+
+  Future<void> _deleteReaction(ReactionNote n) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: const KText('이 반응 기록을 지울까요?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const KText('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const KText('지우기')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await AppStorage.deleteReaction(n.id);
+    await _loadNotes();
+    _report();
   }
 
   Future<void> _lookup(DurApi api, DrugCheck c) async {
@@ -262,6 +308,8 @@ class _ResultScreenState extends State<ResultScreen> {
             nursing: c.nursingNote != null,
             mixWith: c.interactions.map((x) => x.other).toList(),
             needsPick: c.status == CheckStatus.notFound,
+            ingredient: c.best != null ? c.ingredientText : '',
+            reaction: _notesFor(c).isEmpty ? null : _notesFor(c).first.$1.summary,
           ),
       ],
       mixPairs: pairs.toList(),
@@ -364,6 +412,9 @@ class _ResultScreenState extends State<ResultScreen> {
                 check: c,
                 age: _age,
                 adult: widget.child.isAdult,
+                notes: _notesFor(c),
+                onAddReaction: () => _addReaction(c),
+                onDeleteReaction: _deleteReaction,
                 onRetry: () => _retry(c),
                 onPick: (name) => _pick(c, name)),
           const SizedBox(height: 16),
@@ -421,7 +472,14 @@ class _CheckCard extends StatelessWidget {
     required this.adult,
     required this.onRetry,
     required this.onPick,
+    this.notes = const [],
+    this.onAddReaction,
+    this.onDeleteReaction,
   });
+
+  final List<(ReactionNote, ReactionMatch)> notes;
+  final VoidCallback? onAddReaction;
+  final ValueChanged<ReactionNote>? onDeleteReaction;
 
   final DrugCheck check;
   final int age;
@@ -575,6 +633,7 @@ class _CheckCard extends StatelessWidget {
                   danger: true),
             if (check.nursingNote != null)
               _Alert(title: '수유부 주의', body: check.nursingNote!, danger: false),
+            ReactionNotesView(items: notes, onDelete: onDeleteReaction),
             if (check.status == CheckStatus.error) ...[
               const SizedBox(height: 8),
               KText(check.error ?? ''),
@@ -657,6 +716,15 @@ class _CheckCard extends StatelessWidget {
                   ),
                 ),
             ],
+            if (check.best != null && !check.infoLoading && onAddReaction != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: onAddReaction,
+                  icon: const Icon(Icons.edit_note, size: 20),
+                  label: const KText('복용 후 반응 기록'),
+                ),
+              ),
           ],
         ),
       ),

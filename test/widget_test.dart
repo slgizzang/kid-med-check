@@ -11,6 +11,7 @@ import 'package:kid_med_check/logic/similarity.dart';
 import 'package:kid_med_check/logic/snapshot.dart';
 import 'package:kid_med_check/ui/theme.dart';
 import 'package:kid_med_check/logic/models.dart';
+import 'package:kid_med_check/logic/reaction.dart';
 
 void main() {
   group('AgeRule', () {
@@ -454,5 +455,87 @@ void main() {
     expect(monthsBetween(DateTime(2021, 5, 20), DateTime(2026, 5, 19)), 59);
     expect(monthsBetween(DateTime(2021, 5, 20), DateTime(2026, 5, 20)), 60);
     expect(formatAge(62), '만 5세 2개월');
+  });
+
+  group('허가정보', () {
+    test('허가정보 행을 제품으로 (한글 성분·구분·분류)', () {
+      final h = ProductHit.fromPermit({
+        'ITEM_NAME': '싱귤레어세립4밀리그램(몬테루카스트나트륨)',
+        'ENTP_NAME': '한국오가논(주)',
+        'SPCLTY_PBLC': '전문의약품',
+        'PRDUCT_TYPE': '[01490]기타의 알레르기용약',
+        'ITEM_INGR_NAME': 'Montelukast Sodium',
+        'CANCEL_NAME': '정상',
+      })!;
+      expect(h.displayName, '싱귤레어세립4밀리그램');
+      expect(h.searchName, '싱귤레어세립');
+      expect(h.ingredient, '몬테루카스트나트륨');
+      expect(h.etcOtc, '전문의약품');
+      expect(h.className, '기타의 알레르기용약');
+    });
+
+    test('괄호 성분이 없으면 영문 성분(중복 제거), 취소 품목은 제외', () {
+      expect(ProductHit.permitIngredient('어떤시럽', 'Tulobuterol/Tulobuterol'), 'Tulobuterol');
+      expect(
+          ProductHit.fromPermit({'ITEM_NAME': '옛날정', 'CANCEL_NAME': '취소'}), isNull);
+    });
+
+    test('DUR·e약은요에 없는 약도 허가정보로 찾는다', () async {
+      final client = MockClient((req) async {
+        var items = <Map<String, String>>[];
+        if (req.url.path.contains('getDrugPrdtPrmsnInq08') &&
+            (req.url.queryParameters['item_name'] ?? '').contains('레스날린')) {
+          items = [
+            {
+              'ITEM_NAME': '레스날린패취0.5밀리그램(툴로부테롤)',
+              'SPCLTY_PBLC': '전문의약품',
+              'ITEM_INGR_NAME': 'Tulobuterol/Tulobuterol',
+              'CANCEL_NAME': '정상',
+            },
+          ];
+        }
+        return http.Response.bytes(
+            utf8.encode(jsonEncode({'header': {'resultCode': '00'}, 'body': {'items': items}})),
+            200);
+      });
+      final res = await DurApi('k', client: client).resolve('레스날린패취');
+      expect(res.best, isNotNull);
+      expect(res.best!.ingredient, '툴로부테롤');
+      expect(res.best!.etcOtc, '전문의약품');
+    });
+  });
+
+  group('복용 후 반응 기록', () {
+    final note = ReactionNote(
+      id: '1',
+      childId: 'c',
+      drug: '세토펜현탁액',
+      ingredient: '아세트아미노펜',
+      date: DateTime(2026, 3, 12),
+      symptoms: ['설사'],
+      memo: '2번',
+    );
+
+    test('같은 약·같은 성분을 알아본다', () {
+      expect(matchReaction(note, '세토펜현탁액(아세트아미노펜)', ''), ReactionMatch.sameDrug);
+      expect(matchReaction(note, '챔프시럽', '아세트아미노펜'), ReactionMatch.sameIngredient);
+      expect(matchReaction(note, '맥시부펜시럽', '덱시부프로펜'), isNull);
+      expect(note.summary, '설사 · 2번');
+    });
+
+    test('저장 형식', () {
+      final back = ReactionNote.fromJson(note.toJson());
+      expect(back.drug, '세토펜현탁액');
+      expect(back.symptoms, ['설사']);
+      expect(back.date, DateTime(2026, 3, 12));
+    });
+
+    test('스냅샷에 반응 기록이 남는다', () {
+      final d = DrugSnap(query: 'a', title: 'a', reaction: '설사');
+      final back = DrugSnap.fromJson(d.toJson());
+      expect(back.reaction, '설사');
+      expect(back.hasAlert, isFalse);
+      expect(back.hasAny, isTrue);
+    });
   });
 }

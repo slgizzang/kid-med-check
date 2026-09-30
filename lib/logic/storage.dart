@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
+import 'reaction.dart';
 
 /// 빌드할 때 --dart-define=DUR_API_KEY=... 로 넣은 기본 키 (없으면 빈 문자열)
 const String kBuiltInApiKey = String.fromEnvironment('DUR_API_KEY');
@@ -15,6 +16,7 @@ class AppStorage {
   static const _kSelected = 'selectedChildId';
   static const _kApiKey = 'apiKey';
   static const _kRecords = 'records';
+  static const _kReactions = 'reactions';
 
   static Future<String> apiKey() async {
     if (kHasBuiltInKey) return kBuiltInApiKey;
@@ -94,10 +96,52 @@ class AppStorage {
     await _saveRecords(list);
   }
 
-  /// 아이를 지우면 그 아이의 기록도 지운다.
+  /// 아이를 지우면 그 아이의 기록(처방·반응)도 지운다.
   static Future<void> deleteRecordsOfChild(String childId) async {
     final list = await records();
     list.removeWhere((x) => x.childId == childId);
     await _saveRecords(list);
+    final notes = await _allReactions();
+    notes.removeWhere((x) => x.childId == childId);
+    await _saveReactions(notes);
+  }
+
+  static Future<List<ReactionNote>> _allReactions() async {
+    final p = await SharedPreferences.getInstance();
+    final raw = p.getString(_kReactions);
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      return (jsonDecode(raw) as List)
+          .map((e) => ReactionNote.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<void> _saveReactions(List<ReactionNote> list) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kReactions, jsonEncode(list.map((r) => r.toJson()).toList()));
+  }
+
+  /// 이 복용자의 반응 기록
+  static Future<List<ReactionNote>> reactions(String childId) async =>
+      (await _allReactions()).where((x) => x.childId == childId).toList();
+
+  static Future<void> saveReaction(ReactionNote n) async {
+    final list = await _allReactions();
+    final i = list.indexWhere((x) => x.id == n.id);
+    if (i >= 0) {
+      list[i] = n;
+    } else {
+      list.add(n);
+    }
+    await _saveReactions(list);
+  }
+
+  static Future<void> deleteReaction(String id) async {
+    final list = await _allReactions();
+    list.removeWhere((x) => x.id == id);
+    await _saveReactions(list);
   }
 }

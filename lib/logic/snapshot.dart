@@ -11,6 +11,8 @@ class DrugSnap {
     this.nursing = false,
     this.mixWith = const [],
     this.needsPick = false,
+    this.ingredient = '',
+    this.reaction,
   });
 
   /// 기록에 적힌 이름 (목록 변경 감지용)
@@ -29,8 +31,17 @@ class DrugSnap {
   final List<String> mixWith;
   final bool needsPick;
 
+  /// 확정된 약의 성분 (반응 기록 연결용)
+  final String ingredient;
+
+  /// 이 약(또는 같은 성분)에 대해 보호자가 적어둔 지난 반응 (예: "설사")
+  final String? reaction;
+
   bool get isDanger => ageRule != null || preg || mixWith.isNotEmpty;
-  bool get hasAny => isDanger || labelNote != null || nursing || needsPick;
+
+  /// 금기·주의·선택 필요 (반응 기록 제외)
+  bool get hasAlert => isDanger || labelNote != null || nursing || needsPick;
+  bool get hasAny => hasAlert || reaction != null;
 
   Map<String, dynamic> toJson() => {
         'q': query,
@@ -41,6 +52,8 @@ class DrugSnap {
         'nurse': nursing,
         'mix': mixWith,
         'pick': needsPick,
+        if (ingredient.isNotEmpty) 'ingr': ingredient,
+        if (reaction != null) 'react': reaction,
       };
 
   factory DrugSnap.fromJson(Map<String, dynamic> j) => DrugSnap(
@@ -52,6 +65,8 @@ class DrugSnap {
         nursing: j['nurse'] == true,
         mixWith: (j['mix'] as List? ?? const []).map((e) => '$e').toList(),
         needsPick: j['pick'] == true,
+        ingredient: '${j['ingr'] ?? ''}',
+        reaction: j['react'] as String?,
       );
 }
 
@@ -79,6 +94,7 @@ class ResultSnapshot {
   int get nursingCount => drugs.where((d) => d.nursing).length;
   int get labelCount => drugs.where((d) => d.labelNote != null).length;
   int get pickCount => drugs.where((d) => d.needsPick).length;
+  int get reactionCount => drugs.where((d) => d.reaction != null).length;
 
   /// 기록의 약 목록이 확인 당시와 같은지
   bool matches(List<String> current) {

@@ -4,9 +4,11 @@ import 'package:image_picker/image_picker.dart';
 
 import '../logic/drug_name_extractor.dart';
 import '../logic/models.dart';
+import '../logic/reaction.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
 import '../ui/dashboard.dart';
+import '../ui/reaction_sheet.dart';
 import 'confirm_screen.dart';
 import 'result_screen.dart';
 
@@ -27,6 +29,37 @@ class _RecordScreenState extends State<RecordScreen> {
   bool _busy = false;
 
   Future<void> _save() => AppStorage.saveRecord(_r);
+
+  List<ReactionNote> _notes = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotes();
+  }
+
+  Future<void> _loadNotes() async {
+    _notes = await AppStorage.reactions(widget.child.id);
+    if (mounted) setState(() {});
+  }
+
+  /// 목록의 이름을 지난 확인 결과의 확정된 제품명·성분으로 (있으면)
+  (String, String) _resolved(String name) {
+    for (final d in _r.last?.drugs ?? const []) {
+      if (d.query == name && !d.needsPick) return (d.title, d.ingredient);
+    }
+    return (name, '');
+  }
+
+  Future<void> _addReaction(String name) async {
+    final (drug, ingr) = _resolved(name);
+    final n = await showReactionSheet(context,
+        childId: widget.child.id, drug: drug, ingredient: ingr, recordId: _r.id);
+    if (n != null) {
+      await _loadNotes();
+      _snack('반응을 기록했어요. 같은 약이나 같은 성분이 다시 처방되면 알려드릴게요.');
+    }
+  }
 
   void _snack(String msg) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: KText(msg)));
@@ -190,6 +223,7 @@ class _RecordScreenState extends State<RecordScreen> {
         builder: (_) => ResultScreen(
           child: widget.child,
           names: List.of(_r.drugs),
+          recordId: _r.id,
           onSnapshot: (snap) {
             _r.last = snap;
             _save();
@@ -208,7 +242,19 @@ class _RecordScreenState extends State<RecordScreen> {
         ),
       ),
     );
-    if (mounted) setState(() {});
+    await _loadNotes();
+  }
+
+  Widget? _noteLine(String name) {
+    final (drug, ingr) = _resolved(name);
+    final hits = reactionsFor(_notes, drug, ingr);
+    if (hits.isEmpty) return null;
+    final (n, m) = hits.first;
+    final what = m == ReactionMatch.sameDrug ? '' : '같은 성분 ';
+    return KText('${what}반응 기록 · ${formatReactionDate(n.date)} ${n.summary}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12, color: kNoteFg, fontWeight: FontWeight.w600));
   }
 
   @override
@@ -332,6 +378,8 @@ class _RecordScreenState extends State<RecordScreen> {
                         ),
                         title: KText(_r.drugs[i],
                             style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: _noteLine(_r.drugs[i]),
+                        onTap: () => _addReaction(_r.drugs[i]),
                         trailing: IconButton(
                           tooltip: '빼기',
                           icon: const Icon(Icons.close, size: 20),
@@ -343,6 +391,12 @@ class _RecordScreenState extends State<RecordScreen> {
                       ),
                     ],
                   ]),
+                ),
+              if (_r.drugs.isNotEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8, left: 4),
+                  child: KText('약을 누르면 복용 후 반응을 기록할 수 있어요.',
+                      style: TextStyle(fontSize: 12, color: AppColors.sub)),
                 ),
             ],
           ),

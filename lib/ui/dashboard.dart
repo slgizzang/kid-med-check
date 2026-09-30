@@ -10,6 +10,8 @@ const _orange = Color(0xFFB45309);
 const _orangeBg = Color(0xFFFFF4E8);
 const _green = Color(0xFF1E7B3A);
 const _greenBg = Color(0xFFEAF6EE);
+const kNoteFg = Color(0xFF2B5B9E);
+const kNoteBg = Color(0xFFEAF1FB);
 
 /// 확인 결과 대시보드: 항목별 타일 + 확인이 필요한 약 목록 + 병용금기 조합
 class ResultDashboard extends StatelessWidget {
@@ -100,7 +102,7 @@ class ResultDashboard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: _red, fontWeight: FontWeight.w600)),
               ),
-            if (flagged.isEmpty && snap.pickCount == 0)
+            if (!snap.drugs.any((d) => d.hasAlert))
               const _Line(ok: true, text: '확인한 약 모두 해당 금기 없음'),
             if (flagged.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -110,6 +112,11 @@ class ResultDashboard extends StatelessWidget {
                       fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.sub)),
               const SizedBox(height: 6),
               for (final d in flagged) _DrugRow(d),
+            ],
+            if (snap.reactionCount > 0) ...[
+              const SizedBox(height: 10),
+              const KText('지난 반응 기록이 있는 약은 처방받을 때 의사·약사에게 알려주세요.',
+                  style: TextStyle(fontSize: 12, color: AppColors.sub)),
             ],
             if (flagged.any((d) => d.isDanger)) ...[
               const SizedBox(height: 10),
@@ -220,6 +227,7 @@ class _DrugRow extends StatelessWidget {
       if (d.nursing) const _Chip('수유부 주의', danger: false),
       if (d.labelNote != null) const _Chip('사용 연령 확인', danger: false),
       if (d.needsPick) const _Chip('약 선택 필요', danger: false, gray: true),
+      if (d.reaction != null) const _Chip('지난 반응 기록', danger: false, note: true),
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -246,16 +254,27 @@ class _DrugRow extends StatelessWidget {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip(this.text, {required this.danger, this.gray = false});
+  const _Chip(this.text, {required this.danger, this.gray = false, this.note = false});
 
   final String text;
   final bool danger;
   final bool gray;
 
+  /// 보호자가 적은 반응 기록 (금기·주의와 구분되는 파란색)
+  final bool note;
+
   @override
   Widget build(BuildContext context) {
-    final fg = gray ? const Color(0xFF455A64) : (danger ? _red : _orange);
-    final bg = gray ? const Color(0xFFECEFF1) : (danger ? _redBg : _orangeBg);
+    final fg = note
+        ? kNoteFg
+        : gray
+            ? const Color(0xFF455A64)
+            : (danger ? _red : _orange);
+    final bg = note
+        ? kNoteBg
+        : gray
+            ? const Color(0xFFECEFF1)
+            : (danger ? _redBg : _orangeBg);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),

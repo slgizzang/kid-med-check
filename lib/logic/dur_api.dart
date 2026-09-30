@@ -75,6 +75,15 @@ class DurApi {
         byName[h.displayName] = old == null ? h : old.withEasy(m);
       }
     } catch (_) {}
+    // 의약품 제품 허가정보: DUR·e약은요에 없는 약(예: 싱귤레어세립, 레스날린패취)도 찾는다
+    try {
+      for (final m in await _fetchItems(_permitPath, {'item_name': q}, 40)) {
+        final h = ProductHit.fromPermit(m);
+        if (h == null) continue;
+        final old = byName[h.displayName];
+        byName[h.displayName] = old == null ? h : old.fillFrom(h);
+      }
+    } catch (_) {}
     return byName.values.toList();
   }
 
@@ -125,7 +134,8 @@ class DurApi {
     // 가까운 후보가 딱 하나이거나, 입력이 제품명과 정확히 같을 때만 "찾았다"고 한다.
     // (예: "코대원" → 코대원정·코대원포르테시럽… 여러 개라 고르게 함)
     final close = ranked.where((h) => nameScore(q, h.searchName) <= 3).toList();
-    final exact = close.where((h) => h.searchName == q).toList();
+    // 정렬 순서와 무관하게, 먼저 찾은 출처(DUR → e약은요 → 허가정보) 순으로
+    final exact = hits.values.where((h) => h.searchName == q).toList();
     ProductHit? best;
     var ambiguous = false;
     if (exact.isNotEmpty) {
@@ -179,40 +189,22 @@ class DurApi {
     }
   }
 
-  static const _permitPath = '/1471000/DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnInq06';
+  static const _permitPath = '/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnInq08';
 
   /// 의약품 제품 허가정보: 모든 허가 품목의 성분·전문/일반 구분 (DUR에 없는 약 보완용)
   Future<ProductHit?> permitInfo(ProductHit best) async {
     try {
       final items = await _fetchItems(_permitPath, {'item_name': best.searchName}, 20);
+      ProductHit? loose;
       for (final m in items) {
-        final name = TabooRow._pick(m, ['ITEM_NAME', 'itemName']);
-        if (ProductHit(fullName: name).displayName != best.displayName &&
-            !name.startsWith(best.searchName)) {
-          continue;
-        }
-        final ingr = TabooRow._pick(m, ['MAIN_ITEM_INGR', 'ITEM_INGR_NAME', 'MAIN_INGR', 'MATERIAL_NAME']);
-        return ProductHit(
-          fullName: name,
-          company: TabooRow._pick(m, ['ENTP_NAME', 'entpName']),
-          etcOtc: TabooRow._pick(m, ['SPCLTY_PBLC', 'ETC_OTC_CODE', 'ETC_OTC_NAME']),
-          ingredient: _cleanIngr(ingr),
-          className: ProductHit.cleanClass(TabooRow._pick(m, ['PRDUCT_TYPE', 'CLASS_NAME', 'CLASS_NO'])),
-        );
+        final h = ProductHit.fromPermit(m);
+        if (h == null) continue;
+        if (h.displayName == best.displayName) return h;
+        if (loose == null && h.searchName.startsWith(best.searchName)) loose = h;
       }
+      return loose;
     } catch (_) {}
     return null;
-  }
-
-  /// "[M040702]포도당|[M...]성분2" 또는 "성분,,1,g" 형식 → "포도당, 성분2"
-  static String _cleanIngr(String raw) {
-    if (raw.isEmpty) return '';
-    return raw
-        .split(RegExp(r'[|;/]'))
-        .map((x) => x.replaceAll(RegExp(r'\[[^\]]*\]'), '').split(',').first.trim())
-        .where((x) => x.isNotEmpty)
-        .toSet()
-        .join(', ');
   }
 
   /// 이름 일부로 찾은 임부금기 제품명들 (후보 목록 표시용)
@@ -612,6 +604,37 @@ class ProductHit {
         etcOtc: _s(m['ETC_OTC_CODE'] ?? m['ETC_OTC_NAME']),
         className: cleanClass(_s(m['CLASS_NO'] ?? m['CLASS_NAME'])),
       );
+
+  /// 허가정보 한 행. 취소·취하된 품목은 null.
+  static ProductHit? fromPermit(Map<String, dynamic> m) {
+    final name = _s(m['ITEM_NAME']);
+    if (name.isEmpty) return null;
+    final cancel = _s(m['CANCEL_NAME']);
+    if (cancel.isNotEmpty && cancel != '정상') return null;
+    return ProductHit(
+      fullName: name,
+      company: _s(m['ENTP_NAME']),
+      ingredient: permitIngredient(name, _s(m['ITEM_INGR_NAME'])),
+      etcOtc: _s(m['SPCLTY_PBLC']),
+      className: cleanClass(_s(m['PRDUCT_TYPE'])),
+    );
+  }
+
+  /// 성분: 제품명 괄호 속 한글 성분을 우선, 없으면 영문 성분명(중복 제거).
+  /// 예: "싱귤레어세립4밀리그램(몬테루카스트나트륨)" → "몬테루카스트나트륨"
+  static String permitIngredient(String itemName, String ingrEng) {
+    final m = RegExp(r'[(（]([^()（）]*[가-힣][^()（）]*)[)）]\s*$').firstMatch(itemName);
+    if (m != null) {
+      final k = m.group(1)!.trim();
+      if (!k.contains('수출명')) return k;
+    }
+    return ingrEng
+        .split(RegExp(r'[/|;]'))
+        .map((x) => x.trim())
+        .where((x) => x.isNotEmpty)
+        .toSet()
+        .join(', ');
+  }
 
   /// "[01140]해열.진통.소염제" → "해열.진통.소염제"
   static String cleanClass(String raw) =>
