@@ -229,6 +229,7 @@ class DrugInfo {
     this.ingredient = '',
     this.efficacy = '',
     this.usage = '',
+    this.warnings = '',
     required this.source,
   });
 
@@ -242,6 +243,12 @@ class DrugInfo {
 
   /// 먹는 방법 (e약은요 문장)
   final String usage;
+
+  /// 주의사항 (e약은요 경고·주의 문장) - 사용 연령 판단에만 쓴다
+  final String warnings;
+
+  /// 연령 문구를 찾을 전체 설명문
+  String get labelText => '$efficacy $usage $warnings';
   final String source;
 
   static String _clean(dynamic v) {
@@ -256,6 +263,7 @@ class DrugInfo {
         itemName: _clean(m['itemName']),
         efficacy: _clean(m['efcyQesitm']),
         usage: _clean(m['useMethodQesitm']),
+        warnings: '${_clean(m['atpnWarnQesitm'])} ${_clean(m['atpnQesitm'])}'.trim(),
         source: 'e약은요',
       );
 

@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:kid_med_check/logic/age_rule.dart';
 import 'package:kid_med_check/logic/drug_name_extractor.dart';
 import 'package:kid_med_check/logic/dur_api.dart';
+import 'package:kid_med_check/logic/label_age.dart';
 import 'package:kid_med_check/logic/models.dart';
 
 void main() {
@@ -191,6 +192,38 @@ void main() {
         throwsA(isA<DurApiException>().having(
             (e) => e.message, 'message', contains('인증키'))),
       );
+    });
+  });
+
+  group('LabelAge (설명서 사용 연령)', () {
+    const potagel = '이 약은 성인의 식도, 위·십이지장과 관련된 통증의 완화, 성인의 급·만성 설사, '
+        '24개월 이상 소아의 급성 설사에 사용합니다.';
+    const lamno = '성인은 1일 2포(2 g)~8포(8 g), 2세 이상의 소아는 1일 1포(1 g)~4포(4 g)를 복용합니다.';
+
+    test('21개월 아이: 포타겔(24개월 이상), 람노스산(2세 이상) 모두 해당', () {
+      final a = LabelAge.check(potagel, 21)!;
+      expect(a.months, 24);
+      expect(a.evidence, '24개월 이상 소아');
+      expect(a.prohibited, isFalse);
+      expect(LabelAge.check(lamno, 21)!.evidence, '2세 이상의 소아');
+      expect(LabelAge.check(potagel, 30), isNull);
+    });
+
+    test('금지 문구와 성인용 문구', () {
+      final p = LabelAge.check('6개월 미만의 영아는 복용하지 마십시오.', 5)!;
+      expect(p.prohibited, isTrue);
+      expect(LabelAge.check('만 12세 이상 소아 및 성인: 1회 1~2정', 60)!.months, 144);
+      expect(LabelAge.check('65세 이상 고령자는 신중히 복용하십시오. 1일 3회 5~10 mL', 21),
+          isNull);
+    });
+
+    test('DUR 목록에 없어도 설명서 연령 미만이면 주황 상태', () {
+      final c = DrugCheck('포타겔현탁액')..rows = const [];
+      c.evaluate(21);
+      expect(c.status, CheckStatus.notListed);
+      c.info = DrugInfo(itemName: '포타겔현탁액', efficacy: potagel, source: 'e약은요');
+      c.applyLabel(21);
+      expect(c.status, CheckStatus.labelCaution);
     });
   });
 

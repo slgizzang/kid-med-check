@@ -1,4 +1,5 @@
 import 'dur_api.dart';
+import 'label_age.dart';
 
 class ChildProfile {
   ChildProfile({required this.id, required this.name, required this.birthDate});
@@ -34,7 +35,7 @@ String formatAge(int months) {
   return mo == 0 ? '만 $y세' : '만 $y세 $mo개월';
 }
 
-enum CheckStatus { loading, danger, unknown, listedOk, notListed, error }
+enum CheckStatus { loading, danger, labelCaution, unknown, listedOk, notListed, error }
 
 class DrugCheck {
   DrugCheck(this.query);
@@ -50,6 +51,23 @@ class DrugCheck {
   /// 약 설명 (없을 수 있음)
   DrugInfo? info;
   bool infoLoading = true;
+
+  /// 설명서(e약은요)상 사용 연령보다 어린 경우의 근거
+  LabelAgeFinding? labelFinding;
+
+  /// 약 설명을 받은 뒤 설명서상 사용 연령도 확인한다. DUR 연령금기가 우선.
+  void applyLabel(int ageMonths) {
+    labelFinding = null;
+    final i = info;
+    if (i == null) return;
+    labelFinding = LabelAge.check(i.labelText, ageMonths);
+    if (labelFinding != null &&
+        (status == CheckStatus.notListed ||
+            status == CheckStatus.listedOk ||
+            status == CheckStatus.unknown)) {
+      status = CheckStatus.labelCaution;
+    }
+  }
 
   /// 결과 행 중 아이 나이에 금기로 해당하는 것
   List<TabooRow> dangerRows(int ageMonths) =>
