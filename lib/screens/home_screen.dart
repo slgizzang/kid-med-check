@@ -129,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-      floatingActionButton: _loading
+      floatingActionButton: _loading || (_selected != null && _myRecords.isEmpty)
           ? null
           : FloatingActionButton.extended(
               onPressed: _newRecord,
@@ -230,9 +230,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final list = _myRecords;
     if (list.isEmpty) {
       return [
-        const _EmptyBox(
-          icon: Icons.receipt_long_outlined,
-          text: '아직 처방 기록이 없어요.\n아래 "새 처방 기록"을 눌러 약봉지를 찍어보세요.',
+        _EmptyBox(
+          icon: Icons.add_circle_outline,
+          text: '아직 처방 기록이 없어요.\n여기를 눌러 처방받은 약을 입력해보세요.',
+          onTap: _newRecord,
         ),
       ];
     }
@@ -430,29 +431,38 @@ class _RecordCard extends StatelessWidget {
 }
 
 class _EmptyBox extends StatelessWidget {
-  const _EmptyBox({required this.icon, required this.text, this.action});
+  const _EmptyBox({required this.icon, required this.text, this.action, this.onTap});
 
   final IconData icon;
   final String text;
   final Widget? action;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final box = Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: onTap != null ? AppColors.primary : AppColors.line),
       ),
       child: Column(children: [
-        Icon(icon, size: 40, color: const Color(0xFFB7C9C3)),
+        Icon(icon, size: 40,
+            color: onTap != null ? AppColors.primary : const Color(0xFFB7C9C3)),
         const SizedBox(height: 10),
         KText(text,
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.sub, height: 1.5)),
         if (action != null) ...[const SizedBox(height: 12), action!],
       ]),
+    );
+    if (onTap == null) return box;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+          borderRadius: BorderRadius.circular(18), onTap: onTap, child: box),
     );
   }
 }

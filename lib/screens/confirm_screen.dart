@@ -100,7 +100,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           const SizedBox(height: 4),
           KText(
             widget.rawText.isEmpty
-                ? '처방전이나 약봉지에 적힌 약 이름을 입력해주세요.'
+                ? '처방받은 약 이름을 입력해주세요.'
                 : '사진에서 찾은 이름이에요. 틀린 글자는 눌러서 고치고, 약이 아닌 건 체크를 빼주세요.',
             style: theme.textTheme.bodyMedium,
           ),

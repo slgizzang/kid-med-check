@@ -563,7 +563,7 @@ class _CheckCard extends StatelessWidget {
             if (check.status == CheckStatus.notFound && check.similar.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: KText('비슷한 이름의 약도 없어요. 약봉지의 이름을 다시 확인해 입력해주세요.',
+                child: KText('비슷한 이름의 약도 없어요. 처방받은 약 이름을 다시 확인해 입력해주세요.',
                     style: theme.textTheme.bodySmall),
               ),
             // 약이 확정되면 후보는 보여주지 않는다 (고를 필요가 있을 때만)
