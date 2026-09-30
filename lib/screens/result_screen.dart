@@ -191,16 +191,30 @@ class _ResultScreenState extends State<ResultScreen> {
         };
       }
     }
+    // e약은요에 없는 약(대부분의 전문의약품)은 허가정보의 설명서 원문으로 효능·주의사항을 채운다
+    Map<String, dynamic>? detail;
+    if (easy == null) {
+      detail = await api.permitDetail(best);
+      if (detail != null) easy = detail;
+    }
+    if (ingredient.isEmpty && '${detail?['material'] ?? ''}'.isNotEmpty) {
+      ingredient = '${detail!['material']}';
+    }
+    final etcOtc = best.etcOtc.isNotEmpty ? best.etcOtc : '${detail?['etcOtc'] ?? ''}';
     final fromEasy = easy != null ? DrugInfo.fromEasy(easy) : null;
     final DrugInfo info = DrugInfo(
       itemName: best.fullName,
-      etcOtc: best.etcOtc,
+      etcOtc: etcOtc,
       ingredient: ingredient,
       className: className,
       efficacy: fromEasy?.efficacy ?? '',
       usage: fromEasy?.usage ?? '',
       warnings: fromEasy?.warnings ?? '',
-      source: fromEasy != null ? 'e약은요 · DUR 품목정보' : 'DUR 품목정보',
+      source: detail != null
+          ? '허가정보 · DUR 품목정보'
+          : fromEasy != null
+              ? 'e약은요 · DUR 품목정보'
+              : 'DUR 품목정보',
     );
     c.info = info;
     c.ingredientText = [
@@ -996,7 +1010,7 @@ class _Sources extends StatelessWidget {
   static const _items = [
     ('의약품안전사용서비스(DUR) 품목·성분 정보', '연령금기, 임부금기, 병용금기'),
     ('의약품개요정보(e약은요)', '효능, 설명서의 사용 연령, 수유부 주의'),
-    ('의약품 제품 허가정보', '성분, 전문·일반의약품 구분'),
+    ('의약품 제품 허가정보', '성분, 전문·일반 구분, 설명서(효능·주의사항)'),
   ];
 
   static Widget _fit(String t, TextStyle style) => FittedBox(

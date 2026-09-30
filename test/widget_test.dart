@@ -620,4 +620,12 @@ void main() {
     expect(f.evidence, '2세 미만 영아는 이 약을 복용하지 마십시오');
     expect(f.prohibited, isTrue);
   });
+
+  test('허가정보 설명서 XML을 글로', () {
+    const xml = '<DOC title="효능효과" type="EE">\r\n <SECTION title="">\r\n <ARTICLE title="">\r\n'
+        '<PARAGRAPH tagName="p" textIndent="0" marginLeft="0"><![CDATA[습진, 피부염, 건선]]></PARAGRAPH>'
+        '</ARTICLE></SECTION></DOC>';
+    expect(DurApi.docText(xml), '습진, 피부염, 건선');
+    expect(DurApi.docText(''), '');
+  });
 }

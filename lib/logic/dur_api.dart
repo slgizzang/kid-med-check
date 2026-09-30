@@ -202,6 +202,72 @@ class DurApi {
 
   static const _permitPath = '/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnInq08';
 
+  static const _permitDetailPath =
+      '/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnDtlInq08';
+
+  /// 허가정보 상세: 설명서 원문(효능효과·용법용량·사용상 주의사항).
+  /// e약은요에 없는 약(대부분의 전문의약품)도 효능을 보여주기 위해 쓴다.
+  /// 결과는 e약은요와 같은 키(efcyQesitm 등)로 돌려준다. 없으면 null.
+  Future<Map<String, dynamic>?> permitDetail(ProductHit best) async {
+    try {
+      final items =
+          await _fetchItems(_permitDetailPath, {'item_name': best.searchName}, 10);
+      Map<String, dynamic>? pick;
+      for (final m in items) {
+        final name = ProductHit(fullName: '${m['ITEM_NAME'] ?? ''}').displayName;
+        if (name == best.displayName) {
+          pick = m;
+          break;
+        }
+        pick ??= name.startsWith(best.searchName) ? m : null;
+      }
+      if (pick == null) return null;
+      final ee = docText('${pick['EE_DOC_DATA'] ?? ''}');
+      final ud = docText('${pick['UD_DOC_DATA'] ?? ''}');
+      final nb = docText('${pick['NB_DOC_DATA'] ?? ''}');
+      if (ee.isEmpty && ud.isEmpty && nb.isEmpty) return null;
+      final mat = RegExp(r'성분명\s*:\s*([^|]+)')
+          .allMatches('${pick['MATERIAL_NAME'] ?? ''}')
+          .map((x) => x.group(1)!.trim())
+          .where((x) => x.isNotEmpty)
+          .toSet()
+          .join(', ');
+      return {
+        'itemName': '${pick['ITEM_NAME'] ?? ''}',
+        'efcyQesitm': ee,
+        'useMethodQesitm': ud,
+        'atpnQesitm': nb,
+        'material': mat,
+        'etcOtc': '${pick['ETC_OTC_CODE'] ?? ''}',
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 설명서 XML(<DOC><SECTION><ARTICLE title=..><PARAGRAPH>..)을 글로 바꾼다.
+  static String docText(String xml) {
+    if (xml.trim().isEmpty || xml == 'null') return '';
+    final parts = <String>[];
+    final re = RegExp(r'<ARTICLE[^>]*title="([^"]*)"[^>]*>|<PARAGRAPH[^>]*>([\s\S]*?)</PARAGRAPH>',
+        caseSensitive: false);
+    for (final m in re.allMatches(xml)) {
+      var t = m.group(1) ?? m.group(2) ?? '';
+      t = t
+          .replaceAll(RegExp(r'<!\[CDATA\[|\]\]>'), '')
+          .replaceAll(RegExp(r'<[^>]+>'), ' ')
+          .replaceAll('&lt;', '<')
+          .replaceAll('&gt;', '>')
+          .replaceAll('&amp;', '&')
+          .replaceAll('&nbsp;', ' ')
+          .replaceAll('&quot;', '"')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      if (t.isNotEmpty) parts.add(t);
+    }
+    return parts.join(' ');
+  }
+
   /// 의약품 제품 허가정보: 모든 허가 품목의 성분·전문/일반 구분 (DUR에 없는 약 보완용)
   Future<ProductHit?> permitInfo(ProductHit best) async {
     try {
