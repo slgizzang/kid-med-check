@@ -85,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final XFile? file;
     try {
       file = await ImagePicker()
-          .pickImage(source: source, maxWidth: 2400, imageQuality: 90);
+          .pickImage(source: source, maxWidth: 3200, imageQuality: 95);
     } catch (e) {
       _snack('사진을 가져오지 못했어요: $e');
       return;

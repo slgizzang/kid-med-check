@@ -63,6 +63,24 @@ void main() {
       expect(names.any((n) => n.contains('부담')), isFalse);
     });
 
+    test('띄어쓰기·줄바꿈으로 끊긴 이름을 붙이고, 제형만 있는 건 버린다', () {
+      expect(DrugNameExtractor.extract('맥시부펜 현탁액 5mL 3회'), ['맥시부펜현탁액']);
+      expect(DrugNameExtractor.extract('세토펜\n현탁액 4ml\n1일 3회 식후 30분'),
+          ['세토펜현탁액']);
+      expect(DrugNameExtractor.extract('오구멘틴듀오 건조시럽 6ml'), ['오구멘틴듀오건조시럽']);
+      expect(DrugNameExtractor.extract('홍길동 님\n코대원 포르테 시럽 5ml'),
+          ['코대원포르테시럽']);
+      expect(DrugNameExtractor.extract('타이레놀정 코푸시럽'), ['타이레놀정', '코푸시럽']);
+      expect(DrugNameExtractor.extract('현탁액\n건조시럽 5ml'), isEmpty);
+      expect(DrugNameExtractor.extract('잘 흔들어 현탁액을 복용'), isEmpty);
+    });
+
+    test('검색 대체어', () {
+      expect(DrugNameExtractor.searchVariants('코대원포르테시럽'), ['코대원포르테시럽', '코대원포르테']);
+      expect(DrugNameExtractor.searchVariants('세토펜현탁액'), ['세토펜현탁액', '세토펜']);
+      expect(DrugNameExtractor.searchVariants('코대원'), ['코대원']);
+    });
+
     test('검색용 이름 정리', () {
       expect(DrugNameExtractor.toSearchName('타이레놀정500밀리그램(아세트아미노펜)'),
           '타이레놀정');

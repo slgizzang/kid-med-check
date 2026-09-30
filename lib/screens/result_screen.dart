@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../logic/age_rule.dart';
+import '../logic/drug_name_extractor.dart';
 import '../logic/dur_api.dart';
 import '../logic/models.dart';
 import '../logic/storage.dart';
@@ -26,19 +27,29 @@ class _ResultScreenState extends State<ResultScreen> {
     _run();
   }
 
-  Future<void> _run() async {
-    final key = await AppStorage.apiKey();
-    final api = DurApi(key);
-    await Future.wait(_checks.map((c) async {
-      try {
-        c.rows = await api.searchAgeTaboo(c.query);
-        c.evaluate(_age);
-      } catch (e) {
-        c.status = CheckStatus.error;
-        c.error = '$e';
+  Future<void> _lookup(DurApi api, DrugCheck c) async {
+    try {
+      c.rows = const [];
+      c.matchedQuery = null;
+      for (final q in DrugNameExtractor.searchVariants(c.query)) {
+        final rows = await api.searchAgeTaboo(q);
+        if (rows.isNotEmpty) {
+          c.rows = rows;
+          c.matchedQuery = q;
+          break;
+        }
       }
-      if (mounted) setState(() {});
-    }));
+      c.evaluate(_age);
+    } catch (e) {
+      c.status = CheckStatus.error;
+      c.error = '$e';
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _run() async {
+    final api = DurApi(await AppStorage.apiKey());
+    await Future.wait(_checks.map((c) => _lookup(api, c)));
   }
 
   Future<void> _retry(DrugCheck c) async {
@@ -46,14 +57,7 @@ class _ResultScreenState extends State<ResultScreen> {
       c.status = CheckStatus.loading;
       c.error = null;
     });
-    try {
-      c.rows = await DurApi(await AppStorage.apiKey()).searchAgeTaboo(c.query);
-      c.evaluate(_age);
-    } catch (e) {
-      c.status = CheckStatus.error;
-      c.error = '$e';
-    }
-    if (mounted) setState(() {});
+    await _lookup(DurApi(await AppStorage.apiKey()), c);
   }
 
   @override
@@ -265,6 +269,15 @@ class _CheckCard extends StatelessWidget {
                 padding: EdgeInsets.only(top: 6),
                 child: Text('이 이름으로 등록된 연령금기 품목이 없어요. '
                     '이름이 정확한지(오타·띄어쓰기) 한 번 확인해주세요.'),
+              ),
+            if (check.matchedQuery != null && check.matchedQuery != check.query)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '"${check.query}"(으)로는 없어서 "${check.matchedQuery}"(으)로 찾은 결과예요. '
+                  '처방받은 약과 같은 약인지 이름을 확인해주세요.',
+                  style: theme.textTheme.bodySmall,
+                ),
               ),
             for (final r in shown) _RowView(row: r, age: age),
             if (rows.length > shown.length)
