@@ -113,6 +113,11 @@ class ResultDashboard extends StatelessWidget {
               const SizedBox(height: 6),
               for (final d in flagged) _DrugRow(d),
             ],
+            if (flagged.any((d) => d.labelNote != null && !d.isDanger)) ...[
+              const SizedBox(height: 10),
+              const KText('사용 연령 확인은 연령금기가 아니에요. 사용 연령 전이라도 의사 판단으로 처방될 수 있어요.',
+                  style: TextStyle(fontSize: 12, color: AppColors.sub)),
+            ],
             if (snap.reactionCount > 0) ...[
               const SizedBox(height: 10),
               const KText('지난 반응 기록이 있는 약은 처방받을 때 의사·약사에게 알려주세요.',
