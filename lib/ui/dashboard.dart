@@ -151,29 +151,29 @@ class _Tile extends StatelessWidget {
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
       child: Column(
         children: [
-          Icon(icon, color: fg, size: 22),
-          const SizedBox(height: 6),
-          SizedBox(
-            height: 28,
-            child: Center(
-              child: notApplicable
-                  ? Text('대상 아님',
-                      style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 13))
-                  : hit
-                      ? Text('$count개',
-                          style: TextStyle(
-                              color: fg, fontWeight: FontWeight.w800, fontSize: 20))
-                      : Icon(Icons.check_rounded, color: fg, size: 26),
-            ),
-          ),
-          const SizedBox(height: 4),
+          // 위: 항목 이름 (한 줄)
           SizedBox(
             height: 18,
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(label,
                   maxLines: 1,
-                  style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12.5)),
+                  style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 13)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 아래: 결과
+          SizedBox(
+            height: 30,
+            child: Center(
+              child: notApplicable
+                  ? Text('대상 아님',
+                      style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 14))
+                  : hit
+                      ? Text('$count개',
+                          style: TextStyle(
+                              color: fg, fontWeight: FontWeight.w800, fontSize: 22))
+                      : Icon(Icons.check_rounded, color: fg, size: 28),
             ),
           ),
         ],
