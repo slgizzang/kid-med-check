@@ -351,11 +351,17 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(Icons.info_outline, color: AppColors.primaryDark, size: 20),
             SizedBox(width: 10),
             Expanded(
-              child: KText(
-                '식약처 공공데이터로 복용자 정보에 맞춰 확인해요. '
-                '금기는 의약품안전사용서비스(DUR), 효능과 주의사항은 e약은요, 성분과 전문·일반 구분은 의약품 제품 허가정보를 써요. '
-                '경고가 나와도 약을 임의로 끊지 말고 약국·병원에 꼭 확인하세요.',
-                style: TextStyle(color: AppColors.primaryDark, height: 1.45),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  KText('식약처 공공데이터로 복용자 정보에 맞춰 확인해요.', style: _noticeStyle),
+                  KText('연령·임부·병용금기는 의약품안전사용서비스(DUR),', style: _noticeStyle),
+                  KText('효능과 주의사항은 e약은요,', style: _noticeStyle),
+                  KText('성분과 전문·일반 구분은 의약품 제품 허가정보를 써요.', style: _noticeStyle),
+                  SizedBox(height: 6),
+                  KText('경고가 나와도 약을 임의로 끊지 말고 약국·병원에 꼭 확인하세요.',
+                      style: _noticeStyle),
+                ],
               ),
             ),
           ],
@@ -577,3 +583,5 @@ class _EmptyBox extends StatelessWidget {
     );
   }
 }
+
+const _noticeStyle = TextStyle(color: AppColors.primaryDark, height: 1.45);

@@ -77,7 +77,11 @@ class ResultSnapshot {
     required this.mixPairs,
     required this.pregnant,
     required this.nursing,
+    this.ageMonths,
   });
+
+  /// 확인에 쓴 나이(개월) — 처방일 기준
+  final int? ageMonths;
 
   final DateTime at;
   final List<DrugSnap> drugs;
@@ -109,6 +113,7 @@ class ResultSnapshot {
         'mix': mixPairs,
         'preg': pregnant,
         'nurse': nursing,
+        if (ageMonths != null) 'age': ageMonths,
       };
 
   factory ResultSnapshot.fromJson(Map<String, dynamic> j) => ResultSnapshot(
@@ -119,5 +124,6 @@ class ResultSnapshot {
         mixPairs: (j['mix'] as List? ?? const []).map((e) => '$e').toList(),
         pregnant: j['preg'] == true,
         nursing: j['nurse'] == true,
+        ageMonths: j['age'] is int ? j['age'] as int : null,
       );
 }

@@ -21,7 +21,11 @@ class ResultScreen extends StatefulWidget {
       this.onSnapshot,
       this.recordId = '',
       this.reuse,
-      this.onChecks});
+      this.onChecks,
+      this.asOf});
+
+  /// 이 날짜 기준 나이로 확인 (처방 기록의 날짜). 없으면 오늘.
+  final DateTime? asOf;
 
   /// 바뀐 것이 없을 때 지난 확인 결과를 그대로 보여준다 (다시 조회하지 않음)
   final List<DrugCheck>? reuse;
@@ -48,7 +52,9 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   late final List<DrugCheck> _checks =
       widget.reuse ?? widget.names.map((n) => DrugCheck(n)).toList();
-  late final int _age = widget.child.ageInMonths();
+  /// 처방일 기준 나이 (지난 기록은 그때 나이로 확인)
+  late final int _age = widget.child.ageInMonths(widget.asOf);
+  bool get _adult => _age >= 19 * 12;
 
   /// 이 복용자가 적어둔 복용 후 반응 기록
   List<ReactionNote> _notes = const [];
@@ -216,7 +222,7 @@ class _ResultScreenState extends State<ResultScreen> {
         : <String>{};
     for (final h in res.similar) {
       final tags = <String>[];
-      if (!person.isAdult) {
+      if (!_adult) {
         final rows = res.tabooRows[h.displayName] ?? const <TabooRow>[];
         for (final r in rows) {
           if (r.ingrCode.isNotEmpty) {
@@ -316,6 +322,7 @@ class _ResultScreenState extends State<ResultScreen> {
       mixPairs: pairs.toList(),
       pregnant: widget.child.pregnant,
       nursing: widget.child.nursing,
+      ageMonths: _age,
     );
   }
 
@@ -403,13 +410,13 @@ class _ResultScreenState extends State<ResultScreen> {
                     width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 3)),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: KText('${widget.child.name} (${widget.child.ageLabel}) 기준으로 확인 중…',
+                  child: KText('${widget.child.name} (${formatAge(_age)}) 기준으로 확인 중…',
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
               ]),
             )
           else
-            ResultDashboard(snap: _snapshot(), person: widget.child),
+            ResultDashboard(snap: _snapshot(), person: widget.child, ageMonths: _age),
           const SizedBox(height: 28),
           KText('약별 결과 · ${_checks.length}개',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black54)),
@@ -418,7 +425,7 @@ class _ResultScreenState extends State<ResultScreen> {
             _CheckCard(
                 check: c,
                 age: _age,
-                adult: widget.child.isAdult,
+                adult: _adult,
                 pregnant: widget.child.pregnant,
                 notes: _notesFor(c),
                 onDeleteReaction: _deleteReaction,
@@ -753,7 +760,7 @@ class _CheckCard extends StatelessWidget {
         final f = c.labelFinding;
         if (f == null) return null;
         // 설명서상 사용 연령보다 어리면 금지 문구든 권장 연령이든 항상 같은 안내를 붙인다
-        const note = '다만 DUR 연령금기 약은 아니에요. 사용 연령보다 어려도 의사가 판단해 처방할 수 있어요. '
+        const note = '다만 DUR 연령금기약은 아니에요. 사용 연령보다 어려도 의사가 판단해 처방할 수 있어요. '
             '걱정되면 약사에게 용량을 한 번 더 확인하세요.';
         return f.prohibited
             ? '설명서에 "${f.evidence}"라고 되어 있고, 현재 나이($a)가 해당해요. $note'

@@ -38,7 +38,7 @@ class _RecordScreenState extends State<RecordScreen> {
     return [
       ..._r.drugs,
       '#${c.birthDate.toIso8601String()}',
-      '${c.ageInMonths()}',
+      '${c.ageInMonths(_r.createdAt)}',
       '${c.pregnant}',
       '${c.nursing}',
     ].join('|');
@@ -259,6 +259,7 @@ class _RecordScreenState extends State<RecordScreen> {
           child: widget.child,
           names: List.of(_r.drugs),
           recordId: _r.id,
+          asOf: _r.createdAt,
           reuse: _resultCache[_r.id]?.$1 == _signature ? _resultCache[_r.id]!.$2 : null,
           onChecks: (checks) => _resultCache[_r.id] = (_signature, checks),
           onSnapshot: (snap) {
@@ -318,7 +319,7 @@ class _RecordScreenState extends State<RecordScreen> {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
             children: [
               KText(
-                '${widget.child.name} · ${widget.child.ageLabel} · ${formatDate(_r.createdAt)}',
+                '${widget.child.name} · 처방일 기준 ${formatAge(widget.child.ageInMonths(_r.createdAt))} · ${formatDate(_r.createdAt)}',
                 style: const TextStyle(color: AppColors.sub),
               ),
               const SizedBox(height: 18),
@@ -500,7 +501,7 @@ class _RecordScreenState extends State<RecordScreen> {
             icon: const Icon(Icons.verified_user_outlined),
             label: KText(_fresh
                 ? '안전 확인 결과 자세히 보기'
-                : widget.child.isAdult
+                : widget.child.ageInMonths(_r.createdAt) >= 19 * 12
                     ? '약 ${_r.drugs.length}개 안전 확인'
                     : '우리 아이 약 ${_r.drugs.length}개 안전 확인'),
           ),

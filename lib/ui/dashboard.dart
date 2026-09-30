@@ -21,7 +21,11 @@ class ResultDashboard extends StatelessWidget {
     required this.person,
     this.stale = false,
     this.showDate = false,
+    this.ageMonths,
   });
+
+  /// 확인 기준 나이(개월). 없으면 스냅샷에 저장된 나이, 그것도 없으면 오늘 나이.
+  final int? ageMonths;
 
   final ResultSnapshot snap;
   final ChildProfile person;
@@ -32,6 +36,7 @@ class ResultDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final age = ageMonths ?? snap.ageMonths ?? person.ageInMonths();
     final flagged = snap.drugs.where((d) => d.hasAny).toList();
     final pn = snap.pregnant || snap.nursing;
     final tiles = <Widget>[
@@ -60,7 +65,7 @@ class ResultDashboard extends StatelessWidget {
             // 누구 기준인지
             Row(children: [
               Expanded(
-                child: KText('${person.name} · ${formatAge(person.ageInMonths())}',
+                child: KText('${person.name} · ${formatAge(age)}',
                     maxLines: 1,
                     style: const TextStyle(
                         fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.ink)),
@@ -88,7 +93,7 @@ class ResultDashboard extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             // 항목마다 없어도 "없음"을 풀어서 명시
-            if (!person.isAdult)
+            if (age < 19 * 12)
               _Line(
                 ok: snap.ageCount == 0,
                 text: snap.ageCount == 0
