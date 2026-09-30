@@ -47,6 +47,10 @@ class DrugCheck {
   /// 실제로 결과를 찾은 검색어 (원래 이름으로 못 찾아 줄여서 찾은 경우 다름)
   String? matchedQuery;
 
+  /// 약 설명 (없을 수 있음)
+  DrugInfo? info;
+  bool infoLoading = true;
+
   /// 결과 행 중 아이 나이에 금기로 해당하는 것
   List<TabooRow> dangerRows(int ageMonths) =>
       rows.where((r) => r.rule.appliesTo(ageMonths) == true).toList();

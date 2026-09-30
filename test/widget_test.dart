@@ -143,6 +143,43 @@ void main() {
       expect(rows.single.rule.appliesTo(60), isFalse);
     });
 
+    test('약 설명: e약은요 우선, 실패하면 DUR 품목 분류', () async {
+      final client = MockClient((req) async {
+        if (req.url.path.contains('DrbEasyDrugInfoService')) {
+          if (req.url.queryParameters['itemName'] == '없는약') {
+            return http.Response('<OpenAPI_ServiceResponse><cmmMsgHeader><returnAuthMsg>'
+                'SERVICE_KEY_IS_NOT_REGISTERED_ERROR</returnAuthMsg></cmmMsgHeader></OpenAPI_ServiceResponse>', 200);
+          }
+          return http.Response.bytes(
+              utf8.encode(jsonEncode({
+                'header': {'resultCode': '00'},
+                'body': {
+                  'items': [
+                    {'itemName': '타이레놀정500밀리그람', 'efcyQesitm': '<p>이 약은 해열 및 진통에 사용합니다.</p>'}
+                  ]
+                }
+              })),
+              200);
+        }
+        return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'header': {'resultCode': '00'},
+              'body': {
+                'items': [
+                  {'ITEM_NAME': '없는약정', 'CLASS_NAME': '해열.진통.소염제', 'ETC_OTC_NAME': '일반의약품'}
+                ]
+              }
+            })),
+            200);
+      });
+      final api = DurApi('k', client: client);
+      final a = await api.searchDrugInfo('타이레놀');
+      expect(a!.efficacy, '이 약은 해열 및 진통에 사용합니다.');
+      final b = await api.searchDrugInfo('없는약');
+      expect(b!.className, '해열.진통.소염제');
+      expect(b.source, 'DUR 품목정보');
+    });
+
     test('XML 인증 오류는 친절한 메시지로', () async {
       final client = MockClient((_) async => http.Response(
           '<OpenAPI_ServiceResponse><cmmMsgHeader><returnAuthMsg>'

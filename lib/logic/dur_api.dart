@@ -18,6 +18,12 @@ class DurApi {
   static const _path =
       '/1471000/DURPrdlstInfoService03/getSpcifyAgrdeTabooInfoList03';
 
+  /// e약은요(의약품개요정보): 쉬운 말로 된 효능·사용법
+  static const _easyPath = '/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList';
+
+  /// DUR 품목정보: 약 분류(예: 해열진통소염제)·성분
+  static const _durItemPath = '/1471000/DURPrdlstInfoService03/getDurPrdlstInfoList03';
+
   /// 사용자가 "Encoding" 키(%2B 등 포함)를 붙여넣어도 동작하도록 한 번 디코딩한다.
   static String _normalizeKey(String key) {
     final k = key.trim();
@@ -32,11 +38,31 @@ class DurApi {
   }
 
   Future<List<TabooRow>> searchAgeTaboo(String itemName) async {
-    final uri = Uri.https(_host, _path, {
+    final items = await _fetchItems(_path, itemName, 100);
+    return items.map(TabooRow.fromJson).toList();
+  }
+
+  /// 약 설명. e약은요에서 먼저 찾고, 없으면 DUR 품목정보의 분류로 대신한다.
+  /// 설명은 부가 정보라 실패해도 예외를 던지지 않고 null을 준다.
+  Future<DrugInfo?> searchDrugInfo(String itemName) async {
+    try {
+      final easy = await _fetchItems(_easyPath, itemName, 5);
+      if (easy.isNotEmpty) return DrugInfo.fromEasy(easy.first);
+    } catch (_) {}
+    try {
+      final dur = await _fetchItems(_durItemPath, itemName, 5);
+      if (dur.isNotEmpty) return DrugInfo.fromDur(dur.first);
+    } catch (_) {}
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchItems(
+      String path, String itemName, int rows) async {
+    final uri = Uri.https(_host, path, {
       'serviceKey': _key,
       'type': 'json',
       'pageNo': '1',
-      'numOfRows': '100',
+      'numOfRows': '$rows',
       'itemName': itemName,
     });
 
@@ -85,7 +111,7 @@ class DurApi {
     }
     final bodyMap = root['body'];
     if (bodyMap is! Map) return [];
-    return _items(bodyMap['items']).map(TabooRow.fromJson).toList();
+    return _items(bodyMap['items']);
   }
 
   static List<Map<String, dynamic>> _items(dynamic items) {
@@ -192,4 +218,58 @@ class TabooRow {
       rule: AgeRule.parse(ruleText),
     );
   }
+}
+
+/// 화면에 보여줄 간단한 약 설명
+class DrugInfo {
+  DrugInfo({
+    required this.itemName,
+    this.className = '',
+    this.etcOtc = '',
+    this.ingredient = '',
+    this.efficacy = '',
+    this.usage = '',
+    required this.source,
+  });
+
+  final String itemName;
+  final String className;
+  final String etcOtc;
+  final String ingredient;
+
+  /// 효능 (e약은요 문장)
+  final String efficacy;
+
+  /// 먹는 방법 (e약은요 문장)
+  final String usage;
+  final String source;
+
+  static String _clean(dynamic v) {
+    if (v == null || '$v' == 'null') return '';
+    return '$v'
+        .replaceAll(RegExp(r'<[^>]+>'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  factory DrugInfo.fromEasy(Map<String, dynamic> m) => DrugInfo(
+        itemName: _clean(m['itemName']),
+        efficacy: _clean(m['efcyQesitm']),
+        usage: _clean(m['useMethodQesitm']),
+        source: 'e약은요',
+      );
+
+  factory DrugInfo.fromDur(Map<String, dynamic> m) => DrugInfo(
+        itemName: _clean(m['ITEM_NAME']),
+        className: _clean(m['CLASS_NAME']),
+        etcOtc: _clean(m['ETC_OTC_NAME'] ?? m['ETC_OTC_CODE']),
+        ingredient: _clean(m['MAIN_INGR'] ?? m['INGR_NAME'] ?? m['MATERIAL_NAME']),
+        source: 'DUR 품목정보',
+      );
+
+  /// 금기 조회 결과 행에서도 분류·성분을 얻을 수 있다.
+  factory DrugInfo.fromTaboo(Map<String, dynamic> m) => DrugInfo.fromDur(m);
+
+  bool get isEmpty =>
+      efficacy.isEmpty && className.isEmpty && ingredient.isEmpty;
 }

@@ -43,6 +43,38 @@ else:
         except Exception as e:  # noqa: BLE001
             out.append(f"[{name}] 호출 실패: {type(e).__name__}: {str(e)[:200]}")
 
+    extra = [
+        ("e약은요", "https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList", "타이레놀"),
+        ("DUR품목", "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getDurPrdlstInfoList03", "세토펜"),
+    ]
+    for label, url, name in extra:
+        q = urllib.parse.urlencode(
+            {"serviceKey": key, "type": "json", "pageNo": 1, "numOfRows": 1, "itemName": name}
+        )
+        try:
+            with urllib.request.urlopen(f"{url}?{q}", timeout=30) as r:
+                body = r.read().decode("utf-8", "replace")
+            try:
+                d = json.loads(body)
+                root = d.get("response", d)
+                b = root.get("body", {})
+                items = b.get("items", [])
+                if isinstance(items, dict):
+                    items = items.get("item", [])
+                if isinstance(items, dict):
+                    items = [items]
+                out.append(f"[{label}:{name}] resultCode={root.get('header', {}).get('resultCode')} totalCount={b.get('totalCount')}")
+                if items:
+                    first = items[0]
+                    out.append(f"  fields: {', '.join(first.keys())}")
+                    for k in ("itemName", "efcyQesitm", "ITEM_NAME", "CLASS_NAME", "ETC_OTC_NAME", "MAIN_INGR"):
+                        if k in first:
+                            out.append(f"  {k}: {str(first[k])[:100]}")
+            except json.JSONDecodeError:
+                out.append(f"[{label}] JSON 아님: {body[:300]}")
+        except Exception as e:  # noqa: BLE001
+            out.append(f"[{label}] 호출 실패: {type(e).__name__}: {str(e)[:200]}")
+
 text = "\n".join(out).replace(key, "***") if key else "\n".join(out)
 print(text)
 with open("api_smoke.txt", "w", encoding="utf-8") as f:

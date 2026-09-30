@@ -45,6 +45,19 @@ class _ResultScreenState extends State<ResultScreen> {
       c.error = '$e';
     }
     if (mounted) setState(() {});
+
+    // 약 설명은 금기 판정 뒤에 천천히 채운다.
+    c.infoLoading = true;
+    c.info = null;
+    for (final q in DrugNameExtractor.searchVariants(c.query)) {
+      final info = await api.searchDrugInfo(q);
+      if (info != null && !info.isEmpty) {
+        c.info = info;
+        break;
+      }
+    }
+    c.infoLoading = false;
+    if (mounted) setState(() {});
   }
 
   Future<void> _run() async {
@@ -259,6 +272,7 @@ class _CheckCard extends StatelessWidget {
               ),
               Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.bold)),
             ]),
+            _InfoView(check: check),
             if (check.status == CheckStatus.error) ...[
               const SizedBox(height: 8),
               Text(check.error ?? ''),
@@ -352,4 +366,90 @@ class _RowView extends StatelessWidget {
         avatar: const Icon(Icons.block, size: 16),
         label: Text('${c.source} 금기'),
       );
+}
+
+/// 어떤 약인지 간단한 설명
+class _InfoView extends StatelessWidget {
+  const _InfoView({required this.check});
+
+  final DrugCheck check;
+
+  static String _firstSentences(String text, int maxLen) {
+    if (text.length <= maxLen) return text;
+    final cut = text.substring(0, maxLen);
+    final end = cut.lastIndexOf('.');
+    return end > 30 ? cut.substring(0, end + 1) : '$cut…';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final info = check.info;
+    if (info == null) {
+      if (check.infoLoading && check.status != CheckStatus.error) {
+        return Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text('약 설명 찾는 중…', style: theme.textTheme.bodySmall),
+        );
+      }
+      if (!check.infoLoading) {
+        return Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text('이 이름으로는 약 설명을 찾지 못했어요.',
+              style: theme.textTheme.bodySmall),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
+    final tags = [
+      if (info.className.isNotEmpty) info.className,
+      if (info.etcOtc.isNotEmpty) info.etcOtc,
+    ].join(' · ');
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xCCFFFFFF),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.medication_outlined, size: 18),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                info.itemName.isEmpty ? '약 정보' : info.itemName,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ]),
+          if (tags.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(tags, style: theme.textTheme.bodySmall),
+          ],
+          if (info.efficacy.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(_firstSentences(info.efficacy, 160)),
+          ],
+          if (info.ingredient.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text('성분: ${info.ingredient}', style: theme.textTheme.bodySmall),
+          ],
+          if (info.usage.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text('먹는 방법: ${_firstSentences(info.usage, 120)}',
+                style: theme.textTheme.bodySmall),
+          ],
+          const SizedBox(height: 4),
+          Text('출처: 식약처 ${info.source}',
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.black45)),
+        ],
+      ),
+    );
+  }
 }
