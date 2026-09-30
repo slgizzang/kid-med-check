@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../logic/drug_name_extractor.dart';
 import '../logic/models.dart';
-import 'result_screen.dart';
 
 /// OCR로 뽑은 약 이름 후보를 확인·수정하고, 직접 추가하는 화면
 class ConfirmScreen extends StatefulWidget {
@@ -77,14 +76,11 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
         .toList();
     if (names.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('확인할 약 이름을 하나 이상 넣어주세요.')));
+          const SnackBar(content: Text('추가할 약 이름을 하나 이상 선택해주세요.')));
       return;
     }
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-          builder: (_) => ResultScreen(child: widget.child, names: names)),
-    );
+    // 처방 기록 화면으로 돌려준다 (기록에 저장됨)
+    Navigator.pop(context, names);
   }
 
   @override
@@ -92,7 +88,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     final theme = Theme.of(context);
     final count = _entries.where((e) => e.checked).length;
     return Scaffold(
-      appBar: AppBar(title: const Text('약 이름 확인')),
+      appBar: AppBar(title: const Text('사진에서 찾은 약')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
@@ -118,6 +114,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
             ),
           for (final e in _entries)
             Card(
+              margin: const EdgeInsets.only(bottom: 8),
               child: CheckboxListTile(
                 value: e.checked,
                 onChanged: (v) => setState(() => e.checked = v ?? false),
@@ -163,8 +160,8 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           padding: const EdgeInsets.all(16),
           child: FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-            icon: const Icon(Icons.search),
-            label: Text('$count개 약 금기 여부 확인'),
+            icon: const Icon(Icons.playlist_add),
+            label: Text('$count개 약 기록에 추가'),
             onPressed: _check,
           ),
         ),

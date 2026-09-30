@@ -71,6 +71,7 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('삭제할까요?'),
+        content: const Text('이 아이의 처방 기록도 함께 지워져요.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -85,6 +86,7 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
     final list = await AppStorage.children();
     list.removeWhere((c) => c.id == widget.child!.id);
     await AppStorage.saveChildren(list);
+    await AppStorage.deleteRecordsOfChild(widget.child!.id);
     if (mounted) Navigator.pop(context, true);
   }
 

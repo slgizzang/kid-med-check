@@ -259,6 +259,17 @@ class DrugInfo {
         .trim();
   }
 
+  /// "클로르프로칙센,,100.00,밀리그램,별규,|성분2,..." → "클로르프로칙센, 성분2"
+  static String _ingredients(String raw) {
+    if (!raw.contains(',')) return raw;
+    return raw
+        .split(RegExp(r'[|;]'))
+        .map((seg) => seg.split(',').first.trim())
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .join(', ');
+  }
+
   factory DrugInfo.fromEasy(Map<String, dynamic> m) => DrugInfo(
         itemName: _clean(m['itemName']),
         efficacy: _clean(m['efcyQesitm']),
@@ -271,7 +282,7 @@ class DrugInfo {
         itemName: _clean(m['ITEM_NAME']),
         className: _clean(m['CLASS_NAME']),
         etcOtc: _clean(m['ETC_OTC_NAME'] ?? m['ETC_OTC_CODE']),
-        ingredient: _clean(m['MAIN_INGR'] ?? m['INGR_NAME'] ?? m['MATERIAL_NAME']),
+        ingredient: _ingredients(_clean(m['MAIN_INGR'] ?? m['INGR_NAME'] ?? m['MATERIAL_NAME'])),
         source: 'DUR 품목정보',
       );
 

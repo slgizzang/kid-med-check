@@ -5,7 +5,10 @@ library;
 enum AgeCmp { lt, le, ge, gt }
 
 class AgeCondition {
-  const AgeCondition(this.months, this.cmp, this.source);
+  const AgeCondition(this.months, this.cmp, this.source, {this.assumed = false});
+
+  /// 원문에 숫자가 없어 "소아=만 12세 미만"처럼 앱이 가정한 기준인지
+  final bool assumed;
 
   /// 기준 연령(개월 단위)
   final int months;
@@ -65,8 +68,18 @@ class AgeRule {
       conds.add(AgeCondition(
           int.parse(m.group(1)!), _cmpOf(m.group(2)!), m.group(0)!.trim()));
     }
-    if (conds.isEmpty && text.contains('신생아')) {
-      conds.add(const AgeCondition(1, AgeCmp.lt, '신생아'));
+    if (conds.isEmpty) {
+      // 숫자 없이 대상만 적힌 경우: 소아에게 쓰면 안 된다는 뜻이므로 안전한 쪽으로 가정한다.
+      if (text.contains('신생아')) {
+        conds.add(const AgeCondition(1, AgeCmp.lt, '신생아(생후 1개월 미만)', assumed: true));
+      } else if (text.contains('영아')) {
+        conds.add(const AgeCondition(12, AgeCmp.lt, '영아(만 1세 미만으로 판단)', assumed: true));
+      } else if (text.contains('소아') || text.contains('어린이')) {
+        conds.add(const AgeCondition(144, AgeCmp.lt, '소아(나이 미기재 · 만 12세 미만으로 판단)',
+            assumed: true));
+      } else if (text.contains('유아')) {
+        conds.add(const AgeCondition(72, AgeCmp.lt, '유아(만 6세 미만으로 판단)', assumed: true));
+      }
     }
     return AgeRule(conds);
   }

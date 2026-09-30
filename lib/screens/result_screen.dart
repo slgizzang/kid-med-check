@@ -441,15 +441,39 @@ class _RowView extends StatelessWidget {
                       : '연령 자동판단 불가'),
             ),
           ]),
+          if (applies == true && row.rule.conditions.any((c) => c.assumed)) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF1F1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '판단 사유: 금기 내용에 정확한 연령이 적혀 있지 않지만 '
+                '"${_targetWord(row)}"(이)라고 되어 있어, 우리 아이에게 금기인 약품으로 보았어요.',
+                style: const TextStyle(color: Color(0xFFB71C1C), fontSize: 13),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
+  static String _targetWord(TabooRow row) {
+    final t = '${row.content} ${row.remark}';
+    for (final w in ['신생아', '영아', '소아', '어린이', '유아']) {
+      if (t.contains(w)) return w;
+    }
+    return '소아';
+  }
+
   Widget _ruleChip(AgeCondition c) => Chip(
         visualDensity: VisualDensity.compact,
         avatar: const Icon(Icons.block, size: 16),
-        label: Text('${c.source} 금기'),
+        label: Text(c.assumed ? c.source : '${c.source} 금기'),
       );
 }
 

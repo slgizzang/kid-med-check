@@ -22,6 +22,44 @@ class ChildProfile {
       );
 }
 
+/// 처방 기록(버전). 아이별로 여러 개를 저장해두고 약을 계속 추가·수정할 수 있다.
+class MedRecord {
+  MedRecord({
+    required this.id,
+    required this.childId,
+    required this.title,
+    required this.createdAt,
+    List<String>? drugs,
+  }) : drugs = drugs ?? [];
+
+  final String id;
+  final String childId;
+  String title;
+  final DateTime createdAt;
+  final List<String> drugs;
+
+  static String defaultTitle(DateTime d) => '${d.month}월 ${d.day}일 처방';
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'childId': childId,
+        'title': title,
+        'createdAt': createdAt.toIso8601String(),
+        'drugs': drugs,
+      };
+
+  factory MedRecord.fromJson(Map<String, dynamic> j) => MedRecord(
+        id: '${j['id']}',
+        childId: '${j['childId']}',
+        title: '${j['title']}',
+        createdAt: DateTime.tryParse('${j['createdAt']}') ?? DateTime.now(),
+        drugs: (j['drugs'] as List? ?? const []).map((e) => '$e').toList(),
+      );
+}
+
+String formatDate(DateTime d) =>
+    '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+
 int monthsBetween(DateTime birth, DateTime now) {
   var m = (now.year - birth.year) * 12 + (now.month - birth.month);
   if (now.day < birth.day) m -= 1;

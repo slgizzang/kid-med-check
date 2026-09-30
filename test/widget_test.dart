@@ -45,7 +45,11 @@ void main() {
     });
 
     test('숫자가 없으면 판단 불가', () {
-      expect(AgeRule.parse('소아').appliesTo(60), isNull);
+      expect(AgeRule.parse('고령자').appliesTo(60), isNull);
+      final child = AgeRule.parse('- 안전성 및 유효성 미확립- 페노치아진계 약물을 소아에 투여한 경우 추체외로증상');
+      expect(child.appliesTo(21), isTrue);
+      expect(child.appliesTo(13 * 12), isFalse);
+      expect(child.conditions.single.assumed, isTrue);
       expect(AgeRule.parse('신생아').appliesTo(0), isTrue);
     });
   });
@@ -225,6 +229,16 @@ void main() {
       c.applyLabel(21);
       expect(c.status, CheckStatus.labelCaution);
     });
+  });
+
+  test('처방 기록 저장 형식', () {
+    final r = MedRecord(
+        id: '1', childId: 'c', title: '9월 30일 처방', createdAt: DateTime(2026, 9, 30))
+      ..drugs.addAll(['세토펜현탁액', '코푸시럽']);
+    final back = MedRecord.fromJson(r.toJson());
+    expect(back.title, '9월 30일 처방');
+    expect(back.drugs, ['세토펜현탁액', '코푸시럽']);
+    expect(MedRecord.defaultTitle(DateTime(2026, 9, 30)), '9월 30일 처방');
   });
 
   test('만 나이 개월 계산', () {
