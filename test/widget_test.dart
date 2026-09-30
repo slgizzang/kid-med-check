@@ -8,6 +8,7 @@ import 'package:kid_med_check/logic/drug_name_extractor.dart';
 import 'package:kid_med_check/logic/dur_api.dart';
 import 'package:kid_med_check/logic/label_age.dart';
 import 'package:kid_med_check/logic/similarity.dart';
+import 'package:kid_med_check/logic/snapshot.dart';
 import 'package:kid_med_check/ui/theme.dart';
 import 'package:kid_med_check/logic/models.dart';
 
@@ -391,6 +392,37 @@ void main() {
     expect(t.single.a, '이트라코나졸');
     expect(t.single.b, '심바스타틴');
     expect(t.single.reason, '횡문근융해증');
+  });
+
+  test('효능은 명사 나열형으로', () {
+    expect(efficacyPhrase('이 약은 기침, 가래에 사용합니다.'), '기침, 가래');
+    expect(efficacyPhrase('이 약은 성인의 급·만성 설사, 24개월 이상 소아의 급성 설사에 사용합니다. 성인은 1회…'),
+        '성인의 급·만성 설사, 24개월 이상 소아의 급성 설사');
+    expect(efficacyPhrase(''), '');
+  });
+
+  test('문장마다 줄바꿈', () {
+    expect(splitSentences('약국에 확인하세요. 의사가 처방했을 수도 있어요.'),
+        '약국에 확인하세요.\n의사가 처방했을 수도 있어요.');
+  });
+
+  test('결과 스냅샷 저장·목록 변경 감지', () {
+    final snap = ResultSnapshot(
+      at: DateTime(2026, 9, 30, 16, 40),
+      drugs: [
+        DrugSnap(query: '코푸정', title: '코푸정', preg: true),
+        DrugSnap(query: '세토펜', title: '세토펜현탁액'),
+      ],
+      mixPairs: const [],
+      pregnant: true,
+      nursing: false,
+    );
+    final r = MedRecord(id: '1', childId: 'c', title: 't', createdAt: DateTime(2026, 9, 30),
+        drugs: ['코푸정', '세토펜'], last: snap);
+    final back = MedRecord.fromJson(r.toJson());
+    expect(back.last!.pregCount, 1);
+    expect(back.last!.matches(['세토펜', '코푸정']), isTrue);
+    expect(back.last!.matches(['세토펜', '코푸정', '타이레놀']), isFalse);
   });
 
   test('처방 기록 저장 형식', () {

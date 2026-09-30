@@ -6,6 +6,7 @@ import '../logic/drug_name_extractor.dart';
 import '../logic/models.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
+import '../ui/dashboard.dart';
 import 'confirm_screen.dart';
 import 'result_screen.dart';
 
@@ -189,6 +190,10 @@ class _RecordScreenState extends State<RecordScreen> {
         builder: (_) => ResultScreen(
           child: widget.child,
           names: List.of(_r.drugs),
+          onSnapshot: (snap) {
+            _r.last = snap;
+            _save();
+          },
           onReplace: (oldName, newName) {
             final i = _r.drugs.indexOf(oldName);
             if (i >= 0) {
@@ -241,7 +246,6 @@ class _RecordScreenState extends State<RecordScreen> {
                     icon: Icons.photo_camera_outlined,
                     label: '촬영',
                     onTap: () => _scan(ImageSource.camera),
-                    primary: true,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -261,6 +265,41 @@ class _RecordScreenState extends State<RecordScreen> {
                   ),
                 ),
               ]),
+              if (_r.last != null) ...[
+                const SizedBox(height: 22),
+                SectionTitle('지난 확인 결과',
+                    trailing: TextButton(
+                        onPressed: _r.drugs.isEmpty ? null : _check,
+                        child: const KText('다시 확인', maxLines: 1))),
+                if (!_r.last!.matches(_r.drugs) ||
+                    _r.last!.pregnant != widget.child.pregnant ||
+                    _r.last!.nursing != widget.child.nursing)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF4E8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(children: [
+                      Icon(Icons.refresh, size: 18, color: Color(0xFFB45309)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: KText('약 목록이나 정보가 바뀌었어요. 아래 "금기 확인하기"를 다시 눌러주세요.',
+                            style: TextStyle(color: Color(0xFF9A3412), fontWeight: FontWeight.w600)),
+                      ),
+                    ]),
+                  ),
+                ResultDashboard(
+                  snap: _r.last!,
+                  person: widget.child,
+                  showDate: true,
+                  stale: !_r.last!.matches(_r.drugs) ||
+                      _r.last!.pregnant != widget.child.pregnant ||
+                      _r.last!.nursing != widget.child.nursing,
+                ),
+              ],
               const SizedBox(height: 26),
               SectionTitle('약 목록',
                   trailing: KText('${_r.drugs.length}개',
@@ -360,7 +399,7 @@ class _AddTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Container(
-          height: 92,
+          height: 64,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             border: primary ? null : Border.all(color: AppColors.line),
@@ -368,8 +407,8 @@ class _AddTile extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 28, color: primary ? Colors.white : AppColors.primary),
-              const SizedBox(height: 8),
+              Icon(icon, size: 22, color: primary ? Colors.white : AppColors.primary),
+              const SizedBox(height: 4),
               KText(label,
                   style: TextStyle(
                       fontWeight: FontWeight.w700,

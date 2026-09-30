@@ -4,18 +4,27 @@ import '../logic/age_rule.dart';
 import '../logic/drug_name_extractor.dart';
 import '../logic/dur_api.dart';
 import '../logic/models.dart';
+import '../logic/snapshot.dart';
 import '../logic/storage.dart';
+import '../ui/dashboard.dart';
 import '../ui/theme.dart';
 
 class ResultScreen extends StatefulWidget {
   const ResultScreen(
-      {super.key, required this.child, required this.names, this.onReplace});
+      {super.key,
+      required this.child,
+      required this.names,
+      this.onReplace,
+      this.onSnapshot});
 
   final ChildProfile child;
   final List<String> names;
 
   /// 비슷한 약을 골랐을 때 (입력한 이름, 고른 이름) — 처방 기록에 반영
   final void Function(String oldName, String newName)? onReplace;
+
+  /// 확인이 끝날 때마다 결과 요약 — 처방 기록에 저장
+  final void Function(ResultSnapshot snap)? onSnapshot;
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -204,6 +213,38 @@ class _ResultScreenState extends State<ResultScreen> {
     if (mounted) setState(() {});
   }
 
+  /// 지금 결과를 요약 스냅샷으로 (대시보드·기록 저장용)
+  ResultSnapshot _snapshot() {
+    final pairs = <String>{};
+    for (final c in _checks) {
+      for (final x in c.interactions) {
+        final pair = [c.title, x.other]..sort();
+        pairs.add(pair.join(' + '));
+      }
+    }
+    return ResultSnapshot(
+      at: DateTime.now(),
+      drugs: [
+        for (final c in _checks)
+          DrugSnap(
+            query: c.query,
+            title: c.title,
+            ageRule: c.status == CheckStatus.danger ? _ruleText(c.dangerRows(_age)) : null,
+            labelNote: c.status == CheckStatus.labelCaution ? c.labelFinding?.evidence : null,
+            preg: c.hasPreg,
+            nursing: c.nursingNote != null,
+            mixWith: c.interactions.map((x) => x.other).toList(),
+            needsPick: c.status == CheckStatus.notFound,
+          ),
+      ],
+      mixPairs: pairs.toList(),
+      pregnant: widget.child.pregnant,
+      nursing: widget.child.nursing,
+    );
+  }
+
+  void _report() => widget.onSnapshot?.call(_snapshot());
+
   DurApi? _api;
   List<MixPair> _mixTable = const [];
 
@@ -216,6 +257,7 @@ class _ResultScreenState extends State<ResultScreen> {
     widget.onReplace?.call(old.query, name);
     await _lookup(_api ?? DurApi(await AppStorage.apiKey()), n);
     _computeInteractions();
+    _report();
   }
 
   Future<void> _run() async {
@@ -227,6 +269,7 @@ class _ResultScreenState extends State<ResultScreen> {
         api.ingredientMixTable().then((t) => _mixTable = t),
     ]);
     _computeInteractions();
+    _report();
   }
 
   Future<void> _retry(DrugCheck c) async {
@@ -236,18 +279,13 @@ class _ResultScreenState extends State<ResultScreen> {
     });
     await _lookup(DurApi(await AppStorage.apiKey()), c);
     _computeInteractions();
+    _report();
   }
 
   @override
   Widget build(BuildContext context) {
     final done = _checks
         .every((c) => c.status != CheckStatus.loading && !c.infoLoading);
-    final dangers = _checks.where((c) => c.isDanger).toList();
-    final cautions = _checks
-        .where((c) =>
-            !c.isDanger &&
-            (c.status == CheckStatus.labelCaution || c.nursingNote != null))
-        .toList();
     final order = [
       CheckStatus.danger,
       CheckStatus.labelCaution,
@@ -270,13 +308,26 @@ class _ResultScreenState extends State<ResultScreen> {
           const KText('종합 결과',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black54)),
           const SizedBox(height: 8),
-          _Summary(
-              child: widget.child,
-              done: done,
-              dangers: dangers,
-              cautions: cautions,
-              pending: _checks.where((c) => c.status == CheckStatus.notFound).length,
-              age: _age),
+          if (!done)
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.line),
+              ),
+              child: Row(children: [
+                const SizedBox(
+                    width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 3)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: KText('${widget.child.name} (${widget.child.ageLabel}) 기준으로 확인 중…',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+              ]),
+            )
+          else
+            ResultDashboard(snap: _snapshot(), person: widget.child),
           const SizedBox(height: 28),
           KText('약별 결과 · ${_checks.length}개',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black54)),
@@ -285,6 +336,7 @@ class _ResultScreenState extends State<ResultScreen> {
             _CheckCard(
                 check: c,
                 age: _age,
+                adult: widget.child.isAdult,
                 onRetry: () => _retry(c),
                 onPick: (name) => _pick(c, name)),
           const SizedBox(height: 16),
@@ -299,173 +351,6 @@ class _ResultScreenState extends State<ResultScreen> {
       ),
     );
   }
-}
-
-class _Summary extends StatelessWidget {
-  const _Summary(
-      {required this.child,
-      required this.done,
-      required this.dangers,
-      required this.cautions,
-      required this.pending,
-      required this.age});
-
-  final ChildProfile child;
-  final bool done;
-  final List<DrugCheck> dangers;
-  final List<DrugCheck> cautions;
-
-  /// 약을 골라야 해서 아직 판정 못 한 개수
-  final int pending;
-  final int age;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    if (!done) {
-      return _Banner(
-        color: const Color(0xFFEFF3F2),
-        child: ListTile(
-          leading: const SizedBox(
-              width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
-          title: KText('${child.name} (${child.ageLabel}) 기준으로 확인 중…'),
-        ),
-      );
-    }
-    final pendingNote = pending == 0
-        ? null
-        : Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: KText('※ 아직 약을 고르지 않은 항목이 $pending개 있어요. 아래 카드에서 골라야 확인돼요.',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-          );
-    if (dangers.isEmpty && cautions.isEmpty && pending > 0) {
-      return _Banner(
-        color: const Color(0xFFECEFF1),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(children: [
-            const Icon(Icons.touch_app_outlined, color: Color(0xFF455A64), size: 28),
-            const SizedBox(width: 10),
-            Expanded(
-              child: KText(
-                '정확한 약을 골라야 하는 항목이 $pending개 있어요.\n아래 카드에서 처방받은 약을 골라주세요.',
-                style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ]),
-        ),
-      );
-    }
-    if (dangers.isEmpty && cautions.isEmpty) {
-      return _Banner(
-        color: const Color(0xFFE6F4EA),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: KText(
-            '${child.name}(${child.ageLabel}) 나이에 연령금기이거나 '
-            '설명서상 사용 연령보다 어린 약은 찾지 못했어요.\n'
-            '노란색·회색 항목이 있다면 내용을 한 번 더 확인해주세요.',
-            style: theme.textTheme.bodyLarge,
-          ),
-        ),
-      );
-    }
-    if (dangers.isEmpty) {
-      return _Banner(
-        color: const Color(0xFFFFE9D6),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFB45309), size: 28),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: KText(
-                    '설명서 주의가 필요한 약이 ${cautions.length}개 있어요',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                        color: const Color(0xFF9A3412),
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ]),
-              if (pendingNote != null) pendingNote,
-              const SizedBox(height: 10),
-              const KText(
-                '식약처 금기 목록에는 없지만 약 설명서에 주의 문구가 있어요. '
-                '임의로 끊지 말고 약사·의사에게 확인해주세요.',
-                style: TextStyle(height: 1.45),
-              ),
-              const SizedBox(height: 6),
-              for (final c in cautions)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 4),
-                  child: KText(
-                    c.labelFinding != null
-                        ? '• ${c.title}: 설명서에 "${c.labelFinding!.evidence}"라고 되어 있어요.'
-                        : '• ${c.title}: 설명서에 수유부 주의 문구가 있어요.',
-                    style: const TextStyle(fontStyle: FontStyle.italic),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      );
-    }
-    return _Banner(
-      color: const Color(0xFFFDE7E7),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Icon(Icons.warning_amber_rounded, color: Color(0xFFC62828), size: 28),
-              const SizedBox(width: 8),
-              Expanded(
-                child: KText(
-                  '${child.name}님이 확인해야 할 약이 ${dangers.length}개 있어요',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFFB71C1C), fontWeight: FontWeight.bold),
-                ),
-              ),
-            ]),
-            if (pendingNote != null) pendingNote,
-            const SizedBox(height: 10),
-            for (final d in dangers)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: KText('• ${d.title}: ${_issues(d, age).join(', ')}',
-                    style: const TextStyle(fontWeight: FontWeight.w600, height: 1.4)),
-              ),
-            if (cautions.isNotEmpty)
-              KText('• 그 밖에 설명서 주의가 필요한 약 ${cautions.length}개',
-                  style: const TextStyle(height: 1.4)),
-            const SizedBox(height: 10),
-            const KText(
-              '약을 임의로 끊거나 먹이지 말고, 먼저 약국이나 처방한 병원에 확인하세요. '
-              '의사가 필요하다고 판단해 처방했을 수도 있어요.',
-              style: TextStyle(height: 1.45),
-            ),
-            const SizedBox(height: 6),
-            const KText(
-              '"이 약이 금기로 나오는데, 처방된 이유가 있나요?"라고 물어보면 돼요.',
-              style: TextStyle(fontStyle: FontStyle.italic, height: 1.45),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static List<String> _issues(DrugCheck d, int age) => [
-        if (d.status == CheckStatus.danger) '연령금기(${_ruleText(d.dangerRows(age))})',
-        if (d.hasPreg) '임부금기',
-        if (d.hasMix) '병용금기(${d.interactions.map((x) => x.other).join('·')})',
-      ];
 }
 
 /// 카드 안의 경고 블록 (병용금기·임부금기·수유 주의)
@@ -499,25 +384,6 @@ class _Alert extends StatelessWidget {
   }
 }
 
-/// 종합 결과용 배너: 테두리 없는 진한 배경 (아래 약별 카드와 구분)
-class _Banner extends StatelessWidget {
-  const _Banner({required this.color, required this.child});
-
-  final Color color;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: child,
-    );
-  }
-}
-
 String _ruleText(List<TabooRow> rows) =>
     AgeRule.summarize([for (final r in rows) ...r.rule.conditions]);
 
@@ -525,12 +391,14 @@ class _CheckCard extends StatelessWidget {
   const _CheckCard({
     required this.check,
     required this.age,
+    required this.adult,
     required this.onRetry,
     required this.onPick,
   });
 
   final DrugCheck check;
   final int age;
+  final bool adult;
   final VoidCallback onRetry;
   final ValueChanged<String> onPick;
 
@@ -569,16 +437,16 @@ class _CheckCard extends StatelessWidget {
           '내용 확인 필요'
         ),
       CheckStatus.listedOk => (
-          const Color(0xFFE8F0FE),
-          const Color(0xFF1A56B8),
-          Icons.info_outline,
-          '연령금기 해당 없음'
+          const Color(0xFFE6F4EA),
+          const Color(0xFF1E7B3A),
+          Icons.check_circle_outline,
+          '금기 없음'
         ),
       CheckStatus.notListed => (
           const Color(0xFFE6F4EA),
           const Color(0xFF1E7B3A),
           Icons.check_circle_outline,
-          '연령금기 목록에 없음'
+          '금기 없음'
         ),
       CheckStatus.error => (
           const Color(0xFFF1F3F4),
@@ -588,14 +456,24 @@ class _CheckCard extends StatelessWidget {
         ),
     };
 
+    final ageIrrelevant = adult && check.status == CheckStatus.unknown;
+    if (ageIrrelevant) {
+      bg = const Color(0xFFE6F4EA);
+      fg = const Color(0xFF1E7B3A);
+      icon = Icons.check_circle_outline;
+      label = '금기 없음';
+    }
     if (check.hasMix || check.hasPreg) {
       bg = const Color(0xFFFDE7E7);
       fg = const Color(0xFFC62828);
       icon = Icons.dangerous_outlined;
       label = check.hasMix ? '병용금기' : '임부금기';
     }
-    final groups = _IngredientGroup.from(check.rows, age);
-    final verdict = _verdict(check, age, groups);
+    // 사용자에게 해당하는 연령금기만 보여준다 (해당 없는 건 설명하지 않음)
+    final groups = _IngredientGroup.from(check.rows, age)
+        .where((g) => g.applies == true || (g.applies == null && !adult))
+        .toList();
+    final verdict = ageIrrelevant ? null : _verdict(check, age, groups);
 
     return Card(
       color: Colors.white,
@@ -770,11 +648,9 @@ class _CheckCard extends StatelessWidget {
       case CheckStatus.unknown:
         return '연령금기 목록에 있지만 나이 기준이 적혀 있지 않아요. 약사에게 몇 살부터 먹을 수 있는지 확인하세요.';
       case CheckStatus.listedOk:
-        return '연령금기 약이지만 현재 나이($a)는 해당하지 않아요.';
+        return null;
       case CheckStatus.notListed:
-        return c.info != null
-            ? '식약처 연령금기 목록에 없는 약이에요.'
-            : '이 이름으로는 연령금기 약을 찾지 못했어요. 이름(오타·띄어쓰기)을 확인해주세요.';
+        return null;
       case CheckStatus.notFound:
         return c.ambiguous
             ? '"${c.query}"(으)로 찾은 약이 여러 개예요. 처방받은 약이 어떤 건지 아래에서 골라주세요.'
@@ -925,13 +801,15 @@ class _InfoView extends StatelessWidget {
         : info.etcOtc.contains('일반')
             ? '일반의약품'
             : info.etcOtc;
+    // 효능은 모두 짧은 명사 나열형으로 (예: "기침, 가래" / "진해거담제")
     final String efficacy;
-    if (info.efficacy.isNotEmpty) {
-      efficacy = _firstSentences(info.efficacy, 140);
+    final phrase = efficacyPhrase(info.efficacy);
+    if (phrase.isNotEmpty) {
+      efficacy = phrase;
     } else if (info.className.isNotEmpty) {
-      efficacy = '${info.className} (약 분류)';
+      efficacy = info.className;
     } else {
-      efficacy = '식약처 자료에 효능 설명이 없어요.';
+      efficacy = '정보 없음';
     }
 
     Widget row(String k, String v, {bool bold = false}) => Padding(

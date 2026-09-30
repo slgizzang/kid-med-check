@@ -1,5 +1,6 @@
 import 'dur_api.dart';
 import 'label_age.dart';
+import 'snapshot.dart';
 
 class ChildProfile {
   ChildProfile({
@@ -58,6 +59,7 @@ class MedRecord {
     required this.title,
     required this.createdAt,
     List<String>? drugs,
+    this.last,
   }) : drugs = drugs ?? [];
 
   final String id;
@@ -65,6 +67,9 @@ class MedRecord {
   String title;
   final DateTime createdAt;
   final List<String> drugs;
+
+  /// 마지막 확인 결과 (없으면 null)
+  ResultSnapshot? last;
 
   static String defaultTitle(DateTime d) => '${d.month}월 ${d.day}일 처방';
 
@@ -74,6 +79,7 @@ class MedRecord {
         'title': title,
         'createdAt': createdAt.toIso8601String(),
         'drugs': drugs,
+        if (last != null) 'last': last!.toJson(),
       };
 
   factory MedRecord.fromJson(Map<String, dynamic> j) => MedRecord(
@@ -82,6 +88,9 @@ class MedRecord {
         title: '${j['title']}',
         createdAt: DateTime.tryParse('${j['createdAt']}') ?? DateTime.now(),
         drugs: (j['drugs'] as List? ?? const []).map((e) => '$e').toList(),
+        last: j['last'] is Map
+            ? ResultSnapshot.fromJson(Map<String, dynamic>.from(j['last'] as Map))
+            : null,
       );
 }
 
@@ -189,4 +198,20 @@ class DrugCheck {
       status = CheckStatus.listedOk;
     }
   }
+}
+
+/// e약은요 효능 문장을 짧은 명사 나열로 바꾼다.
+/// "이 약은 기침, 가래에 사용합니다." → "기침, 가래"
+String efficacyPhrase(String text) {
+  var t = text.trim();
+  if (t.isEmpty) return '';
+  final first = RegExp(r'^.*?(니다\.|\.(?=\s)|$)').firstMatch(t)?.group(0) ?? t;
+  t = first
+      .replaceFirst(RegExp(r'^이\s*약은\s*'), '')
+      .replaceFirst(RegExp(r'\s*(에|의)?\s*(사용|복용|쓰|투여)(합|됩|하십|하게 됩)니다\.?\s*$'), '')
+      .replaceFirst(RegExp(r'\s*(에|의)?\s*씁니다\.?\s*$'), '')
+      .replaceFirst(RegExp(r'[.\s]+$'), '')
+      .trim();
+  if (t.length > 90) t = '${t.substring(0, 90)}…';
+  return t;
 }

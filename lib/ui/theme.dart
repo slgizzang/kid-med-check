@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 /// 앱 공통 색
 class AppColors {
@@ -188,7 +189,13 @@ String ka(String text) {
       .join(' ');
 }
 
-/// Text와 같지만 한글 단어 단위로 줄바꿈한다.
+/// 문장이 여러 개면 문장마다 줄을 바꾼다 ("… 확인하세요. 의사가 …" → 두 줄)
+String splitSentences(String text) =>
+    text.replaceAllMapped(RegExp(r'([.?!。])\s+(?=[가-힣"“(])'), (m) => '${m[1]}\n');
+
+/// Text와 같지만 읽기 좋게 줄바꿈한다.
+/// 1) 한글 단어 중간에서 끊지 않고  2) 문장마다 새 줄로  3) 줄 길이를 고르게 맞춰
+///    마지막 줄에 단어 하나만 덩그러니 남지 않게 한다 (CSS text-wrap: balance).
 class KText extends StatelessWidget {
   const KText(this.data,
       {super.key, this.style, this.textAlign, this.maxLines, this.overflow});
@@ -200,6 +207,115 @@ class KText extends StatelessWidget {
   final TextOverflow? overflow;
 
   @override
-  Widget build(BuildContext context) => Text(ka(data),
-      style: style, textAlign: textAlign, maxLines: maxLines, overflow: overflow);
+  Widget build(BuildContext context) {
+    final text = ka(maxLines == 1 ? data : splitSentences(data));
+    final plain = Text(text,
+        style: style, textAlign: textAlign, maxLines: maxLines, overflow: overflow);
+    if (maxLines == 1) return plain;
+    final effective = DefaultTextStyle.of(context).style.merge(style);
+    final align = switch (textAlign) {
+      TextAlign.center => 0.5,
+      TextAlign.right || TextAlign.end => 1.0,
+      _ => 0.0,
+    };
+    return _Balanced(
+      span: TextSpan(text: text, style: effective),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: maxLines,
+      align: align,
+      child: plain,
+    );
+  }
+}
+
+class _Balanced extends SingleChildRenderObjectWidget {
+  const _Balanced({
+    required this.span,
+    required this.textScaler,
+    required this.maxLines,
+    required this.align,
+    required super.child,
+  });
+
+  final InlineSpan span;
+  final TextScaler textScaler;
+  final int? maxLines;
+  final double align;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderBalanced(span, textScaler, maxLines, align);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderBalanced r) {
+    r
+      ..span = span
+      ..textScaler = textScaler
+      ..maxLines = maxLines
+      ..align = align
+      ..markNeedsLayout();
+  }
+}
+
+class _RenderBalanced extends RenderShiftedBox {
+  _RenderBalanced(this.span, this.textScaler, this.maxLines, this.align) : super(null);
+
+  InlineSpan span;
+  TextScaler textScaler;
+  int? maxLines;
+  double align;
+
+  int _lines(double w) {
+    final tp = TextPainter(
+      text: span,
+      textDirection: TextDirection.ltr,
+      textScaler: textScaler,
+      maxLines: maxLines,
+    )..layout(maxWidth: w);
+    final n = tp.computeLineMetrics().length;
+    tp.dispose();
+    return n;
+  }
+
+  @override
+  Size computeDryLayout(covariant BoxConstraints c) {
+    final kid = child;
+    if (kid == null) return c.smallest;
+    return c.constrain(kid.getDryLayout(BoxConstraints(
+        minWidth: 0, maxWidth: c.maxWidth, minHeight: c.minHeight, maxHeight: c.maxHeight)));
+  }
+
+  @override
+  void performLayout() {
+    final c = constraints;
+    final kid = child;
+    if (kid == null) {
+      size = c.smallest;
+      return;
+    }
+    var w = c.maxWidth;
+    if (w.isFinite && w > 0) {
+      final full = _lines(w);
+      if (full > 1) {
+        var lo = w * 0.5, hi = w;
+        for (var i = 0; i < 10; i++) {
+          final mid = (lo + hi) / 2;
+          if (_lines(mid) <= full) {
+            hi = mid;
+          } else {
+            lo = mid;
+          }
+        }
+        w = (hi + 1).clamp(0.0, c.maxWidth);
+      }
+    }
+    kid.layout(
+      BoxConstraints(
+          minWidth: 0, maxWidth: w, minHeight: c.minHeight, maxHeight: c.maxHeight),
+      parentUsesSize: true,
+    );
+    size = c.constrain(kid.size);
+    (kid.parentData! as BoxParentData).offset =
+        Offset((size.width - kid.size.width) * align, 0);
+  }
 }
