@@ -8,6 +8,7 @@ import 'package:kid_med_check/logic/drug_name_extractor.dart';
 import 'package:kid_med_check/logic/dur_api.dart';
 import 'package:kid_med_check/logic/label_age.dart';
 import 'package:kid_med_check/logic/similarity.dart';
+import 'package:kid_med_check/ui/theme.dart';
 import 'package:kid_med_check/logic/models.dart';
 
 void main() {
@@ -355,6 +356,23 @@ void main() {
           ...AgeRule.parse('2세 미만').conditions,
         ]),
         '2세 미만');
+  });
+
+  test('한글 단어 단위 줄바꿈: 띄어쓰기는 그대로, 단어 안에는 결합자', () {
+    final t = ka('약을 임의로 끊지 마세요');
+    expect(t.split(' ').length, 4);
+    expect(t.replaceAll('\u2060', ''), '약을 임의로 끊지 마세요');
+    expect(t.contains('임\u2060의\u2060로'), isTrue);
+  });
+
+  test('성인 프로필 임신·수유 저장', () {
+    final p = ChildProfile(
+        id: '1', name: '엄마', birthDate: DateTime(1992, 3, 1), pregnant: true, nursing: false);
+    final back = ChildProfile.fromJson(p.toJson());
+    expect(back.pregnant, isTrue);
+    expect(back.nursing, isFalse);
+    expect(back.isAdult, isTrue);
+    expect(ChildProfile(id: '2', name: '아기', birthDate: DateTime(2025, 1, 1)).isAdult, isFalse);
   });
 
   test('처방 기록 저장 형식', () {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/drug_name_extractor.dart';
 import '../logic/models.dart';
+import '../ui/theme.dart';
 
 /// OCR로 뽑은 약 이름 후보를 확인·수정하고, 직접 추가하는 화면
 class ConfirmScreen extends StatefulWidget {
@@ -53,13 +54,13 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     final v = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('약 이름 수정'),
+        title: const KText('약 이름 수정'),
         content: TextField(controller: c, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const KText('취소')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, c.text.trim()),
-              child: const Text('확인')),
+              child: const KText('확인')),
         ],
       ),
     );
@@ -76,7 +77,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
         .toList();
     if (names.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('추가할 약 이름을 하나 이상 선택해주세요.')));
+          const SnackBar(content: KText('추가할 약 이름을 하나 이상 선택해주세요.')));
       return;
     }
     // 처방 기록 화면으로 돌려준다 (기록에 저장됨)
@@ -88,16 +89,16 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     final theme = Theme.of(context);
     final count = _entries.where((e) => e.checked).length;
     return Scaffold(
-      appBar: AppBar(title: const Text('사진에서 찾은 약')),
+      appBar: AppBar(title: const KText('사진에서 찾은 약')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
-          Text(
+          KText(
             '${widget.child.name} (${widget.child.ageLabel})',
             style: theme.textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          Text(
+          KText(
             widget.rawText.isEmpty
                 ? '처방전이나 약봉지에 적힌 약 이름을 입력해주세요.'
                 : '사진에서 찾은 이름이에요. 틀린 글자는 눌러서 고치고, 약이 아닌 건 체크를 빼주세요.',
@@ -108,7 +109,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('약 이름을 찾지 못했어요. 아래에 직접 입력하거나, '
+                child: KText('약 이름을 찾지 못했어요. 아래에 직접 입력하거나, '
                     '더 밝고 가까이에서 다시 찍어주세요.'),
               ),
             ),
@@ -118,7 +119,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
               child: CheckboxListTile(
                 value: e.checked,
                 onChanged: (v) => setState(() => e.checked = v ?? false),
-                title: Text(e.name),
+                title: KText(e.name),
                 secondary: IconButton(
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: () => _edit(e),
@@ -148,7 +149,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           if (widget.rawText.isNotEmpty) ...[
             const SizedBox(height: 16),
             ExpansionTile(
-              title: const Text('인식된 전체 글자 보기'),
+              title: const KText('인식된 전체 글자 보기'),
               childrenPadding: const EdgeInsets.all(12),
               children: [SelectableText(widget.rawText)],
             ),
@@ -161,7 +162,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           child: FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
             icon: const Icon(Icons.playlist_add),
-            label: Text('$count개 약 기록에 추가'),
+            label: KText('$count개 약 기록에 추가'),
             onPressed: _check,
           ),
         ),

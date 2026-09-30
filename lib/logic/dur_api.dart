@@ -134,6 +134,63 @@ class DurApi {
     return Resolution(best, similar, tabooNames, ambiguous);
   }
 
+  static const _pwnmPath = '/1471000/DURPrdlstInfoService03/getPwnmTabooInfoList03';
+  static const _usjntPath = '/1471000/DURPrdlstInfoService03/getUsjntTabooInfoList03';
+
+  /// 해당 제품 이름으로 조회한 행 중 그 제품의 것만
+  Future<List<Map<String, dynamic>>> _itemRows(String path, ProductHit best,
+      {int pages = 1}) async {
+    final all = <Map<String, dynamic>>[];
+    for (var page = 1; page <= pages; page++) {
+      final items = await _fetchItems(
+          path, {'itemName': best.searchName, 'pageNo': '$page'}, 100);
+      all.addAll(items);
+      if (items.length < 100) break;
+    }
+    String name(Map m) => '${m['ITEM_NAME'] ?? ''}';
+    final exact = all
+        .where((m) => ProductHit(fullName: name(m)).displayName == best.displayName)
+        .toList();
+    return exact.isNotEmpty
+        ? exact
+        : all.where((m) => name(m).startsWith(best.searchName)).toList();
+  }
+
+  /// DUR 임부금기
+  Future<List<SimpleTaboo>> pregnancyTaboo(ProductHit best) async {
+    try {
+      final rows = await _itemRows(_pwnmPath, best);
+      return rows
+          .map((m) => SimpleTaboo(
+                ingredient: TabooRow._pick(m, ['INGR_NAME', 'INGR_KOR_NAME']),
+                content: TabooRow._pick(m, ['PROHBT_CONTENT', 'REMARK']),
+              ))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// DUR 병용금기: 이 제품과 함께 쓰면 안 되는 상대 약(제품명·성분)
+  Future<List<MixTaboo>> mixTaboo(ProductHit best) async {
+    try {
+      final rows = await _itemRows(_usjntPath, best, pages: 5);
+      return rows
+          .map((m) => MixTaboo(
+                partnerItem: TabooRow._pick(m, ['MIXTURE_ITEM_NAME', 'MIX_ITEM_NAME']),
+                partnerIngr: TabooRow._pick(m, [
+                  'MIXTURE_INGR_KOR_NAME',
+                  'MIXTURE_INGR_NAME',
+                  'MIX_INGR_KOR_NAME',
+                ]),
+                reason: TabooRow._pick(m, ['PROHBT_CONTENT', 'REMARK']),
+              ))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// DUR 성분정보: 성분 코드별 특정연령대금기 (연령 기준 포함)
   static const _ingrAgePath =
       '/1471000/DURIrdntInfoService03/getSpcifyAgrdeTabooInfoList02';
@@ -507,4 +564,17 @@ class Resolution {
 
   /// 후보 중 연령금기 목록에 있는 제품명
   final Set<String> tabooNames;
+}
+
+class SimpleTaboo {
+  SimpleTaboo({required this.ingredient, required this.content});
+  final String ingredient;
+  final String content;
+}
+
+class MixTaboo {
+  MixTaboo({required this.partnerItem, required this.partnerIngr, required this.reason});
+  final String partnerItem;
+  final String partnerIngr;
+  final String reason;
 }

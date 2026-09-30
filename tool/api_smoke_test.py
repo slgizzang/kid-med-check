@@ -48,6 +48,7 @@ else:
         ("DUR품목", "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getDurPrdlstInfoList03", "세토펜"),
         ("병용금기", "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getUsjntTabooInfoList03", "코대원정"),
         ("임부금기", "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getPwnmTabooInfoList03", "코대원정"),
+        ("병용금기2", "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getUsjntTabooInfoList03", "스포라녹스"),
     ]
     for label, url, name in extra:
         q = urllib.parse.urlencode(

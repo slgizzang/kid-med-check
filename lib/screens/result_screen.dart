@@ -128,8 +128,65 @@ class _ResultScreenState extends State<ResultScreen> {
       source: fromEasy != null ? 'e약은요 · DUR 품목정보' : 'DUR 품목정보',
     );
     c.info = info;
+    c.ingredientText = [
+      info.ingredient,
+      for (final r in c.rows) r.ingredient,
+    ].where((x) => x.isNotEmpty).join(', ');
+
+    // 4) 임신·수유 중인 성인이면 임부금기·수유 주의, 그리고 병용금기 원자료
+    final person = widget.child;
+    if (person.pregnant) c.pregRows = await api.pregnancyTaboo(best);
+    if (person.nursing) c.nursingNote = _nursingSentence(info);
+    c.mixRows = await api.mixTaboo(best);
+
     c.infoLoading = false;
     if (c.status != CheckStatus.error) c.applyLabel(_age);
+    if (mounted) setState(() {});
+  }
+
+  /// 설명서에서 수유 관련 문장 하나
+  static String? _nursingSentence(DrugInfo info) {
+    final text = '${info.warnings} ${info.usage} ${info.efficacy}';
+    for (final sentence in text.split(RegExp(r'(?<=[.。])\s+'))) {
+      if (sentence.contains('수유')) return sentence.trim();
+    }
+    return null;
+  }
+
+  /// 같은 기록 안의 약끼리 DUR 병용금기에 걸리는 조합을 찾는다.
+  void _computeInteractions() {
+    for (final c in _checks) {
+      c.interactions = [];
+    }
+    String norm(String s) => s.replaceAll(RegExp(r'\s'), '');
+    String? match(DrugCheck a, DrugCheck b) {
+      final bName = b.best!.displayName;
+      final bIngr = norm(b.ingredientText);
+      for (final r in a.mixRows) {
+        final byName = r.partnerItem.isNotEmpty &&
+            ProductHit(fullName: r.partnerItem).displayName == bName;
+        final pi = norm(r.partnerIngr);
+        final byIngr = pi.length >= 3 &&
+            bIngr.isNotEmpty &&
+            (bIngr.contains(pi) || pi.contains(bIngr));
+        if (byName || byIngr) {
+          return r.reason.isEmpty ? '함께 쓰면 위험할 수 있는 조합이에요.' : r.reason;
+        }
+      }
+      return null;
+    }
+
+    final ok = _checks.where((c) => c.best != null).toList();
+    for (var i = 0; i < ok.length; i++) {
+      for (var j = i + 1; j < ok.length; j++) {
+        final a = ok[i], b = ok[j];
+        final reason = match(a, b) ?? match(b, a);
+        if (reason != null) {
+          a.interactions.add(Interaction(b.title, reason));
+          b.interactions.add(Interaction(a.title, reason));
+        }
+      }
+    }
     if (mounted) setState(() {});
   }
 
@@ -143,12 +200,14 @@ class _ResultScreenState extends State<ResultScreen> {
     setState(() => _checks[i] = n);
     widget.onReplace?.call(old.query, name);
     await _lookup(_api ?? DurApi(await AppStorage.apiKey()), n);
+    _computeInteractions();
   }
 
   Future<void> _run() async {
     final api = DurApi(await AppStorage.apiKey());
     _api = api;
     await Future.wait(_checks.map((c) => _lookup(api, c)));
+    _computeInteractions();
   }
 
   Future<void> _retry(DrugCheck c) async {
@@ -157,15 +216,19 @@ class _ResultScreenState extends State<ResultScreen> {
       c.error = null;
     });
     await _lookup(DurApi(await AppStorage.apiKey()), c);
+    _computeInteractions();
   }
 
   @override
   Widget build(BuildContext context) {
     final done = _checks
         .every((c) => c.status != CheckStatus.loading && !c.infoLoading);
-    final dangers = _checks.where((c) => c.status == CheckStatus.danger).toList();
-    final cautions =
-        _checks.where((c) => c.status == CheckStatus.labelCaution).toList();
+    final dangers = _checks.where((c) => c.isDanger).toList();
+    final cautions = _checks
+        .where((c) =>
+            !c.isDanger &&
+            (c.status == CheckStatus.labelCaution || c.nursingNote != null))
+        .toList();
     final order = [
       CheckStatus.danger,
       CheckStatus.labelCaution,
@@ -176,16 +239,16 @@ class _ResultScreenState extends State<ResultScreen> {
       CheckStatus.listedOk,
       CheckStatus.notListed,
     ];
-    final sorted = [..._checks]
-      ..sort((a, b) => order.indexOf(a.status).compareTo(order.indexOf(b.status)));
+    int rank(DrugCheck c) => c.isDanger ? -1 : order.indexOf(c.status);
+    final sorted = [..._checks]..sort((a, b) => rank(a).compareTo(rank(b)));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('확인 결과')),
+      appBar: AppBar(title: const KText('확인 결과')),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
             16, 16, 16, 40 + MediaQuery.of(context).padding.bottom),
         children: [
-          const Text('종합 결과',
+          const KText('종합 결과',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black54)),
           const SizedBox(height: 8),
           _Summary(
@@ -196,7 +259,7 @@ class _ResultScreenState extends State<ResultScreen> {
               pending: _checks.where((c) => c.status == CheckStatus.notFound).length,
               age: _age),
           const SizedBox(height: 28),
-          Text('약별 결과 · ${_checks.length}개',
+          KText('약별 결과 · ${_checks.length}개',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black54)),
           const SizedBox(height: 8),
           for (final c in sorted)
@@ -206,7 +269,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 onRetry: () => _retry(c),
                 onPick: (name) => _pick(c, name)),
           const SizedBox(height: 16),
-          Text(
+          KText(
             '출처: 식품의약품안전처 의약품안전사용서비스(DUR) 품목정보 - 특정연령대금기. '
             '"목록에 없음"은 이 이름으로 연령금기 품목이 검색되지 않았다는 뜻이며, '
             '약 이름이 정확하지 않으면 결과가 나오지 않을 수 있어요. '
@@ -246,7 +309,7 @@ class _Summary extends StatelessWidget {
         child: ListTile(
           leading: const SizedBox(
               width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
-          title: Text('${child.name} (${child.ageLabel}) 기준으로 확인 중…'),
+          title: KText('${child.name} (${child.ageLabel}) 기준으로 확인 중…'),
         ),
       );
     }
@@ -254,7 +317,7 @@ class _Summary extends StatelessWidget {
         ? null
         : Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: Text('※ 아직 약을 고르지 않은 항목이 $pending개 있어요. 아래 카드에서 골라야 확인돼요.',
+            child: KText('※ 아직 약을 고르지 않은 항목이 $pending개 있어요. 아래 카드에서 골라야 확인돼요.',
                 style: const TextStyle(fontWeight: FontWeight.w600)),
           );
     if (dangers.isEmpty && cautions.isEmpty && pending > 0) {
@@ -266,7 +329,7 @@ class _Summary extends StatelessWidget {
             const Icon(Icons.touch_app_outlined, color: Color(0xFF455A64), size: 28),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
+              child: KText(
                 '정확한 약을 골라야 하는 항목이 $pending개 있어요.\n아래 카드에서 처방받은 약을 골라주세요.',
                 style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
               ),
@@ -280,7 +343,7 @@ class _Summary extends StatelessWidget {
         color: const Color(0xFFE6F4EA),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text(
+          child: KText(
             '${child.name}(${child.ageLabel}) 나이에 연령금기이거나 '
             '설명서상 사용 연령보다 어린 약은 찾지 못했어요.\n'
             '노란색·회색 항목이 있다면 내용을 한 번 더 확인해주세요.',
@@ -302,8 +365,8 @@ class _Summary extends StatelessWidget {
                     color: Color(0xFFB45309), size: 28),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    '설명서상 사용 연령보다 어린 약이 ${cautions.length}개 있어요',
+                  child: KText(
+                    '설명서 주의가 필요한 약이 ${cautions.length}개 있어요',
                     style: theme.textTheme.titleMedium?.copyWith(
                         color: const Color(0xFF9A3412),
                         fontWeight: FontWeight.bold),
@@ -312,19 +375,19 @@ class _Summary extends StatelessWidget {
               ]),
               if (pendingNote != null) pendingNote,
               const SizedBox(height: 10),
-              Text(
-                '• 식약처 연령금기(DUR) 목록에는 없지만, 약 설명서에 적힌 사용 연령보다 '
-                '${child.name}(${child.ageLabel})가 어려요.\n'
-                '• 소아과에서는 필요하면 설명서 연령보다 어린 아이에게도 처방할 수 있어요. '
+              const KText(
+                '식약처 금기 목록에는 없지만 약 설명서에 주의 문구가 있어요. '
                 '임의로 끊지 말고 약사·의사에게 확인해주세요.',
+                style: TextStyle(height: 1.45),
               ),
               const SizedBox(height: 6),
               for (final c in cautions)
                 Padding(
                   padding: const EdgeInsets.only(left: 8, top: 4),
-                  child: Text(
-                    '"${c.title} 설명서에 \'${c.labelFinding?.evidence ?? ''}\'라고 되어 있는데, '
-                    '${child.ageLabel} 아이가 먹어도 되나요?"',
+                  child: KText(
+                    c.labelFinding != null
+                        ? '• ${c.title}: 설명서에 "${c.labelFinding!.evidence}"라고 되어 있어요.'
+                        : '• ${c.title}: 설명서에 수유부 주의 문구가 있어요.',
                     style: const TextStyle(fontStyle: FontStyle.italic),
                   ),
                 ),
@@ -344,9 +407,8 @@ class _Summary extends StatelessWidget {
               const Icon(Icons.warning_amber_rounded, color: Color(0xFFC62828), size: 28),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  '${child.ageLabel} 아이에게 연령금기인 약이 ${dangers.length}개 있어요'
-                  '${cautions.isEmpty ? '' : ' (사용 연령 확인 ${cautions.length}개)'}',
+                child: KText(
+                  '${child.name}님이 확인해야 할 약이 ${dangers.length}개 있어요',
                   style: theme.textTheme.titleMedium?.copyWith(
                       color: const Color(0xFFB71C1C), fontWeight: FontWeight.bold),
                 ),
@@ -354,23 +416,65 @@ class _Summary extends StatelessWidget {
             ]),
             if (pendingNote != null) pendingNote,
             const SizedBox(height: 10),
-            const Text(
-              '• 약을 임의로 끊거나 먹이지 말고, 먼저 약국이나 처방한 병원에 전화해 확인하세요.\n'
-              '• 의사가 필요하다고 판단해 사유를 적고 처방했을 수도 있어요.\n'
-              '• 아래처럼 물어보면 돼요:',
-            ),
-            const SizedBox(height: 6),
             for (final d in dangers)
               Padding(
-                padding: const EdgeInsets.only(left: 8, top: 4),
-                child: Text(
-                  '"${d.title}이(가) ${_ruleText(d.dangerRows(age))} 연령금기 약으로 '
-                  '나오는데, 아이(${child.ageLabel})에게 처방된 이유가 있나요?"',
-                  style: const TextStyle(fontStyle: FontStyle.italic),
-                ),
+                padding: const EdgeInsets.only(bottom: 6),
+                child: KText('• ${d.title}: ${_issues(d, age).join(', ')}',
+                    style: const TextStyle(fontWeight: FontWeight.w600, height: 1.4)),
               ),
+            if (cautions.isNotEmpty)
+              KText('• 그 밖에 설명서 주의가 필요한 약 ${cautions.length}개',
+                  style: const TextStyle(height: 1.4)),
+            const SizedBox(height: 10),
+            const KText(
+              '약을 임의로 끊거나 먹이지 말고, 먼저 약국이나 처방한 병원에 확인하세요. '
+              '의사가 필요하다고 판단해 처방했을 수도 있어요.',
+              style: TextStyle(height: 1.45),
+            ),
+            const SizedBox(height: 6),
+            const KText(
+              '"이 약이 금기로 나오는데, 처방된 이유가 있나요?"라고 물어보면 돼요.',
+              style: TextStyle(fontStyle: FontStyle.italic, height: 1.45),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  static List<String> _issues(DrugCheck d, int age) => [
+        if (d.status == CheckStatus.danger) '연령금기(${_ruleText(d.dangerRows(age))})',
+        if (d.hasPreg) '임부금기',
+        if (d.hasMix) '병용금기(${d.interactions.map((x) => x.other).join('·')})',
+      ];
+}
+
+/// 카드 안의 경고 블록 (병용금기·임부금기·수유 주의)
+class _Alert extends StatelessWidget {
+  const _Alert({required this.title, required this.body, required this.danger});
+
+  final String title;
+  final String body;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = danger ? const Color(0xFFB71C1C) : const Color(0xFF9A3412);
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: danger ? const Color(0xFFFDECEC) : const Color(0xFFFFF4E8),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          KText(title, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          KText(body, style: TextStyle(color: fg, height: 1.45)),
+        ],
       ),
     );
   }
@@ -414,7 +518,7 @@ class _CheckCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final (Color bg, Color fg, IconData icon, String label) = switch (check.status) {
+    var (Color bg, Color fg, IconData icon, String label) = switch (check.status) {
       CheckStatus.loading => (
           const Color(0xFFF1F3F4),
           Colors.black54,
@@ -465,6 +569,12 @@ class _CheckCard extends StatelessWidget {
         ),
     };
 
+    if (check.hasMix || check.hasPreg) {
+      bg = const Color(0xFFFDE7E7);
+      fg = const Color(0xFFC62828);
+      icon = Icons.dangerous_outlined;
+      label = check.hasMix ? '병용금기' : '임부금기';
+    }
     final groups = _IngredientGroup.from(check.rows, age);
     final verdict = _verdict(check, age, groups);
 
@@ -483,18 +593,18 @@ class _CheckCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(check.title,
+                    KText(check.title,
                         style: theme.textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold)),
                     if (check.best != null &&
                         check.best!.searchName !=
                             DrugNameExtractor.toSearchName(check.query))
-                      Text('입력한 이름: ${check.query}',
+                      KText('입력한 이름: ${check.query}',
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: Colors.black54)),
                     if (check.best != null &&
                         (check.best!.company.isNotEmpty || check.best!.etcOtc.isNotEmpty))
-                      Text(
+                      KText(
                         [check.best!.company, check.best!.etcOtc]
                             .where((x) => x.isNotEmpty)
                             .join(' · '),
@@ -510,21 +620,35 @@ class _CheckCard extends StatelessWidget {
                   color: bg,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(label,
+                child: KText(label,
                     style: TextStyle(
                         color: fg, fontWeight: FontWeight.bold, fontSize: 13)),
               ),
             ]),
             if (verdict != null) ...[
               const SizedBox(height: 10),
-              Text(verdict,
+              KText(verdict,
                   style: TextStyle(
                       color: fg, fontWeight: FontWeight.w600, height: 1.4)),
             ],
+            for (final x in check.interactions)
+              _Alert(
+                  title: '병용금기 · ${x.other}',
+                  body: '${x.other}와(과) 함께 먹으면 안 되는 조합이에요. ${x.reason}',
+                  danger: true),
+            if (check.hasPreg)
+              _Alert(
+                  title: '임부금기',
+                  body: check.pregRows.first.content.isEmpty
+                      ? '임신 중에는 쓰지 않도록 지정된 약이에요.'
+                      : check.pregRows.first.content,
+                  danger: true),
+            if (check.nursingNote != null)
+              _Alert(title: '수유 중 주의', body: check.nursingNote!, danger: false),
             if (check.status == CheckStatus.error) ...[
               const SizedBox(height: 8),
-              Text(check.error ?? ''),
-              TextButton(onPressed: onRetry, child: const Text('다시 시도')),
+              KText(check.error ?? ''),
+              TextButton(onPressed: onRetry, child: const KText('다시 시도')),
             ],
             _InfoView(check: check),
             if (groups.isNotEmpty) ...[
@@ -532,7 +656,7 @@ class _CheckCard extends StatelessWidget {
               if (groups.length > 1)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
+                  child: KText(
                     '성분이 다른 약 ${groups.length}종이 함께 나왔어요. 처방받은 약의 성분 줄만 보세요.',
                     style: theme.textTheme.bodySmall,
                   ),
@@ -542,13 +666,13 @@ class _CheckCard extends StatelessWidget {
             if (check.status == CheckStatus.notFound && check.similar.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text('비슷한 이름의 약도 없어요. 약봉지의 이름을 다시 확인해 입력해주세요.',
+                child: KText('비슷한 이름의 약도 없어요. 약봉지의 이름을 다시 확인해 입력해주세요.',
                     style: theme.textTheme.bodySmall),
               ),
             // 약이 확정되면 후보는 보여주지 않는다 (고를 필요가 있을 때만)
             if (check.best == null && check.similar.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(check.ambiguous ? '처방받은 약을 골라주세요' : '혹시 찾으시는 약이 이것인가요?',
+              KText(check.ambiguous ? '처방받은 약을 골라주세요' : '혹시 찾으시는 약이 이것인가요?',
                   style: theme.textTheme.labelLarge?.copyWith(
                       color: AppColors.ink,
                       fontWeight: FontWeight.w700)),
@@ -569,10 +693,10 @@ class _CheckCard extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(h.displayName,
+                                KText(h.displayName,
                                     style: const TextStyle(fontWeight: FontWeight.w600)),
                                 if (h.ingredient.isNotEmpty || h.company.isNotEmpty)
-                                  Text(
+                                  KText(
                                     [h.ingredient, h.company]
                                         .where((x) => x.isNotEmpty)
                                         .join(' · '),
@@ -590,7 +714,7 @@ class _CheckCard extends StatelessWidget {
                                 color: const Color(0xFFFDE7E7),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Text('연령금기 약',
+                              child: const KText('연령금기 약',
                                   style: TextStyle(
                                       color: Color(0xFFC62828),
                                       fontSize: 12,
@@ -617,17 +741,17 @@ class _CheckCard extends StatelessWidget {
         final src = AgeRule.summarize([
           for (final g in groups.where((g) => g.applies == true)) ...g.conds
         ]);
-        return '우리 아이($a)는 연령금기에 해당해요 (연령금기 기준: $src)';
+        return '$a 기준 연령금기에 해당해요 (연령금기 기준: $src)';
       case CheckStatus.labelCaution:
         final f = c.labelFinding;
         if (f == null) return null;
         return f.prohibited
-            ? '설명서에 "${f.evidence}"라고 되어 있고, 우리 아이($a)가 해당해요.'
-            : '설명서에는 "${f.evidence}"에게 쓰는 약으로 되어 있어요. 우리 아이($a)는 이보다 어려요.';
+            ? '설명서에 "${f.evidence}"라고 되어 있고, 현재 나이($a)가 해당해요.'
+            : '설명서에는 "${f.evidence}"에게 쓰는 약으로 되어 있어요. 현재 나이($a)는 이보다 어려요.';
       case CheckStatus.unknown:
         return '연령금기 목록에 있지만 나이 기준이 적혀 있지 않아요. 약사에게 몇 살부터 먹을 수 있는지 확인하세요.';
       case CheckStatus.listedOk:
-        return '연령금기 약이지만 우리 아이($a) 나이는 해당하지 않아요.';
+        return '연령금기 약이지만 현재 나이($a)는 해당하지 않아요.';
       case CheckStatus.notListed:
         return c.info != null
             ? '식약처 연령금기 목록에 없는 약이에요.'
@@ -699,11 +823,6 @@ class _IngredientView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final g = group;
-    final (Color c, String tag) = switch (g.applies) {
-      true => (const Color(0xFFC62828), '우리 아이 해당'),
-      false => (const Color(0xFF1A56B8), '해당 안 됨'),
-      null => (const Color(0xFF8A6100), '나이 기준 없음'),
-    };
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 8),
@@ -715,32 +834,25 @@ class _IngredientView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Expanded(
-              child: Text('성분: ${g.name}',
-                  style: theme.textTheme.bodyLarge
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-            ),
-            Text(tag,
-                style: TextStyle(
-                    color: c, fontWeight: FontWeight.w700, fontSize: 13)),
-          ]),
+          KText('성분: ${g.name}',
+              style: theme.textTheme.bodyLarge
+                  ?.copyWith(fontWeight: FontWeight.w700)),
           if (g.label.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('연령금기 기준: ${g.label}',
+            KText('연령금기 기준: ${g.label}',
                 style: theme.textTheme.bodyMedium),
           ],
           if (g.ageBase.isNotEmpty)
-            Text('(나이 기준 출처: 식약처 DUR 성분정보)',
+            KText('(나이 기준 출처: 식약처 DUR 성분정보)',
                 style: theme.textTheme.bodySmall),
           if (g.reasons.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('사유: ${g.reasons.first}',
+            KText('사유: ${g.reasons.first}',
                 style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
           ],
           if (g.applies == true && g.assumed) ...[
             const SizedBox(height: 6),
-            Text(
+            KText(
               '판단 사유: 정확한 연령이 적혀 있지 않지만 "소아" 등으로 되어 있어 금기 약품으로 보았어요.',
               style: const TextStyle(color: Color(0xFFB71C1C), fontSize: 13),
             ),
@@ -773,13 +885,13 @@ class _InfoView extends StatelessWidget {
       if (check.infoLoading && check.status != CheckStatus.error) {
         return Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: Text('약 설명 찾는 중…', style: theme.textTheme.bodySmall),
+          child: KText('약 설명 찾는 중…', style: theme.textTheme.bodySmall),
         );
       }
       if (!check.infoLoading) {
         return Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: Text('이 이름으로는 약 설명을 찾지 못했어요.',
+          child: KText('이 이름으로는 약 설명을 찾지 못했어요.',
               style: theme.textTheme.bodySmall),
         );
       }
@@ -810,12 +922,12 @@ class _InfoView extends StatelessWidget {
             children: [
               SizedBox(
                 width: 40,
-                child: Text(k,
+                child: KText(k,
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: Colors.black54, height: 1.5)),
               ),
               Expanded(
-                child: Text(v,
+                child: KText(v,
                     style: TextStyle(
                         height: 1.45,
                         fontWeight: bold ? FontWeight.w600 : FontWeight.normal)),

@@ -2,24 +2,52 @@ import 'dur_api.dart';
 import 'label_age.dart';
 
 class ChildProfile {
-  ChildProfile({required this.id, required this.name, required this.birthDate});
+  ChildProfile({
+    required this.id,
+    required this.name,
+    required this.birthDate,
+    this.pregnant = false,
+    this.nursing = false,
+  });
 
   final String id;
   final String name;
   final DateTime birthDate;
 
+  /// 임신 중 (성인만)
+  final bool pregnant;
+
+  /// 수유 중 (성인만)
+  final bool nursing;
+
+  /// 만 19세 이상
+  bool get isAdult => ageInMonths() >= 19 * 12;
+
   int ageInMonths([DateTime? now]) => monthsBetween(birthDate, now ?? DateTime.now());
 
   String get ageLabel => formatAge(ageInMonths());
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'name': name, 'birth': birthDate.toIso8601String()};
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'birth': birthDate.toIso8601String(),
+        'pregnant': pregnant,
+        'nursing': nursing,
+      };
 
   factory ChildProfile.fromJson(Map<String, dynamic> j) => ChildProfile(
         id: '${j['id']}',
         name: '${j['name']}',
         birthDate: DateTime.parse('${j['birth']}'),
+        pregnant: j['pregnant'] == true,
+        nursing: j['nursing'] == true,
       );
+}
+
+class Interaction {
+  Interaction(this.other, this.reason);
+  final String other;
+  final String reason;
 }
 
 /// 처방 기록(버전). 아이별로 여러 개를 저장해두고 약을 계속 추가·수정할 수 있다.
@@ -97,6 +125,27 @@ class DrugCheck {
 
   /// 입력한 이름에 맞는 약이 여러 개라 골라야 함
   bool ambiguous = false;
+
+  /// 이 약의 성분 (병용금기 대조용)
+  String ingredientText = '';
+
+  /// DUR 임부금기 (임신 중인 사람일 때만 조회)
+  List<SimpleTaboo> pregRows = const [];
+
+  /// 설명서의 수유부 주의 문장 (수유 중일 때만)
+  String? nursingNote;
+
+  /// DUR 병용금기 원자료
+  List<MixTaboo> mixRows = const [];
+
+  /// 같은 기록 안에서 함께 먹으면 안 되는 약들
+  List<Interaction> interactions = [];
+
+  bool get hasPreg => pregRows.isNotEmpty;
+  bool get hasMix => interactions.isNotEmpty;
+
+  /// 빨간 경고가 필요한지 (연령금기·임부금기·병용금기)
+  bool get isDanger => status == CheckStatus.danger || hasPreg || hasMix;
 
   /// 카드 제목: 찾은 정확한 제품명, 없으면 입력한 이름
   String get title => best?.displayName ?? query;

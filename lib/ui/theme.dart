@@ -168,7 +168,7 @@ class SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(children: [
         Expanded(
-          child: Text(text,
+          child: Text(ka(text),
               style: const TextStyle(
                   fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.ink)),
         ),
@@ -176,4 +176,30 @@ class SectionTitle extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// 한글이 단어 중간에서 줄바꿈되지 않게 한다 (CSS의 word-break: keep-all).
+/// 단어 안 글자 사이에 '단어 결합자(U+2060)'를 넣어 띄어쓰기에서만 줄이 바뀌게 한다.
+String ka(String text) {
+  const joiner = '⁠';
+  return text
+      .split(' ')
+      .map((w) => w.characters.join(joiner))
+      .join(' ');
+}
+
+/// Text와 같지만 한글 단어 단위로 줄바꿈한다.
+class KText extends StatelessWidget {
+  const KText(this.data,
+      {super.key, this.style, this.textAlign, this.maxLines, this.overflow});
+
+  final String data;
+  final TextStyle? style;
+  final TextAlign? textAlign;
+  final int? maxLines;
+  final TextOverflow? overflow;
+
+  @override
+  Widget build(BuildContext context) => Text(ka(data),
+      style: style, textAlign: textAlign, maxLines: maxLines, overflow: overflow);
 }

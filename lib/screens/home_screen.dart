@@ -111,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       SectionTitle('누구의 약인가요?',
                           trailing: _children.isEmpty
                               ? null
-                              : Text('길게 눌러 수정',
+                              : KText('길게 눌러 수정',
                                   style: TextStyle(
                                       fontSize: 12, color: AppColors.sub))),
                       _childRow(),
@@ -119,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       SectionTitle('처방 기록',
                           trailing: _selected == null
                               ? null
-                              : Text('${_myRecords.length}개',
+                              : KText('${_myRecords.length}개',
                                   style: const TextStyle(color: AppColors.sub))),
                       ..._recordList(),
                       const SizedBox(height: 20),
@@ -138,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
               elevation: 0,
               highlightElevation: 0,
               icon: const Icon(Icons.add),
-              label: Text(_selected == null ? '아이 등록하기' : '새 처방 기록',
+              label: KText(_selected == null ? '가족 등록하기' : '새 처방 기록',
                   style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
     );
@@ -156,14 +156,14 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(kAppName,
+                KText(kAppName,
                     style: TextStyle(
                         color: AppColors.ink,
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5)),
                 SizedBox(height: 2),
-                Text(kAppTagline,
+                KText(kAppTagline,
                     style: TextStyle(color: AppColors.sub, fontSize: 13)),
               ],
             ),
@@ -184,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
           color: const Color(0xFFFDECEC),
           child: ListTile(
             leading: const Icon(Icons.vpn_key_outlined),
-            title: const Text('인증키 설정이 필요해요'),
+            title: const KText('인증키 설정이 필요해요'),
             trailing: const Icon(Icons.chevron_right),
             onTap: _openSettings,
           ),
@@ -221,9 +221,9 @@ class _HomeScreenState extends State<HomeScreen> {
       return [
         _EmptyBox(
           icon: Icons.child_care,
-          text: '먼저 아이 이름과 생년월일을 등록해주세요.',
+          text: '먼저 약 먹을 사람(아이·엄마)의 이름과 생년월일을 등록해주세요.',
           action: FilledButton.tonal(
-              onPressed: () => _editChild(), child: const Text('아이 등록')),
+              onPressed: () => _editChild(), child: const KText('가족 등록')),
         ),
       ];
     }
@@ -257,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(Icons.info_outline, color: AppColors.primaryDark, size: 20),
             SizedBox(width: 10),
             Expanded(
-              child: Text(
+              child: KText(
                 '식약처 DUR "특정연령대 금기"와 약 설명서의 사용 연령을 아이 나이와 비교해요. '
                 '경고가 나와도 약을 임의로 끊지 말고 약국·병원에 꼭 확인하세요.',
                 style: TextStyle(color: AppColors.primaryDark, height: 1.45),
@@ -300,7 +300,7 @@ class _ChildCard extends StatelessWidget {
           CircleAvatar(
             radius: 22,
             backgroundColor: selected ? Colors.white : AppColors.mint,
-            child: Text(
+            child: KText(
               child.name.isEmpty ? '?' : child.name.characters.first,
               style: TextStyle(
                   fontWeight: FontWeight.w800,
@@ -314,7 +314,7 @@ class _ChildCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(child.name,
+                KText(child.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -322,7 +322,7 @@ class _ChildCard extends StatelessWidget {
                         fontSize: 16,
                         color: selected ? Colors.white : AppColors.ink)),
                 const SizedBox(height: 2),
-                Text(child.ageLabel,
+                KText(child.ageLabel,
                     style: TextStyle(
                         fontSize: 13,
                         color: selected ? const Color(0xDDFFFFFF) : AppColors.sub)),
@@ -357,7 +357,7 @@ class _AddChildCard extends StatelessWidget {
           children: [
             Icon(Icons.person_add_alt_1_outlined, color: AppColors.primary),
             SizedBox(height: 4),
-            Text('아이 추가', style: TextStyle(fontSize: 13, color: AppColors.sub)),
+            KText('가족 추가', style: TextStyle(fontSize: 13, color: AppColors.sub)),
           ],
         ),
       ),
@@ -396,13 +396,13 @@ class _RecordCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(record.title,
+                  KText(record.title,
                       style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
                           color: AppColors.ink)),
                   const SizedBox(height: 3),
-                  Text(
+                  KText(
                     names.isEmpty
                         ? '${formatDate(record.createdAt)} · 약 없음'
                         : '${formatDate(record.createdAt)} · 약 ${names.length}개',
@@ -410,7 +410,7 @@ class _RecordCard extends StatelessWidget {
                   ),
                   if (names.isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    Text(
+                    KText(
                       names.take(3).join(', ') +
                           (names.length > 3 ? ' 외 ${names.length - 3}개' : ''),
                       maxLines: 1,
@@ -448,7 +448,7 @@ class _EmptyBox extends StatelessWidget {
       child: Column(children: [
         Icon(icon, size: 40, color: const Color(0xFFB7C9C3)),
         const SizedBox(height: 10),
-        Text(text,
+        KText(text,
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.sub, height: 1.5)),
         if (action != null) ...[const SizedBox(height: 12), action!],

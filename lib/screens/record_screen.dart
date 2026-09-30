@@ -28,7 +28,7 @@ class _RecordScreenState extends State<RecordScreen> {
   Future<void> _save() => AppStorage.saveRecord(_r);
 
   void _snack(String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: KText(msg)));
 
   void _addNames(Iterable<String> names) {
     var added = 0;
@@ -50,17 +50,17 @@ class _RecordScreenState extends State<RecordScreen> {
     final v = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('기록 이름'),
+        title: const KText('기록 이름'),
         content: TextField(
           controller: c,
           autofocus: true,
           decoration: const InputDecoration(hintText: '예: 소아과 감기약'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const KText('취소')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, c.text.trim()),
-              child: const Text('저장')),
+              child: const KText('저장')),
         ],
       ),
     );
@@ -74,11 +74,11 @@ class _RecordScreenState extends State<RecordScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('이 기록을 삭제할까요?'),
-        content: const Text('기록에 담긴 약 목록도 함께 지워져요.'),
+        title: const KText('이 기록을 삭제할까요?'),
+        content: const KText('기록에 담긴 약 목록도 함께 지워져요.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('삭제')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const KText('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const KText('삭제')),
         ],
       ),
     );
@@ -100,10 +100,10 @@ class _RecordScreenState extends State<RecordScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('약 이름 직접 입력',
+            const KText('약 이름 직접 입력',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            const Text('여러 개는 쉼표나 줄바꿈으로 구분하세요.',
+            const KText('여러 개는 쉼표나 줄바꿈으로 구분하세요.',
                 style: TextStyle(color: AppColors.sub)),
             const SizedBox(height: 14),
             TextField(
@@ -124,7 +124,7 @@ class _RecordScreenState extends State<RecordScreen> {
             const SizedBox(height: 14),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, c.text),
-              child: const Text('추가'),
+              child: const KText('추가'),
             ),
           ],
         ),
@@ -213,7 +213,7 @@ class _RecordScreenState extends State<RecordScreen> {
         title: GestureDetector(
           onTap: _rename,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Flexible(child: Text(_r.title, overflow: TextOverflow.ellipsis)),
+            Flexible(child: KText(_r.title, overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 6),
             const Icon(Icons.edit_outlined, size: 18, color: AppColors.sub),
           ]),
@@ -230,7 +230,7 @@ class _RecordScreenState extends State<RecordScreen> {
           ListView(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
             children: [
-              Text(
+              KText(
                 '${widget.child.name} · ${widget.child.ageLabel} · ${formatDate(_r.createdAt)}',
                 style: const TextStyle(color: AppColors.sub),
               ),
@@ -263,7 +263,7 @@ class _RecordScreenState extends State<RecordScreen> {
               ]),
               const SizedBox(height: 26),
               SectionTitle('약 목록',
-                  trailing: Text('${_r.drugs.length}개',
+                  trailing: KText('${_r.drugs.length}개',
                       style: const TextStyle(color: AppColors.sub))),
               if (_r.drugs.isEmpty)
                 Container(
@@ -273,7 +273,7 @@ class _RecordScreenState extends State<RecordScreen> {
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: AppColors.line),
                   ),
-                  child: const Text(
+                  child: const KText(
                     '처방전이나 약봉지를 찍거나, 약 이름을 직접 입력해 추가하세요.\n추가한 약은 자동으로 저장돼요.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.sub, height: 1.5),
@@ -291,7 +291,7 @@ class _RecordScreenState extends State<RecordScreen> {
                           child: Icon(Icons.medication_liquid_outlined,
                               size: 20, color: AppColors.primary),
                         ),
-                        title: Text(_r.drugs[i],
+                        title: KText(_r.drugs[i],
                             style: const TextStyle(fontWeight: FontWeight.w600)),
                         trailing: IconButton(
                           tooltip: '빼기',
@@ -317,7 +317,7 @@ class _RecordScreenState extends State<RecordScreen> {
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     CircularProgressIndicator(),
                     SizedBox(width: 18),
-                    Text('글자를 읽는 중…'),
+                    KText('글자를 읽는 중…'),
                   ]),
                 ),
               ),
@@ -330,7 +330,7 @@ class _RecordScreenState extends State<RecordScreen> {
           child: FilledButton.icon(
             onPressed: _r.drugs.isEmpty ? null : _check,
             icon: const Icon(Icons.verified_user_outlined),
-            label: Text('${_r.drugs.length}개 약 금기 확인하기'),
+            label: KText('${_r.drugs.length}개 약 금기 확인하기'),
           ),
         ),
       ),
@@ -370,7 +370,7 @@ class _AddTile extends StatelessWidget {
             children: [
               Icon(icon, size: 28, color: primary ? Colors.white : AppColors.primary),
               const SizedBox(height: 8),
-              Text(label,
+              KText(label,
                   style: TextStyle(
                       fontWeight: FontWeight.w700,
                       color: primary ? Colors.white : AppColors.ink)),
