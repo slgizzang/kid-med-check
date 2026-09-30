@@ -136,7 +136,7 @@ class DurApi {
 
   /// DUR 성분정보: 성분 코드별 특정연령대금기 (연령 기준 포함)
   static const _ingrAgePath =
-      '/1471000/DURIrdntInfoService03/getSpcifyAgrdeTabooInfoList03';
+      '/1471000/DURIrdntInfoService03/getSpcifyAgrdeTabooInfoList02';
 
   static final Map<String, String> _ageBaseCache = {};
   static final RegExp _ageText = RegExp(r'\d+\s*(세|개월)|신생아|영아|소아|유아');

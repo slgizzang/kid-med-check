@@ -77,9 +77,7 @@ else:
 
     # DUR 성분정보: 성분별 특정연령대금기 (연령 기준 필드 확인용) - 서비스 이름 후보를 차례로 시도
     import urllib.error
-    for svc, op in [("DURIrdntInfoService03", "getSpcifyAgrdeTabooInfoList03"),
-                    ("DURIrdntInfoService02", "getSpcifyAgrdeTabooInfoList02"),
-                    ("DURIrdntInfoService01", "getSpcifyAgrdeTabooInfoList01")]:
+    for svc, op in [("DURIrdntInfoService03", "getSpcifyAgrdeTabooInfoList02")]:
         url = f"https://apis.data.go.kr/1471000/{svc}/{op}"
         q = urllib.parse.urlencode({"serviceKey": key, "type": "json", "pageNo": 1, "numOfRows": 3})
         try:
