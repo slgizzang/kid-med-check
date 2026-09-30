@@ -466,6 +466,13 @@ class _RecordScreenState extends State<RecordScreen> {
                   ),
                 ),
               ]),
+              const SizedBox(height: 10),
+              const KText(
+                '촬영·사진첩은 사진 속 글자를 읽는 기술(OCR)로 약 이름을 찾아요. '
+                '약 이름이 아닌 단어도 함께 잡힐 수 있어요. '
+                '다음 화면에서 처방받은 약만 골라 추가해주세요.',
+                style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
+              ),
             ],
           ),
           if (_busy)

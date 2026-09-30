@@ -994,7 +994,6 @@ class _Sources extends StatelessWidget {
             ]),
           ),
         const SizedBox(height: 8),
-        const KText('약 이름이 정확하지 않으면 결과가 나오지 않을 수 있어요.', style: small),
         const KText('이 앱은 참고용이며 의학적 판단을 대신하지 않아요.', style: small),
       ],
     );
