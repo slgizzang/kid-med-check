@@ -524,11 +524,12 @@ class _CheckCard extends StatelessWidget {
                 child: Text('비슷한 이름의 약도 없어요. 약봉지의 이름을 다시 확인해 입력해주세요.',
                     style: theme.textTheme.bodySmall),
               ),
-            if (check.similar.isNotEmpty) ...[
+            // 약이 확정되면 후보는 보여주지 않는다 (고를 필요가 있을 때만)
+            if (check.best == null && check.similar.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(check.ambiguous ? '처방받은 약을 골라주세요' : '혹시 찾으시는 약이 이것인가요?',
                   style: theme.textTheme.labelLarge?.copyWith(
-                      color: check.best == null ? AppColors.ink : Colors.black54,
+                      color: AppColors.ink,
                       fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
               for (final h in check.similar)
