@@ -429,6 +429,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 check: c,
                 age: _age,
                 adult: widget.child.isAdult,
+                pregnant: widget.child.pregnant,
                 notes: _notesFor(c),
                 onAddReaction: () => _addReaction(c),
                 onDeleteReaction: _deleteReaction,
@@ -487,6 +488,7 @@ class _CheckCard extends StatelessWidget {
     required this.check,
     required this.age,
     required this.adult,
+    this.pregnant = false,
     required this.onRetry,
     required this.onPick,
     this.notes = const [],
@@ -501,6 +503,7 @@ class _CheckCard extends StatelessWidget {
   final DrugCheck check;
   final int age;
   final bool adult;
+  final bool pregnant;
   final VoidCallback onRetry;
   final ValueChanged<String> onPick;
 
@@ -542,13 +545,13 @@ class _CheckCard extends StatelessWidget {
           const Color(0xFFE6F4EA),
           const Color(0xFF1E7B3A),
           Icons.check_circle_outline,
-          '금기 없음'
+          '연령금기 없음'
         ),
       CheckStatus.notListed => (
           const Color(0xFFE6F4EA),
           const Color(0xFF1E7B3A),
           Icons.check_circle_outline,
-          '금기 없음'
+          '연령금기 없음'
         ),
       CheckStatus.error => (
           const Color(0xFFF1F3F4),
@@ -559,11 +562,17 @@ class _CheckCard extends StatelessWidget {
     };
 
     final ageIrrelevant = adult && check.status == CheckStatus.unknown;
+    final pregnantNoTaboo = pregnant && !check.hasPreg;
     if (ageIrrelevant) {
       bg = const Color(0xFFE6F4EA);
       fg = const Color(0xFF1E7B3A);
       icon = Icons.check_circle_outline;
-      label = '금기 없음';
+      // 성인은 연령금기 대상이 아니므로 실제로 확인한 항목 이름으로
+      label = pregnantNoTaboo ? '임부금기 없음' : '병용금기 없음';
+    }
+    if (adult &&
+        (check.status == CheckStatus.listedOk || check.status == CheckStatus.notListed)) {
+      label = pregnantNoTaboo ? '임부금기 없음' : '병용금기 없음';
     }
     if (check.nursingNote != null && !check.isDanger) {
       bg = const Color(0xFFFFE9D6);
