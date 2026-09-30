@@ -212,12 +212,13 @@ class _DrugRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 아래 약별 카드의 상태 표시와 같은 이름을 쓴다
     final chips = <Widget>[
-      if (d.ageRule != null) _Chip('연령금기 ${d.ageRule}', danger: true),
+      if (d.ageRule != null) const _Chip('연령금기 해당', danger: true),
       if (d.preg) const _Chip('임부금기', danger: true),
       if (d.mixWith.isNotEmpty) const _Chip('병용금기', danger: true),
       if (d.nursing) const _Chip('수유부 주의', danger: false),
-      if (d.labelNote != null) const _Chip('설명서 사용연령', danger: false),
+      if (d.labelNote != null) const _Chip('사용 연령 확인', danger: false),
       if (d.needsPick) const _Chip('약 선택 필요', danger: false, gray: true),
     ];
     return Padding(

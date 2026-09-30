@@ -451,7 +451,7 @@ class _CheckCard extends StatelessWidget {
           const Color(0xFFECEFF1),
           const Color(0xFF455A64),
           check.ambiguous ? Icons.touch_app_outlined : Icons.search_off,
-          check.ambiguous ? '약 선택 필요' : '약을 찾지 못함'
+          '약 선택 필요'
         ),
       CheckStatus.unknown => (
           const Color(0xFFFFF4D6),
