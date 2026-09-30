@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 import 'reaction.dart';
+import 'hira_import.dart';
 
 /// 빌드할 때 --dart-define=DUR_API_KEY=... 로 넣은 기본 키 (없으면 빈 문자열)
 const String kBuiltInApiKey = String.fromEnvironment('DUR_API_KEY');
@@ -94,6 +95,34 @@ class AppStorage {
     final list = await records();
     list.removeWhere((x) => x.id == id);
     await _saveRecords(list);
+  }
+
+  /// 불러온 처방을 기록으로 저장. 이미 불러온 것은 건너뛴다. (새로 만든 수, 건너뛴 수)
+  static Future<(int, int)> importVisits(String childId, List<ImportedVisit> visits) async {
+    final list = await records();
+    final have = {
+      for (final r in list)
+        if (r.childId == childId && r.importKey != null) r.importKey!
+    };
+    var added = 0, skipped = 0;
+    for (final v in visits) {
+      if (have.contains(v.key)) {
+        skipped++;
+        continue;
+      }
+      list.add(MedRecord(
+        id: '${DateTime.now().microsecondsSinceEpoch}_$added',
+        childId: childId,
+        title: v.title,
+        createdAt: v.date,
+        drugs: List.of(v.drugs),
+        importKey: v.key,
+      ));
+      have.add(v.key);
+      added++;
+    }
+    await _saveRecords(list);
+    return (added, skipped);
   }
 
   /// 아이를 지우면 그 아이의 기록(처방·반응)도 지운다.

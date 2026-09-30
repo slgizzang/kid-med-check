@@ -4,6 +4,7 @@ import '../logic/models.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
 import 'child_edit_screen.dart';
+import 'import_screen.dart';
 import 'record_screen.dart';
 import 'settings_screen.dart';
 
@@ -66,6 +67,14 @@ class _HomeScreenState extends State<HomeScreen> {
     await Navigator.push(
         context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
     await _load();
+  }
+
+  Future<void> _openImport() async {
+    final person = _selected;
+    if (person == null) return;
+    final changed = await Navigator.push<bool>(
+        context, MaterialPageRoute(builder: (_) => ImportScreen(person: person)));
+    if (changed == true) await _load();
   }
 
   Future<void> _openRecord(MedRecord r) async {
@@ -226,8 +235,23 @@ class _HomeScreenState extends State<HomeScreen> {
       ];
     }
     final list = _myRecords;
+    final importButton = Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(46),
+          foregroundColor: AppColors.ink,
+          side: const BorderSide(color: AppColors.line),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        onPressed: _openImport,
+        icon: const Icon(Icons.history, size: 20),
+        label: const KText('지난 1년 기록 불러오기'),
+      ),
+    );
     if (list.isEmpty) {
       return [
+        importButton,
         _EmptyBox(
           icon: Icons.add_circle_outline,
           text: '아직 처방 기록이 없어요.\n여기를 눌러 처방받은 약을 입력해보세요.',
@@ -236,6 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ];
     }
     return [
+      importButton,
       for (final r in list)
         Padding(
           padding: const EdgeInsets.only(bottom: 10),

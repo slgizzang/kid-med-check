@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../logic/hira_import.dart';
 import '../logic/models.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
@@ -20,6 +21,7 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
   DateTime? _birth;
   bool _pregnant = false;
   bool _nursing = false;
+  bool _consent = false;
 
   bool get _isAdult =>
       _birth != null && monthsBetween(_birth!, DateTime.now()) >= 19 * 12;
@@ -30,6 +32,7 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
     _birth = widget.child?.birthDate;
     _pregnant = widget.child?.pregnant ?? false;
     _nursing = widget.child?.nursing ?? false;
+    _consent = widget.child?.importConsent ?? false;
   }
 
   @override
@@ -97,6 +100,7 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
       birthDate: _birth!,
       pregnant: _isAdult && _pregnant,
       nursing: _isAdult && _nursing,
+      importConsent: _consent,
     );
     final idx = list.indexWhere((c) => c.id == id);
     if (idx >= 0) {
@@ -131,6 +135,44 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
     await AppStorage.saveChildren(list);
     await AppStorage.deleteRecordsOfChild(widget.child!.id);
     if (mounted) Navigator.pop(context, true);
+  }
+
+  /// 투약이력 파일 비밀번호로 생년월일을 쓰는 데 대한 안내와 동의
+  Widget _consentBox() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F7F6),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const KText('생년월일 사용 안내',
+              style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink)),
+          const SizedBox(height: 6),
+          const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: KText(
+              '"지난 1년 기록 불러오기"는 $kHiraServiceName에서 내려받은 투약이력 엑셀 파일을 읽어요. '
+              '이 파일은 생년월일로 잠겨 있어요. '
+              '동의하면 파일을 열 때 이 생년월일을 비밀번호로 자동 입력해요. '
+              '생년월일과 비밀번호는 휴대폰 밖으로 보내지 않고, 비밀번호는 저장하지 않아요.',
+              style: TextStyle(fontSize: 13, color: AppColors.sub, height: 1.5),
+            ),
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            dense: true,
+            value: _consent,
+            onChanged: (v) => setState(() => _consent = v ?? false),
+            title: const KText('동의해요 (동의하지 않으면 파일을 열 때 직접 입력해요)',
+                style: TextStyle(fontSize: 14, color: AppColors.ink)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -168,6 +210,8 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
           ),
           const SizedBox(height: 8),
           const KText('나이는 만 나이(개월)로 계산해 금기 기준과 비교해요.'),
+          const SizedBox(height: 12),
+          _consentBox(),
           if (_isAdult) ...[
             const SizedBox(height: 20),
             const KText('성인이면 함께 확인해요',

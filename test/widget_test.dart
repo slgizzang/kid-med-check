@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -12,6 +13,8 @@ import 'package:kid_med_check/logic/snapshot.dart';
 import 'package:kid_med_check/ui/theme.dart';
 import 'package:kid_med_check/logic/models.dart';
 import 'package:kid_med_check/logic/reaction.dart';
+import 'package:kid_med_check/logic/hira_import.dart';
+import 'package:kid_med_check/logic/office_decrypt.dart';
 
 void main() {
   group('AgeRule', () {
@@ -536,6 +539,53 @@ void main() {
       expect(back.reaction, '설사');
       expect(back.hasAlert, isFalse);
       expect(back.hasAny, isTrue);
+    });
+  });
+
+  group('심평원 투약이력 불러오기', () {
+    final bytes = File('test/fixtures/hira_sample.xlsx').readAsBytesSync();
+
+    test('암호화된 엑셀을 생년월일로 자동으로 연다', () {
+      expect(OfficeDecrypt.kindOf(bytes), OfficeKind.encryptedXlsx);
+      final r = HiraImport.open(bytes, people: [
+        ('아이', DateTime(2024, 1, 1)),
+        ('엄마', DateTime(1990, 1, 1)),
+      ]);
+      expect(r.passwordOwner, '엄마');
+      expect(r.visits.length, 2);
+      final may = r.visits.first;
+      expect(may.date, DateTime(2026, 5, 2));
+      expect(may.place, '바른이비인후과');
+      expect(may.drugs, ['싱귤레어세립4밀리그램']);
+      final mar = r.visits.last;
+      expect(mar.drugs, ['세토펜현탁액', '코대원에스시럽']);
+      expect(mar.title, '3월 12일 튼튼소아청소년과의원');
+    });
+
+    test('비밀번호가 틀리면 직접 입력을 요청한다', () {
+      expect(
+          () => HiraImport.open(bytes, people: [('아이', DateTime(2024, 1, 1))]),
+          throwsA(isA<OfficeFileException>()
+              .having((e) => e.wrongPassword, 'wrongPassword', isTrue)));
+      final r = HiraImport.open(bytes, manualPassword: '19900101');
+      expect(r.visits.length, 2);
+    });
+
+    test('공유 문자열·엑셀 날짜·병합 칸도 읽는다', () {
+      final plain = File('test/fixtures/hira_shared.xlsx').readAsBytesSync();
+      expect(OfficeDecrypt.kindOf(plain), OfficeKind.plainXlsx);
+      final r = HiraImport.open(plain);
+      expect(r.visits.length, 1);
+      expect(r.visits.first.date, DateTime(2026, 3, 12));
+      expect(r.visits.first.place, '튼튼의원');
+      expect(r.visits.first.drugs, ['세토펜현탁액', '맥시부펜시럽']);
+    });
+
+    test('날짜 형식', () {
+      expect(HiraImport.parseDate('2026.3.12'), DateTime(2026, 3, 12));
+      expect(HiraImport.parseDate('20260312'), DateTime(2026, 3, 12));
+      expect(HiraImport.parseDate('46093'), DateTime(2026, 3, 12));
+      expect(HiraImport.passwordsFor(DateTime(1990, 1, 1)), ['19900101', '900101']);
     });
   });
 }

@@ -9,6 +9,7 @@ class ChildProfile {
     required this.birthDate,
     this.pregnant = false,
     this.nursing = false,
+    this.importConsent = false,
   });
 
   final String id;
@@ -20,6 +21,9 @@ class ChildProfile {
 
   /// 수유 중 (성인만)
   final bool nursing;
+
+  /// 심평원 투약이력 파일을 열 때 이 생년월일을 비밀번호로 쓰는 데 동의함
+  final bool importConsent;
 
   /// 만 19세 이상
   bool get isAdult => ageInMonths() >= 19 * 12;
@@ -34,6 +38,7 @@ class ChildProfile {
         'birth': birthDate.toIso8601String(),
         'pregnant': pregnant,
         'nursing': nursing,
+        'importPw': importConsent,
       };
 
   factory ChildProfile.fromJson(Map<String, dynamic> j) => ChildProfile(
@@ -42,6 +47,7 @@ class ChildProfile {
         birthDate: DateTime.parse('${j['birth']}'),
         pregnant: j['pregnant'] == true,
         nursing: j['nursing'] == true,
+        importConsent: j['importPw'] == true,
       );
 }
 
@@ -60,7 +66,11 @@ class MedRecord {
     required this.createdAt,
     List<String>? drugs,
     this.last,
+    this.importKey,
   }) : drugs = drugs ?? [];
+
+  /// 심평원 투약이력에서 불러온 기록이면 그 키 (중복 방지)
+  final String? importKey;
 
   final String id;
   final String childId;
@@ -80,6 +90,7 @@ class MedRecord {
         'createdAt': createdAt.toIso8601String(),
         'drugs': drugs,
         if (last != null) 'last': last!.toJson(),
+        if (importKey != null) 'import': importKey,
       };
 
   factory MedRecord.fromJson(Map<String, dynamic> j) => MedRecord(
@@ -91,6 +102,7 @@ class MedRecord {
         last: j['last'] is Map
             ? ResultSnapshot.fromJson(Map<String, dynamic>.from(j['last'] as Map))
             : null,
+        importKey: j['import'] as String?,
       );
 }
 

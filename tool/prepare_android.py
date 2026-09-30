@@ -25,6 +25,33 @@ if "android.permission.INTERNET" not in m:
         m,
         count=1,
     )
+# 심평원 사이트를 앱 안 브라우저 탭(Custom Tabs)으로 열기 위한 queries
+if "CustomTabsService" not in m:
+    m = m.replace(
+        "</manifest>",
+        """    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService"/>
+        </intent>
+    </queries>
+</manifest>""",
+        1,
+    ) if "<queries>" not in m else m.replace(
+        "<queries>",
+        """<queries>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>""",
+        1,
+    )
 m = re.sub(r'android:label="[^"]*"', f'android:label="{APP_LABEL}"', m, count=1)
 manifest.write_text(m, encoding="utf-8")
 
