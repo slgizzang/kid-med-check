@@ -434,6 +434,12 @@ void main() {
     expect(nursingSummary('정해진 용법을 지키십시오.'), isNull);
   });
 
+  test('제형만 있는 이름은 약으로 받지 않음', () {
+    expect(DrugNameExtractor.isFormOnly('패치'), isTrue);
+    expect(DrugNameExtractor.isFormOnly('현탁액'), isTrue);
+    expect(DrugNameExtractor.isFormOnly('레스날린패치'), isFalse);
+  });
+
   test('처방 기록 저장 형식', () {
     final r = MedRecord(
         id: '1', childId: 'c', title: '9월 30일 처방', createdAt: DateTime(2026, 9, 30))

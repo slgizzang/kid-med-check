@@ -107,6 +107,9 @@ class DrugNameExtractor {
     return lines.map((t) => t.join(' ')).where((l) => l.isNotEmpty).toList();
   }
 
+  /// "패치", "현탁액"처럼 제형만 있는 이름인지 (약 이름으로 쓸 수 없음)
+  static bool isFormOnly(String name) => _formOnlyName.hasMatch(name.replaceAll(' ', ''));
+
   static List<String> extract(String text) {
     final result = <String>[];
     final seen = <String>{};

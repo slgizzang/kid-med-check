@@ -36,7 +36,7 @@ class _RecordScreenState extends State<RecordScreen> {
     setState(() {
       for (final raw in names) {
         final n = DrugNameExtractor.toSearchName(raw);
-        if (n.length >= 2 && !_r.drugs.contains(n)) {
+        if (n.length >= 2 && !DrugNameExtractor.isFormOnly(n) && !_r.drugs.contains(n)) {
           _r.drugs.add(n);
           added++;
         }

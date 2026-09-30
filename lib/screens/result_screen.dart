@@ -97,6 +97,10 @@ class _ResultScreenState extends State<ResultScreen> {
         if (h.displayName == best.displayName) best = best.fillFrom(h);
       }
     }
+    if (best.etcOtc.isEmpty || best.ingredient.isEmpty) {
+      final permit = await api.permitInfo(best);
+      if (permit != null) best = best.fillFrom(permit);
+    }
     var className = best.className;
     if (className.isEmpty) {
       for (final r in c.rows) {

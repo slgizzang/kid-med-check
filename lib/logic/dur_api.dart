@@ -104,10 +104,16 @@ class DurApi {
     final hasPrefixMatch = hits.values.any((h) => h.searchName.startsWith(q));
     if (!hasPrefixMatch) {
       // 오타·제형 차이 대비: 제형 뗀 이름, 앞 두 글자로도 찾아본다.
-      final extra = <String>[
+      // 오타·제형 차이 대비: 제형 뗀 이름, 패치↔패취 표기, 앞 두 글자,
+      // 그리고 첫 글자가 틀린 경우를 위해 앞 1~2글자를 뗀 부분 (예: "심글레어세립" → "레어세립")
+      final extra = <String>{
         ...DrugNameExtractor.searchVariants(q).skip(1),
+        if (q.contains('패치')) q.replaceAll('패치', '패취'),
+        if (q.contains('패취')) q.replaceAll('패취', '패치'),
         if (q.length >= 3) q.substring(0, 2),
-      ];
+        if (q.length >= 4) q.substring(1),
+        if (q.length >= 5) q.substring(2),
+      };
       for (final v in extra) {
         addAll(await searchProducts(v));
       }
@@ -171,6 +177,42 @@ class DurApi {
     } catch (_) {
       return [];
     }
+  }
+
+  static const _permitPath = '/1471000/DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnInq06';
+
+  /// 의약품 제품 허가정보: 모든 허가 품목의 성분·전문/일반 구분 (DUR에 없는 약 보완용)
+  Future<ProductHit?> permitInfo(ProductHit best) async {
+    try {
+      final items = await _fetchItems(_permitPath, {'item_name': best.searchName}, 20);
+      for (final m in items) {
+        final name = TabooRow._pick(m, ['ITEM_NAME', 'itemName']);
+        if (ProductHit(fullName: name).displayName != best.displayName &&
+            !name.startsWith(best.searchName)) {
+          continue;
+        }
+        final ingr = TabooRow._pick(m, ['MAIN_ITEM_INGR', 'ITEM_INGR_NAME', 'MAIN_INGR', 'MATERIAL_NAME']);
+        return ProductHit(
+          fullName: name,
+          company: TabooRow._pick(m, ['ENTP_NAME', 'entpName']),
+          etcOtc: TabooRow._pick(m, ['SPCLTY_PBLC', 'ETC_OTC_CODE', 'ETC_OTC_NAME']),
+          ingredient: _cleanIngr(ingr),
+          className: ProductHit.cleanClass(TabooRow._pick(m, ['PRDUCT_TYPE', 'CLASS_NAME', 'CLASS_NO'])),
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// "[M040702]포도당|[M...]성분2" 또는 "성분,,1,g" 형식 → "포도당, 성분2"
+  static String _cleanIngr(String raw) {
+    if (raw.isEmpty) return '';
+    return raw
+        .split(RegExp(r'[|;/]'))
+        .map((x) => x.replaceAll(RegExp(r'\[[^\]]*\]'), '').split(',').first.trim())
+        .where((x) => x.isNotEmpty)
+        .toSet()
+        .join(', ');
   }
 
   /// 이름 일부로 찾은 임부금기 제품명들 (후보 목록 표시용)
