@@ -138,7 +138,7 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
     final birth = _birth;
     return Scaffold(
       appBar: AppBar(
-        title: KText(widget.child == null ? '가족 추가' : '정보 수정'),
+        title: KText(widget.child == null ? '복용자 추가' : '복용자 정보 수정'),
         actions: [
           if (widget.child != null)
             IconButton(

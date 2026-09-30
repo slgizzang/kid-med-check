@@ -129,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-      floatingActionButton: _loading || (_selected != null && _myRecords.isEmpty)
+      floatingActionButton: _loading || _selected == null || _myRecords.isEmpty
           ? null
           : FloatingActionButton.extended(
               onPressed: _newRecord,
@@ -138,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
               elevation: 0,
               highlightElevation: 0,
               icon: const Icon(Icons.add),
-              label: KText(_selected == null ? '가족 등록하기' : '새 처방 기록',
+              label: KText('새 처방 기록',
                   style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
     );
@@ -219,11 +219,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Widget> _recordList() {
     if (_selected == null) {
       return [
-        _EmptyBox(
-          icon: Icons.child_care,
-          text: '먼저 약 먹을 사람(아이·엄마)의 이름과 생년월일을 등록해주세요.',
-          action: FilledButton.tonal(
-              onPressed: () => _editChild(), child: const KText('가족 등록')),
+        const _EmptyBox(
+          icon: Icons.person_outline,
+          text: '위의 "복용자 추가"로 약을 먹을 사람을 먼저 등록해주세요.',
         ),
       ];
     }
@@ -259,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(width: 10),
             Expanded(
               child: KText(
-                '식약처 DUR "특정연령대 금기"와 약 설명서의 사용 연령을 아이 나이와 비교해요. '
+                '식약처 DUR의 연령금기·임부금기·병용금기와 약 설명서를 복용자 정보에 맞춰 확인해요. '
                 '경고가 나와도 약을 임의로 끊지 말고 약국·병원에 꼭 확인하세요.',
                 style: TextStyle(color: AppColors.primaryDark, height: 1.45),
               ),
@@ -358,7 +356,7 @@ class _AddChildCard extends StatelessWidget {
           children: [
             Icon(Icons.person_add_alt_1_outlined, color: AppColors.primary),
             SizedBox(height: 4),
-            KText('가족 추가', style: TextStyle(fontSize: 13, color: AppColors.sub)),
+            KText('복용자 추가', style: TextStyle(fontSize: 13, color: AppColors.sub)),
           ],
         ),
       ),
