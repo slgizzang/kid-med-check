@@ -135,6 +135,8 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: _newRecord,
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
+              elevation: 0,
+              highlightElevation: 0,
               icon: const Icon(Icons.add),
               label: Text(_selected == null ? '아이 등록하기' : '새 처방 기록',
                   style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -143,47 +145,33 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _header() {
-    return Container(
+    return Padding(
       padding: EdgeInsets.fromLTRB(
-          20, MediaQuery.of(context).padding.top + 16, 12, 24),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1FA383), AppColors.primaryDark],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      ),
+          20, MediaQuery.of(context).padding.top + 18, 8, 4),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(60),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const AppLogo(size: 50),
-          ),
-          const SizedBox(width: 14),
+          const AppLogo(size: 46),
+          const SizedBox(width: 12),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('아이 약 안심체크',
+                Text(kAppName,
                     style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.ink,
                         fontSize: 22,
-                        fontWeight: FontWeight.w800)),
-                SizedBox(height: 4),
-                Text('우리 아이 나이에 맞는 약인지 확인해요',
-                    style: TextStyle(color: Color(0xDDFFFFFF), fontSize: 14)),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5)),
+                SizedBox(height: 2),
+                Text(kAppTagline,
+                    style: TextStyle(color: AppColors.sub, fontSize: 13)),
               ],
             ),
           ),
           IconButton(
             tooltip: '설정',
             onPressed: _openSettings,
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
+            icon: const Icon(Icons.settings_outlined, color: AppColors.sub),
           ),
         ],
       ),

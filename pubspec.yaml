@@ -1,5 +1,5 @@
 name: kid_med_check
-description: 처방약이 아이 나이에 금기(DUR 특정연령대금기)인지 확인하는 앱
+description: 아이약콕 - 처방약이 아이 나이에 금기(DUR 특정연령대금기)인지 확인하는 앱
 publish_to: 'none'
 version: 0.1.0+1
 

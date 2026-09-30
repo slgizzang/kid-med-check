@@ -14,7 +14,7 @@ class KidMedCheckApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '아이 약 안심체크',
+      title: kAppName,
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
       locale: const Locale('ko'),

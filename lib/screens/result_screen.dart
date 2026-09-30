@@ -388,10 +388,7 @@ class _Banner extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 4)),
-        ],
+        borderRadius: BorderRadius.circular(20),
       ),
       child: child,
     );
