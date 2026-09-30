@@ -52,21 +52,26 @@ else:
         ("DUR품목-레어세", "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getDurPrdlstInfoList03", "레어세립"),
         ("DUR품목-날린", "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getDurPrdlstInfoList03", "날린패"),
     ]
-    # 의약품 제품 허가정보 (전체 품목: 성분·전문/일반) - 파라미터 이름이 item_name
-    for svc in ["DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnInq06", "DrugPrdtPrmsnInfoService05/getDrugPrdtPrmsnInq05"]:
-        q = urllib.parse.urlencode({"serviceKey": key, "type": "json", "pageNo": 1, "numOfRows": 1, "item_name": "프리비투스"})
-        try:
-            with urllib.request.urlopen(f"https://apis.data.go.kr/1471000/{svc}?{q}", timeout=30) as r:
-                body = r.read().decode("utf-8", "replace")
-            out.append(f"[허가정보 {svc}] " + " ".join(body.split())[:900])
-        except Exception as e:  # noqa: BLE001
-            detail = ""
-            if hasattr(e, "read"):
-                try:
-                    detail = " ".join(e.read().decode("utf-8", "replace").split())[:250]
-                except Exception:  # noqa: BLE001
-                    pass
-            out.append(f"[허가정보 {svc}] 실패: {type(e).__name__} {detail}")
+    # 의약품 제품 허가정보 (DrugPrdtPrmsnInfoService08) - 오퍼레이션 이름 후보를 차례로 시도
+    ops = ["getDrugPrdtPrmsnInq08", "getDrugPrdtPrmsnInq07", "getDrugPrdtPrmsnInq06",
+           "getDrugPrdtPrmsnDtlInq07", "getDrugPrdtPrmsnDtlInq06", "getDrugPrdtPrmsnDtlInq05",
+           "getDrugPrdtMcpnDtlInq08", "getDrugPrdtMcpnDtlInq07"]
+    for op in ops:
+        for pname, qname in [("item_name", "프리비투스"), ("item_name", "싱귤레어세립"), ("item_name", "레스날린")]:
+            q = urllib.parse.urlencode({"serviceKey": key, "type": "json", "pageNo": 1, "numOfRows": 2, pname: qname})
+            try:
+                with urllib.request.urlopen(f"https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService08/{op}?{q}", timeout=30) as r:
+                    body = r.read().decode("utf-8", "replace")
+                out.append(f"[허가08 {op} {qname}] " + " ".join(body.split())[:1200])
+            except Exception as e:  # noqa: BLE001
+                detail = ""
+                if hasattr(e, "read"):
+                    try:
+                        detail = " ".join(e.read().decode("utf-8", "replace").split())[:160]
+                    except Exception:  # noqa: BLE001
+                        pass
+                out.append(f"[허가08 {op} {qname}] 실패: {type(e).__name__} {detail}")
+                break  # 오퍼레이션이 없으면 다른 이름으로 시도할 필요 없음
 
     for label, url, name in extra:
         q = urllib.parse.urlencode(
