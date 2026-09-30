@@ -526,6 +526,24 @@ void main() {
       expect(note.summary, '설사 · 2번');
     });
 
+    test('처방 전체 기록은 함께 먹은 약 중 하나라도 다시 나오면 알려준다', () {
+      final g = ReactionNote(
+        id: '2',
+        childId: 'c',
+        drug: '3월 12일 처방',
+        date: DateTime(2026, 3, 12),
+        symptoms: ['설사'],
+        items: [('세토펜현탁액', '아세트아미노펜'), ('코대원에스시럽', '')],
+      );
+      expect(matchReaction(g, '코대원에스시럽', ''), ReactionMatch.sameDrug);
+      expect(matchReaction(g, '챔프시럽', '아세트아미노펜'), ReactionMatch.sameIngredient);
+      expect(matchReaction(g, '맥시부펜시럽', '덱시부프로펜'), isNull);
+      expect(reactionLine(g, ReactionMatch.sameDrug), contains('함께 먹은 약(세토펜현탁액, 코대원에스시럽)'));
+      final back = ReactionNote.fromJson(g.toJson());
+      expect(back.items.length, 2);
+      expect(back.isGroup, isTrue);
+    });
+
     test('저장 형식', () {
       final back = ReactionNote.fromJson(note.toJson());
       expect(back.drug, '세토펜현탁액');

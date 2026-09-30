@@ -12,6 +12,7 @@ Future<ReactionNote?> showReactionSheet(
   required String drug,
   String ingredient = '',
   String recordId = '',
+  List<(String, String)> items = const [],
 }) {
   return showModalBottomSheet<ReactionNote>(
     context: context,
@@ -20,7 +21,11 @@ Future<ReactionNote?> showReactionSheet(
     shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
     builder: (_) => _ReactionSheet(
-        childId: childId, drug: drug, ingredient: ingredient, recordId: recordId),
+        childId: childId,
+        drug: drug,
+        ingredient: ingredient,
+        recordId: recordId,
+        items: items),
   );
 }
 
@@ -30,8 +35,11 @@ class _ReactionSheet extends StatefulWidget {
     required this.drug,
     required this.ingredient,
     required this.recordId,
+    this.items = const [],
   });
 
+  /// 처방 전체 기록일 때 함께 먹은 약들
+  final List<(String, String)> items;
   final String childId;
   final String drug;
   final String ingredient;
@@ -75,6 +83,7 @@ class _ReactionSheetState extends State<_ReactionSheet> {
       date: _date,
       symptoms: [for (final s in kReactionSymptoms) if (_picked.contains(s)) s],
       memo: _memo.text.trim(),
+      items: widget.items,
     );
     await AppStorage.saveReaction(n);
     if (mounted) Navigator.pop(context, n);
@@ -90,10 +99,14 @@ class _ReactionSheetState extends State<_ReactionSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const KText('복용 후 반응 기록',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
+            KText(widget.items.isEmpty ? '복용 후 반응 기록' : '이 처방 복용 후 반응 기록',
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
             const SizedBox(height: 4),
-            KText(widget.drug,
+            KText(
+                widget.items.isEmpty
+                    ? widget.drug
+                    : widget.items.map((e) => e.$1).join(', '),
                 style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.sub)),
             const SizedBox(height: 16),
             const KText('어떤 반응이 있었나요?',
@@ -135,9 +148,11 @@ class _ReactionSheetState extends State<_ReactionSheet> {
               TextButton(onPressed: _pickDate, child: const KText('바꾸기')),
             ]),
             const SizedBox(height: 4),
-            const KText(
-              '약 때문인지는 앱이 판단하지 않아요.\n다음에 같은 약이나 같은 성분의 약을 처방받으면 이 기록을 다시 보여드릴게요.',
-              style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
+            KText(
+              widget.items.isEmpty
+                  ? '약 때문인지는 앱이 판단하지 않아요.\n다음에 같은 약이나 같은 성분의 약을 처방받으면 이 기록을 다시 보여드릴게요.'
+                  : '여러 약을 함께 먹어 어떤 약 때문인지 모를 때 쓰는 기록이에요.\n다음에 이 중 어떤 약이라도 다시 처방되면 "함께 먹은 약"으로 알려드릴게요.',
+              style: const TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -183,9 +198,7 @@ class ReactionNotesView extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: KText(
-                      m == ReactionMatch.sameDrug
-                          ? '${formatReactionDate(n.date)} 복용 후 · ${n.summary}'
-                          : '${formatReactionDate(n.date)} 같은 성분의 ${n.drug} 복용 후 · ${n.summary}',
+                      reactionLine(n, m),
                       style: const TextStyle(color: kNoteFg, height: 1.45),
                     ),
                   ),
@@ -198,6 +211,19 @@ class ReactionNotesView extends StatelessWidget {
                     onPressed: () => onDelete!(n),
                   ),
               ],
+            ),
+          if (items.any((e) => e.$1.isGroup))
+            const Padding(
+              padding: EdgeInsets.only(top: 6, right: 8),
+              child: KText('함께 먹은 약 기록은 어떤 약 때문인지 알 수 없어요.',
+                  style: TextStyle(color: kNoteFg, fontSize: 12)),
+            ),
+          if (items.length >= 2)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, right: 8),
+              child: KText('이 약이 들어간 복용 후 반응 기록이 ${items.length}번 있어요.',
+                  style: const TextStyle(
+                      color: kNoteFg, fontSize: 12, fontWeight: FontWeight.w700)),
             ),
           const Padding(
             padding: EdgeInsets.only(top: 6, right: 8),

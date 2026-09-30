@@ -18,7 +18,15 @@ class ResultScreen extends StatefulWidget {
       required this.names,
       this.onReplace,
       this.onSnapshot,
-      this.recordId = ''});
+      this.recordId = '',
+      this.reuse,
+      this.onChecks});
+
+  /// 바뀐 것이 없을 때 지난 확인 결과를 그대로 보여준다 (다시 조회하지 않음)
+  final List<DrugCheck>? reuse;
+
+  /// 확인이 끝난 결과 (다음에 바뀐 게 없으면 재사용)
+  final void Function(List<DrugCheck> checks)? onChecks;
 
   final ChildProfile child;
   final List<String> names;
@@ -38,7 +46,7 @@ class ResultScreen extends StatefulWidget {
 
 class _ResultScreenState extends State<ResultScreen> {
   late final List<DrugCheck> _checks =
-      widget.names.map((n) => DrugCheck(n)).toList();
+      widget.reuse ?? widget.names.map((n) => DrugCheck(n)).toList();
   late final int _age = widget.child.ageInMonths();
 
   /// 이 복용자가 적어둔 복용 후 반응 기록
@@ -48,7 +56,7 @@ class _ResultScreenState extends State<ResultScreen> {
   void initState() {
     super.initState();
     _loadNotes();
-    _run();
+    if (widget.reuse == null) _run();
   }
 
   Future<void> _loadNotes() async {
@@ -137,6 +145,9 @@ class _ResultScreenState extends State<ResultScreen> {
     //    e약은요(효능)와 DUR 품목정보(구분·성분·분류)를 같은 제품끼리 합친다.
     final picked = c.best;
     if (picked == null) return;
+    // 임부금기·병용금기는 약 이름만 있으면 되므로 설명을 모으는 동안 미리 조회
+    final pregF = widget.child.pregnant ? api.pregnancyTaboo(picked) : null;
+    final mixF = api.mixTaboo(picked);
     var best = picked;
     if (best.etcOtc.isEmpty || best.ingredient.isEmpty || best.className.isEmpty) {
       for (final h in await api.searchProducts(best.searchName)) {
@@ -195,9 +206,9 @@ class _ResultScreenState extends State<ResultScreen> {
 
     // 4) 임신·수유 중인 성인이면 임부금기·수유 주의, 그리고 병용금기 원자료
     final person = widget.child;
-    if (person.pregnant) c.pregRows = await api.pregnancyTaboo(best);
+    if (pregF != null) c.pregRows = await pregF;
     if (person.nursing) c.nursingNote = _nursingSentence(info);
-    c.mixRows = await api.mixTaboo(best);
+    c.mixRows = await mixF;
 
     c.infoLoading = false;
     if (c.status != CheckStatus.error) c.applyLabel(_age);
@@ -318,7 +329,13 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  void _report() => widget.onSnapshot?.call(_snapshot());
+  void _report() {
+    widget.onSnapshot?.call(_snapshot());
+    final done = _checks.every((c) => c.status != CheckStatus.loading && !c.infoLoading);
+    if (done && !_checks.any((c) => c.status == CheckStatus.error)) {
+      widget.onChecks?.call(_checks);
+    }
+  }
 
   DurApi? _api;
   List<MixPair> _mixTable = const [];

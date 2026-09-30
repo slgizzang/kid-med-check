@@ -30,6 +30,27 @@ class _RecordScreenState extends State<RecordScreen> {
 
   Future<void> _save() => AppStorage.saveRecord(_r);
 
+  /// 마지막으로 확인한 결과 (앱이 켜져 있는 동안). 약 목록·복용자 정보가 같으면 다시 조회하지 않는다.
+  static final Map<String, (String, List<DrugCheck>)> _resultCache = {};
+
+  String get _signature {
+    final c = widget.child;
+    return [
+      ..._r.drugs,
+      '#${c.birthDate.toIso8601String()}',
+      '${c.ageInMonths()}',
+      '${c.pregnant}',
+      '${c.nursing}',
+    ].join('|');
+  }
+
+  /// 지난 결과가 지금 목록·정보와 같은지
+  bool get _fresh =>
+      _r.last != null &&
+      _r.last!.matches(_r.drugs) &&
+      _r.last!.pregnant == widget.child.pregnant &&
+      _r.last!.nursing == widget.child.nursing;
+
   List<ReactionNote> _notes = const [];
 
   @override
@@ -49,6 +70,20 @@ class _RecordScreenState extends State<RecordScreen> {
       if (d.query == name && !d.needsPick) return (d.title, d.ingredient);
     }
     return (name, '');
+  }
+
+  /// 여러 약을 함께 먹어 어떤 약 때문인지 모를 때: 처방 전체에 기록
+  Future<void> _addGroupReaction() async {
+    final items = [for (final d in _r.drugs) _resolved(d)];
+    final n = await showReactionSheet(context,
+        childId: widget.child.id,
+        drug: _r.title,
+        recordId: _r.id,
+        items: items);
+    if (n != null) {
+      await _loadNotes();
+      _snack('반응을 기록했어요. 이 중 어떤 약이라도 다시 처방되면 알려드릴게요.');
+    }
   }
 
   Future<void> _addReaction(String name) async {
@@ -224,6 +259,8 @@ class _RecordScreenState extends State<RecordScreen> {
           child: widget.child,
           names: List.of(_r.drugs),
           recordId: _r.id,
+          reuse: _resultCache[_r.id]?.$1 == _signature ? _resultCache[_r.id]!.$2 : null,
+          onChecks: (checks) => _resultCache[_r.id] = (_signature, checks),
           onSnapshot: (snap) {
             _r.last = snap;
             _save();
@@ -250,8 +287,7 @@ class _RecordScreenState extends State<RecordScreen> {
     final hits = reactionsFor(_notes, drug, ingr);
     if (hits.isEmpty) return null;
     final (n, m) = hits.first;
-    final what = m == ReactionMatch.sameDrug ? '' : '같은 성분 ';
-    return KText('${what}반응 기록 · ${formatReactionDate(n.date)} ${n.summary}',
+    return KText('반응 기록 · ${reactionLine(n, m)}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 12, color: kNoteFg, fontWeight: FontWeight.w600));
@@ -313,10 +349,7 @@ class _RecordScreenState extends State<RecordScreen> {
               ]),
               if (_r.last != null) ...[
                 const SizedBox(height: 22),
-                SectionTitle('지난 확인 결과',
-                    trailing: TextButton(
-                        onPressed: _r.drugs.isEmpty ? null : _check,
-                        child: const KText('다시 확인', maxLines: 1))),
+                const SectionTitle('지난 확인 결과'),
                 if (!_r.last!.matches(_r.drugs) ||
                     _r.last!.pregnant != widget.child.pregnant ||
                     _r.last!.nursing != widget.child.nursing)
@@ -395,8 +428,17 @@ class _RecordScreenState extends State<RecordScreen> {
               if (_r.drugs.isNotEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 8, left: 4),
-                  child: KText('약을 누르면 복용 후 반응을 기록할 수 있어요.',
+                  child: KText('약을 누르면 그 약의 복용 후 반응을 기록할 수 있어요.',
                       style: TextStyle(fontSize: 12, color: AppColors.sub)),
+                ),
+              if (_r.drugs.length >= 2)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _addGroupReaction,
+                    icon: const Icon(Icons.edit_note, size: 20),
+                    label: const KText('어떤 약 때문인지 모르겠다면: 처방 전체에 반응 기록'),
+                  ),
                 ),
             ],
           ),
@@ -423,7 +465,9 @@ class _RecordScreenState extends State<RecordScreen> {
           child: FilledButton.icon(
             onPressed: _r.drugs.isEmpty ? null : _check,
             icon: const Icon(Icons.verified_user_outlined),
-            label: KText('${_r.drugs.length}개 약 금기 확인하기'),
+            label: KText(_fresh
+                ? '확인 결과 자세히 보기'
+                : '${_r.drugs.length}개 약 금기 확인하기'),
           ),
         ),
       ),

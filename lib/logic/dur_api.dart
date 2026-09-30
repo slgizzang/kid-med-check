@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'age_rule.dart';
 import 'drug_name_extractor.dart';
@@ -11,8 +12,10 @@ import 'similarity.dart';
 class DurApi {
   DurApi(String serviceKey, {http.Client? client})
       : _key = _normalizeKey(serviceKey),
-        _client = client ?? http.Client();
+        _client = client ?? http.Client(),
+        _useCache = client == null;
 
+  final bool _useCache;
   final String _key;
   final http.Client _client;
 
@@ -60,30 +63,32 @@ class DurApi {
 
   /// 이름 일부로 제품 목록을 찾는다 (DUR 품목정보 + e약은요). 실패해도 빈 목록.
   Future<List<ProductHit>> searchProducts(String q) async {
+    // 세 출처를 동시에 조회 (순서대로 기다리면 3배 느림)
+    Future<List<Map<String, dynamic>>> safe(Future<List<Map<String, dynamic>>> f) =>
+        f.catchError((_) => <Map<String, dynamic>>[]);
+    final got = await Future.wait([
+      safe(_fetchItems(_durItemPath, {'itemName': q}, 40)),
+      safe(_fetchItems(_easyPath, {'itemName': q}, 20)),
+      // 의약품 제품 허가정보: DUR·e약은요에 없는 약(예: 싱귤레어세립, 레스날린패취)도 찾는다
+      safe(_fetchItems(_permitPath, {'item_name': q}, 40)),
+    ]);
     final byName = <String, ProductHit>{};
-    try {
-      for (final m in await _fetchItems(_durItemPath, {'itemName': q}, 40)) {
-        final h = ProductHit.fromDur(m);
-        if (h.fullName.isNotEmpty) byName.putIfAbsent(h.displayName, () => h);
-      }
-    } catch (_) {}
-    try {
-      for (final m in await _fetchItems(_easyPath, {'itemName': q}, 20)) {
-        final h = ProductHit.fromEasy(m);
-        if (h.fullName.isEmpty) continue;
-        final old = byName[h.displayName];
-        byName[h.displayName] = old == null ? h : old.withEasy(m);
-      }
-    } catch (_) {}
-    // 의약품 제품 허가정보: DUR·e약은요에 없는 약(예: 싱귤레어세립, 레스날린패취)도 찾는다
-    try {
-      for (final m in await _fetchItems(_permitPath, {'item_name': q}, 40)) {
-        final h = ProductHit.fromPermit(m);
-        if (h == null) continue;
-        final old = byName[h.displayName];
-        byName[h.displayName] = old == null ? h : old.fillFrom(h);
-      }
-    } catch (_) {}
+    for (final m in got[0]) {
+      final h = ProductHit.fromDur(m);
+      if (h.fullName.isNotEmpty) byName.putIfAbsent(h.displayName, () => h);
+    }
+    for (final m in got[1]) {
+      final h = ProductHit.fromEasy(m);
+      if (h.fullName.isEmpty) continue;
+      final old = byName[h.displayName];
+      byName[h.displayName] = old == null ? h : old.withEasy(m);
+    }
+    for (final m in got[2]) {
+      final h = ProductHit.fromPermit(m);
+      if (h == null) continue;
+      final old = byName[h.displayName];
+      byName[h.displayName] = old == null ? h : old.fillFrom(h);
+    }
     return byName.values.toList();
   }
 
@@ -97,12 +102,17 @@ class DurApi {
       }
     }
 
-    addAll(await searchProducts(q));
+    // 제품 검색과 연령금기 검색을 동시에
+    final both = await Future.wait<Object>([
+      searchProducts(q),
+      searchAgeTaboo(q).catchError((_) => <TabooRow>[]),
+    ]);
+    addAll(both[0] as List<ProductHit>);
     // 연령금기 목록에 있는 제품도 후보로 (품목정보 검색에 안 나오는 경우 대비)
     final tabooNames = <String>{};
     final tabooRows = <String, List<TabooRow>>{};
     try {
-      for (final r in await searchAgeTaboo(q)) {
+      for (final r in both[1] as List<TabooRow>) {
         final h = ProductHit(
             fullName: r.itemName, company: r.company, ingredient: r.ingredient);
         tabooNames.add(h.displayName);
@@ -123,8 +133,9 @@ class DurApi {
         if (q.length >= 4) q.substring(1),
         if (q.length >= 5) q.substring(2),
       };
-      for (final v in extra) {
-        addAll(await searchProducts(v));
+      final more = await Future.wait(extra.map(searchProducts));
+      for (final list in more) {
+        addAll(list);
       }
     }
 
@@ -311,7 +322,55 @@ class DurApi {
     }
   }
 
+  /// 조회 결과 캐시 (같은 약을 다시 확인할 때 서버를 다시 부르지 않음).
+  /// 식약처 자료는 자주 바뀌지 않아 7일간 휴대폰에 보관한다. 테스트(가짜 client)에서는 끔.
+  static final Map<String, List<Map<String, dynamic>>> _memCache = {};
+  static const _cacheTtl = Duration(days: 7);
+  static const _cachePrefix = 'api1:';
+
   Future<List<Map<String, dynamic>>> _fetchItems(
+      String path, Map<String, String> filters, int rows) async {
+    final cacheKey = '$path?${(filters.entries.toList()..sort((a, b) => a.key.compareTo(b.key))).map((e) => '${e.key}=${e.value}').join('&')}&n=$rows';
+    if (_useCache) {
+      final hit = _memCache[cacheKey];
+      if (hit != null) return hit;
+      final saved = await _readDisk(cacheKey);
+      if (saved != null) return _memCache[cacheKey] = saved;
+    }
+    final result = await _fetchRemote(path, filters, rows);
+    if (_useCache) {
+      _memCache[cacheKey] = result;
+      _writeDisk(cacheKey, result);
+    }
+    return result;
+  }
+
+  static Future<List<Map<String, dynamic>>?> _readDisk(String key) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString('$_cachePrefix$key');
+      if (raw == null) return null;
+      final j = jsonDecode(raw) as Map;
+      final t = DateTime.fromMillisecondsSinceEpoch(j['t'] as int);
+      if (DateTime.now().difference(t) > _cacheTtl) {
+        await p.remove('$_cachePrefix$key');
+        return null;
+      }
+      return (j['i'] as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> _writeDisk(String key, List<Map<String, dynamic>> items) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString('$_cachePrefix$key',
+          jsonEncode({'t': DateTime.now().millisecondsSinceEpoch, 'i': items}));
+    } catch (_) {}
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchRemote(
       String path, Map<String, String> filters, int rows) async {
     final uri = Uri.https(_host, path, {
       'serviceKey': _key,

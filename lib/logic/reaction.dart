@@ -19,7 +19,13 @@ class ReactionNote {
     this.ingredient = '',
     this.symptoms = const [],
     this.memo = '',
+    this.items = const [],
   });
+
+  /// 처방 전체에 적은 기록이면 함께 먹은 약들 (이름, 성분). 약 하나에 적은 기록이면 비어 있음.
+  final List<(String, String)> items;
+
+  bool get isGroup => items.isNotEmpty;
 
   final String id;
   final String childId;
@@ -52,6 +58,7 @@ class ReactionNote {
         'at': date.toIso8601String(),
         'sym': symptoms,
         'memo': memo,
+        if (items.isNotEmpty) 'items': [for (final (n, i) in items) [n, i]],
       };
 
   factory ReactionNote.fromJson(Map<String, dynamic> j) => ReactionNote(
@@ -63,6 +70,10 @@ class ReactionNote {
         date: DateTime.tryParse('${j['at']}') ?? DateTime.now(),
         symptoms: (j['sym'] as List? ?? const []).map((e) => '$e').toList(),
         memo: '${j['memo'] ?? ''}',
+        items: [
+          for (final e in (j['items'] as List? ?? const []))
+            if (e is List && e.isNotEmpty) ('${e[0]}', e.length > 1 ? '${e[1]}' : '')
+        ],
       );
 }
 
@@ -80,13 +91,37 @@ Set<String> _ingrSet(String text) => text
     .where((x) => x.length >= 2)
     .toSet();
 
-/// 이 약(이름·성분)이 기록과 같은 약인지, 같은 성분이 든 약인지
-ReactionMatch? matchReaction(ReactionNote n, String drug, String ingredient) {
-  final a = _normName(n.drug), b = _normName(drug);
+ReactionMatch? _match1(String noteDrug, String noteIngr, String drug, String ingredient) {
+  final a = _normName(noteDrug), b = _normName(drug);
   if (a.isNotEmpty && a == b) return ReactionMatch.sameDrug;
-  final shared = _ingrSet(n.ingredient).intersection(_ingrSet(ingredient));
+  final shared = _ingrSet(noteIngr).intersection(_ingrSet(ingredient));
   if (shared.isNotEmpty) return ReactionMatch.sameIngredient;
   return null;
+}
+
+/// 이 약(이름·성분)이 기록과 같은 약인지, 같은 성분이 든 약인지.
+/// 처방 전체 기록이면 함께 먹은 약 중 하나라도 해당하는지 본다.
+ReactionMatch? matchReaction(ReactionNote n, String drug, String ingredient) {
+  if (!n.isGroup) return _match1(n.drug, n.ingredient, drug, ingredient);
+  ReactionMatch? best;
+  for (final (name, ingr) in n.items) {
+    final m = _match1(name, ingr, drug, ingredient);
+    if (m == ReactionMatch.sameDrug) return m;
+    best ??= m;
+  }
+  return best;
+}
+
+/// 기록 한 줄 문구. 처방 전체 기록이면 함께 먹은 약을 밝히고 원인을 단정하지 않는다.
+String reactionLine(ReactionNote n, ReactionMatch m) {
+  final d = formatReactionDate(n.date);
+  if (n.isGroup) {
+    final names = n.items.map((e) => e.$1).join(', ');
+    return '$d 함께 먹은 약($names) 복용 후 · ${n.summary}';
+  }
+  return m == ReactionMatch.sameDrug
+      ? '$d 복용 후 · ${n.summary}'
+      : '$d 같은 성분의 ${n.drug} 복용 후 · ${n.summary}';
 }
 
 /// 이 약과 관련된 기록 (최근 것부터)
