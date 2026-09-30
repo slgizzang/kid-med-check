@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'age_rule.dart';
+import 'drug_name_extractor.dart';
+import 'similarity.dart';
 
 /// 식품의약품안전처 DUR 품목정보 - 특정연령대금기 정보조회
 /// https://www.data.go.kr/data/15059486/openapi.do
@@ -54,6 +56,62 @@ class DurApi {
       if (dur.isNotEmpty) return DrugInfo.fromDur(dur.first);
     } catch (_) {}
     return null;
+  }
+
+  /// 이름 일부로 제품 목록을 찾는다 (DUR 품목정보 + e약은요). 실패해도 빈 목록.
+  Future<List<ProductHit>> searchProducts(String q) async {
+    final byName = <String, ProductHit>{};
+    try {
+      for (final m in await _fetchItems(_durItemPath, {'itemName': q}, 40)) {
+        final h = ProductHit.fromDur(m);
+        if (h.fullName.isNotEmpty) byName.putIfAbsent(h.displayName, () => h);
+      }
+    } catch (_) {}
+    try {
+      for (final m in await _fetchItems(_easyPath, {'itemName': q}, 20)) {
+        final h = ProductHit.fromEasy(m);
+        if (h.fullName.isEmpty) continue;
+        final old = byName[h.displayName];
+        byName[h.displayName] = old == null ? h : old.withEasy(m);
+      }
+    } catch (_) {}
+    return byName.values.toList();
+  }
+
+  /// 입력한 이름과 가장 비슷한 제품 1개와, 비슷한 후보들을 고른다. 오타도 어느 정도 허용.
+  Future<Resolution> resolve(String query) async {
+    final q = DrugNameExtractor.toSearchName(query);
+    final hits = <String, ProductHit>{};
+    void addAll(List<ProductHit> list) {
+      for (final h in list) {
+        hits.putIfAbsent(h.displayName, () => h);
+      }
+    }
+
+    addAll(await searchProducts(q));
+    final hasPrefixMatch = hits.values.any((h) => h.searchName.startsWith(q));
+    if (!hasPrefixMatch) {
+      // 오타·제형 차이 대비: 제형 뗀 이름, 앞 두 글자로도 찾아본다.
+      final extra = <String>[
+        ...DrugNameExtractor.searchVariants(q).skip(1),
+        if (q.length >= 3) q.substring(0, 2),
+      ];
+      for (final v in extra) {
+        addAll(await searchProducts(v));
+      }
+    }
+
+    final ranked = hits.values.toList()
+      ..sort((a, b) => nameScore(q, a.searchName).compareTo(nameScore(q, b.searchName)));
+    ProductHit? best;
+    if (ranked.isNotEmpty && nameScore(q, ranked.first.searchName) <= 6) {
+      best = ranked.first;
+    }
+    final similar = ranked
+        .where((h) => h != best && nameScore(q, h.searchName) <= 12)
+        .take(5)
+        .toList();
+    return Resolution(best, similar);
   }
 
   /// DUR 성분정보: 성분 코드별 특정연령대금기 (연령 기준 포함)
@@ -343,4 +401,61 @@ class DrugInfo {
 
   bool get isEmpty =>
       efficacy.isEmpty && className.isEmpty && ingredient.isEmpty;
+}
+
+/// 검색된 제품 하나
+class ProductHit {
+  ProductHit({
+    required this.fullName,
+    this.company = '',
+    this.ingredient = '',
+    this.etcOtc = '',
+    this.easy,
+  });
+
+  final String fullName;
+  final String company;
+  final String ingredient;
+  final String etcOtc;
+
+  /// e약은요 원본 (있으면 설명을 바로 쓸 수 있음)
+  final Map<String, dynamic>? easy;
+
+  /// 괄호 속 성분·수출명 등을 뗀 제품명. 예: "포타겔현탁액(디옥타...)" → "포타겔현탁액"
+  String get displayName {
+    final d = fullName.replaceFirst(RegExp(r'\s*[(\[（].*$'), '').trim();
+    return d.isEmpty ? fullName : d;
+  }
+
+  /// 용량까지 뗀 검색용 이름
+  String get searchName => DrugNameExtractor.toSearchName(displayName);
+
+  static String _s(dynamic v) => (v == null || '$v' == 'null') ? '' : '$v'.trim();
+
+  factory ProductHit.fromDur(Map<String, dynamic> m) => ProductHit(
+        fullName: _s(m['ITEM_NAME']),
+        company: _s(m['ENTP_NAME']),
+        ingredient: DrugInfo._ingredients(_s(m['MATERIAL_NAME'] ?? m['MAIN_INGR'])),
+        etcOtc: _s(m['ETC_OTC_CODE'] ?? m['ETC_OTC_NAME']),
+      );
+
+  factory ProductHit.fromEasy(Map<String, dynamic> m) => ProductHit(
+        fullName: _s(m['itemName']),
+        company: _s(m['entpName']),
+        easy: m,
+      );
+
+  ProductHit withEasy(Map<String, dynamic> m) => ProductHit(
+        fullName: fullName,
+        company: company.isNotEmpty ? company : _s(m['entpName']),
+        ingredient: ingredient,
+        etcOtc: etcOtc,
+        easy: m,
+      );
+}
+
+class Resolution {
+  Resolution(this.best, this.similar);
+  final ProductHit? best;
+  final List<ProductHit> similar;
 }

@@ -178,18 +178,32 @@ class _RecordScreenState extends State<RecordScreen> {
     if (picked != null && picked.isNotEmpty) _addNames(picked);
   }
 
-  void _check() {
+  Future<void> _check() async {
     if (_r.drugs.isEmpty) {
       _snack('먼저 약을 추가해주세요.');
       return;
     }
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            ResultScreen(child: widget.child, names: List.of(_r.drugs)),
+        builder: (_) => ResultScreen(
+          child: widget.child,
+          names: List.of(_r.drugs),
+          onReplace: (oldName, newName) {
+            final i = _r.drugs.indexOf(oldName);
+            if (i >= 0) {
+              if (_r.drugs.contains(newName)) {
+                _r.drugs.removeAt(i);
+              } else {
+                _r.drugs[i] = newName;
+              }
+              _save();
+            }
+          },
+        ),
       ),
     );
+    if (mounted) setState(() {});
   }
 
   @override

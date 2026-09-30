@@ -7,6 +7,7 @@ import 'package:kid_med_check/logic/age_rule.dart';
 import 'package:kid_med_check/logic/drug_name_extractor.dart';
 import 'package:kid_med_check/logic/dur_api.dart';
 import 'package:kid_med_check/logic/label_age.dart';
+import 'package:kid_med_check/logic/similarity.dart';
 import 'package:kid_med_check/logic/models.dart';
 
 void main() {
@@ -243,6 +244,51 @@ void main() {
     row.applyAgeBase('12세 미만');
     expect(row.rule.appliesTo(21), isTrue);
     expect(row.ageBase, '12세 미만');
+  });
+
+  group('비슷한 약 찾기', () {
+    List<String> rank(String q, List<String> names) =>
+        ([...names]..sort((a, b) => nameScore(q, a).compareTo(nameScore(q, b))));
+
+    test('오타("포타갤")도 포타겔현탁액이 1순위, 중간에만 겹치는 로포타는 뒤로', () {
+      expect(rank('포타갤', ['로포타현탁액', '포타디정', '포타겔현탁액']).first, '포타겔현탁액');
+      expect(rank('포타겔', ['로포타현탁액', '포타겔현탁액']).first, '포타겔현탁액');
+    });
+
+    test('앞부분만 입력해도 맞는 제품', () {
+      expect(rank('코대원포르테', ['코대원정', '코대원에스시럽', '코대원포르테시럽']).first, '코대원포르테시럽');
+      expect(rank('타이레놀', ['어린이타이레놀산', '타세놀정', '타이레놀정']).first, '타이레놀정');
+    });
+
+    test('제품명 정리', () {
+      final h = ProductHit(fullName: '포타겔현탁액(디옥타헤드랄스멕타이트)');
+      expect(h.displayName, '포타겔현탁액');
+      expect(ProductHit(fullName: '타이레놀정500밀리그램(아세트아미노펜)').searchName, '타이레놀정');
+    });
+
+    test('API로 가장 비슷한 제품과 후보 고르기', () async {
+      final client = MockClient((req) async {
+        final q = req.url.queryParameters['itemName'];
+        final isDur = req.url.path.contains('getDurPrdlstInfoList03');
+        List<Map<String, String>> items = [];
+        if (isDur && q == '포타') {
+          items = [
+            {'ITEM_NAME': '로포타현탁액(폴리스티렌설폰산칼슘)', 'ENTP_NAME': '대원제약'},
+            {'ITEM_NAME': '포타겔현탁액(디옥타헤드랄스멕타이트)', 'ENTP_NAME': '대웅제약', 'MATERIAL_NAME': '디옥타헤드랄스멕타이트,,3,그램,'},
+          ];
+        }
+        return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'header': {'resultCode': '00'},
+              'body': {'items': items}
+            })),
+            200);
+      });
+      final res = await DurApi('k', client: client).resolve('포타갤');
+      expect(res.best!.displayName, '포타겔현탁액');
+      expect(res.best!.ingredient, '디옥타헤드랄스멕타이트');
+      expect(res.similar.map((h) => h.displayName), contains('로포타현탁액'));
+    });
   });
 
   test('처방 기록 저장 형식', () {

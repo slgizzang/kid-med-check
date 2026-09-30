@@ -6,10 +6,14 @@ import '../logic/models.dart';
 import '../logic/storage.dart';
 
 class ResultScreen extends StatefulWidget {
-  const ResultScreen({super.key, required this.child, required this.names});
+  const ResultScreen(
+      {super.key, required this.child, required this.names, this.onReplace});
 
   final ChildProfile child;
   final List<String> names;
+
+  /// 비슷한 약을 골랐을 때 (입력한 이름, 고른 이름) — 처방 기록에 반영
+  final void Function(String oldName, String newName)? onReplace;
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -30,17 +34,39 @@ class _ResultScreenState extends State<ResultScreen> {
     try {
       c.rows = const [];
       c.matchedQuery = null;
-      for (final q in DrugNameExtractor.searchVariants(c.query)) {
-        var rows = await api.searchAgeTaboo(q);
-        // 줄인 이름으로 찾을 때는 그 이름으로 "시작하는" 제품만 인정한다.
-        // (예: "포타"로 찾으면 "로포타현탁액" 같은 엉뚱한 약이 걸리는 것 방지)
-        if (q != c.query) {
-          rows = rows.where((r) => r.itemName.startsWith(q)).toList();
-        }
-        if (rows.isNotEmpty) {
-          c.rows = rows;
-          c.matchedQuery = q;
-          break;
+      c.best = null;
+      c.similar = const [];
+      c.info = null;
+      c.infoLoading = true;
+      c.labelFinding = null;
+
+      // 1) 입력한 이름과 가장 비슷한 실제 제품을 찾는다 (오타 허용)
+      final res = await api.resolve(c.query);
+      c.best = res.best;
+      c.similar = res.similar;
+      if (mounted) setState(() {});
+
+      // 2) 그 제품의 연령금기 정보
+      final best = c.best;
+      if (best != null) {
+        final rows = await api.searchAgeTaboo(best.searchName);
+        c.rows = rows
+            .where((r) =>
+                DrugNameExtractor.toSearchName(ProductHit(fullName: r.itemName).displayName) ==
+                best.searchName)
+            .toList();
+        c.matchedQuery = best.searchName;
+      } else {
+        for (final q in DrugNameExtractor.searchVariants(c.query)) {
+          var rows = await api.searchAgeTaboo(q);
+          if (q != c.query) {
+            rows = rows.where((r) => r.itemName.startsWith(q)).toList();
+          }
+          if (rows.isNotEmpty) {
+            c.rows = rows;
+            c.matchedQuery = q;
+            break;
+          }
         }
       }
       // 금기 내용에 나이가 없으면 DUR 성분정보에서 성분별 연령 기준을 가져온다.
@@ -59,25 +85,53 @@ class _ResultScreenState extends State<ResultScreen> {
     }
     if (mounted) setState(() {});
 
-    // 약 설명은 금기 판정 뒤에 천천히 채운다.
-    c.infoLoading = true;
-    c.info = null;
-    c.labelFinding = null;
-    for (final q in DrugNameExtractor.searchVariants(c.query)) {
-      final info = await api.searchDrugInfo(q);
-      if (info != null && q != c.query && !info.itemName.startsWith(q)) continue;
-      if (info != null && !info.isEmpty) {
-        c.info = info;
-        break;
+    // 3) 약 설명: 찾은 제품의 e약은요 → 없으면 제품명으로 다시 검색 → 없으면 품목정보 요약
+    final best = c.best;
+    DrugInfo? info;
+    if (best != null) {
+      if (best.easy != null) {
+        info = DrugInfo.fromEasy(best.easy!);
+      } else {
+        final found = await api.searchDrugInfo(best.displayName);
+        if (found != null && found.itemName.startsWith(best.searchName)) info = found;
+      }
+      info ??= DrugInfo(
+        itemName: best.fullName,
+        etcOtc: best.etcOtc,
+        ingredient: best.ingredient,
+        source: 'DUR 품목정보',
+      );
+    } else {
+      for (final q in DrugNameExtractor.searchVariants(c.query)) {
+        final found = await api.searchDrugInfo(q);
+        if (found != null && q != c.query && !found.itemName.startsWith(q)) continue;
+        if (found != null && !found.isEmpty) {
+          info = found;
+          break;
+        }
       }
     }
+    c.info = info;
     c.infoLoading = false;
     if (c.status != CheckStatus.error) c.applyLabel(_age);
     if (mounted) setState(() {});
   }
 
+  DurApi? _api;
+
+  /// "혹시 이 약인가요?"에서 고르면 그 약으로 카드를 다시 만들고 기록에도 반영한다.
+  Future<void> _pick(DrugCheck old, String name) async {
+    final i = _checks.indexOf(old);
+    if (i < 0) return;
+    final n = DrugCheck(name);
+    setState(() => _checks[i] = n);
+    widget.onReplace?.call(old.query, name);
+    await _lookup(_api ?? DurApi(await AppStorage.apiKey()), n);
+  }
+
   Future<void> _run() async {
     final api = DurApi(await AppStorage.apiKey());
+    _api = api;
     await Future.wait(_checks.map((c) => _lookup(api, c)));
   }
 
@@ -121,7 +175,11 @@ class _ResultScreenState extends State<ResultScreen> {
               age: _age),
           const SizedBox(height: 12),
           for (final c in sorted)
-            _CheckCard(check: c, age: _age, onRetry: () => _retry(c)),
+            _CheckCard(
+                check: c,
+                age: _age,
+                onRetry: () => _retry(c),
+                onPick: (name) => _pick(c, name)),
           const SizedBox(height: 16),
           Text(
             '출처: 식품의약품안전처 의약품안전사용서비스(DUR) 품목정보 - 특정연령대금기. '
@@ -209,7 +267,7 @@ class _Summary extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 8, top: 4),
                   child: Text(
-                    '"${c.query} 설명서에 \'${c.labelFinding?.evidence ?? ''}\'라고 되어 있는데, '
+                    '"${c.title} 설명서에 \'${c.labelFinding?.evidence ?? ''}\'라고 되어 있는데, '
                     '${child.ageLabel} 아이가 먹어도 되나요?"',
                     style: const TextStyle(fontStyle: FontStyle.italic),
                   ),
@@ -249,7 +307,7 @@ class _Summary extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 8, top: 4),
                 child: Text(
-                  '"${d.query}이(가) ${_ruleText(d.dangerRows(age))} 연령금기 약으로 '
+                  '"${d.title}이(가) ${_ruleText(d.dangerRows(age))} 연령금기 약으로 '
                   '나오는데, 아이(${child.ageLabel})에게 처방된 이유가 있나요?"',
                   style: const TextStyle(fontStyle: FontStyle.italic),
                 ),
@@ -272,11 +330,17 @@ String _ruleText(List<TabooRow> rows) {
 }
 
 class _CheckCard extends StatelessWidget {
-  const _CheckCard({required this.check, required this.age, required this.onRetry});
+  const _CheckCard({
+    required this.check,
+    required this.age,
+    required this.onRetry,
+    required this.onPick,
+  });
 
   final DrugCheck check;
   final int age;
   final VoidCallback onRetry;
+  final ValueChanged<String> onPick;
 
   @override
   Widget build(BuildContext context) {
@@ -327,7 +391,6 @@ class _CheckCard extends StatelessWidget {
     };
 
     final groups = _IngredientGroup.from(check.rows, age);
-    final products = <String>{for (final r in check.rows) r.itemName}.toList();
     final verdict = _verdict(check, age, groups);
 
     return Card(
@@ -342,9 +405,29 @@ class _CheckCard extends StatelessWidget {
               Icon(icon, color: fg),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(check.query,
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(check.title,
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold)),
+                    if (check.best != null &&
+                        check.best!.searchName !=
+                            DrugNameExtractor.toSearchName(check.query))
+                      Text('입력한 이름: ${check.query}',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: Colors.black54)),
+                    if (check.best != null &&
+                        (check.best!.company.isNotEmpty || check.best!.etcOtc.isNotEmpty))
+                      Text(
+                        [check.best!.company, check.best!.etcOtc]
+                            .where((x) => x.isNotEmpty)
+                            .join(' · '),
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.black54),
+                      ),
+                  ],
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -375,43 +458,31 @@ class _CheckCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
-                    '"${check.matchedQuery ?? check.query}"(으)로 성분이 다른 약 ${groups.length}종이 함께 나왔어요. '
-                    '처방받은 약의 성분 줄만 보세요.',
+                    '성분이 다른 약 ${groups.length}종이 함께 나왔어요. 처방받은 약의 성분 줄만 보세요.',
                     style: theme.textTheme.bodySmall,
                   ),
                 ),
               for (final g in groups) _IngredientView(group: g),
             ],
-            if (check.matchedQuery != null && check.matchedQuery != check.query)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '"${check.query}"(으)로는 없어서 "${check.matchedQuery}"(으)로 찾은 결과예요. '
-                  '처방받은 약과 같은 약인지 확인해주세요.',
-                  style: theme.textTheme.bodySmall,
-                ),
+            if (check.similar.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                check.best == null
+                    ? '이 이름으로 약을 찾지 못했어요. 혹시 찾으시는 약이 이것인가요?'
+                    : '혹시 찾으시는 약이 이것인가요?',
+                style: theme.textTheme.labelLarge?.copyWith(color: Colors.black54),
               ),
-            if (products.isNotEmpty)
-              Theme(
-                data: theme.copyWith(dividerColor: Colors.transparent),
-                child: ExpansionTile(
-                  tilePadding: EdgeInsets.zero,
-                  childrenPadding: const EdgeInsets.only(bottom: 8),
-                  title: Text('관련 제품 ${products.length}개 보기',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: Colors.black54)),
-                  children: [
-                    for (final n in products)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 3),
-                          child: Text('· $n', style: theme.textTheme.bodySmall),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final h in check.similar)
+                  ActionChip(
+                    backgroundColor: Colors.white,
+                    avatar: const Icon(Icons.swap_horiz, size: 16),
+                    label: Text(h.displayName),
+                    onPressed: () => onPick(h.displayName),
+                  ),
+              ]),
+            ],
           ],
         ),
       ),
@@ -590,6 +661,9 @@ class _InfoView extends StatelessWidget {
       if (info.className.isNotEmpty) info.className,
       if (info.etcOtc.isNotEmpty) info.etcOtc,
     ].join(' · ');
+    final ingredient = info.ingredient.isNotEmpty
+        ? info.ingredient
+        : (check.best?.ingredient ?? '');
     final desc = info.efficacy.isNotEmpty
         ? _firstSentences(info.efficacy, 120)
         : [
@@ -623,6 +697,10 @@ class _InfoView extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(desc.isEmpty ? info.itemName : desc,
                     style: const TextStyle(height: 1.4)),
+                if (ingredient.isNotEmpty && !desc.contains(ingredient)) ...[
+                  const SizedBox(height: 4),
+                  Text('성분: $ingredient', style: theme.textTheme.bodySmall),
+                ],
               ],
             ),
           ),

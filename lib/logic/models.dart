@@ -86,6 +86,15 @@ class DrugCheck {
   /// 실제로 결과를 찾은 검색어 (원래 이름으로 못 찾아 줄여서 찾은 경우 다름)
   String? matchedQuery;
 
+  /// 입력한 이름과 가장 비슷한 실제 제품 (못 찾으면 null)
+  ProductHit? best;
+
+  /// "혹시 찾으시는 약이 이것인가요?" 후보
+  List<ProductHit> similar = const [];
+
+  /// 카드 제목: 찾은 정확한 제품명, 없으면 입력한 이름
+  String get title => best?.displayName ?? query;
+
   /// 약 설명 (없을 수 있음)
   DrugInfo? info;
   bool infoLoading = true;
