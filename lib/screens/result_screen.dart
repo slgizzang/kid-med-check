@@ -96,6 +96,14 @@ class _ResultScreenState extends State<ResultScreen> {
         }
       }
     }
+    // 성분도 품목정보에 없으면 연령금기 자료의 성분으로 채운다 (아래 성분 줄과 항상 일치하도록)
+    var ingredient = best.ingredient;
+    if (ingredient.isEmpty) {
+      ingredient = {
+        for (final r in c.rows)
+          if (r.ingredient.isNotEmpty) r.ingredient
+      }.join(', ');
+    }
     var easy = best.easy;
     if (easy == null) {
       final found = await api.searchDrugInfo(best.displayName);
@@ -112,7 +120,7 @@ class _ResultScreenState extends State<ResultScreen> {
     final DrugInfo info = DrugInfo(
       itemName: best.fullName,
       etcOtc: best.etcOtc,
-      ingredient: best.ingredient,
+      ingredient: ingredient,
       className: className,
       efficacy: fromEasy?.efficacy ?? '',
       usage: fromEasy?.usage ?? '',
