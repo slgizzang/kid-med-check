@@ -289,6 +289,33 @@ void main() {
       expect(res.best!.ingredient, '디옥타헤드랄스멕타이트');
       expect(res.similar.map((h) => h.displayName), contains('로포타현탁액'));
     });
+
+    test('여러 약이 맞으면(코대원) 하나로 정하지 않고 고르게 한다', () async {
+      final client = MockClient((req) async {
+        final isDur = req.url.path.contains('getDurPrdlstInfoList03');
+        final q = req.url.queryParameters['itemName'] ?? '';
+        final items = isDur
+            ? ['코대원정', '코대원포르테시럽', '코대원에스시럽']
+                .where((n) => n.contains(q))
+                .map((n) => {'ITEM_NAME': n})
+                .toList()
+            : <Map<String, String>>[];
+        return http.Response.bytes(
+            utf8.encode(jsonEncode({'header': {'resultCode': '00'}, 'body': {'items': items}})),
+            200);
+      });
+      final api = DurApi('k', client: client);
+      final res = await api.resolve('코대원');
+      expect(res.best, isNull);
+      expect(res.ambiguous, isTrue);
+      expect(res.similar.length, 3);
+      final exact = await api.resolve('코대원포르테시럽');
+      expect(exact.best!.displayName, '코대원포르테시럽');
+    });
+
+    test('중간에만 겹치는 이름은 확정하지 않는다', () {
+      expect(nameScore('클로르프로', '명인클로르프로마진염산염정') > 3, isTrue);
+    });
   });
 
   test('처방 기록 저장 형식', () {

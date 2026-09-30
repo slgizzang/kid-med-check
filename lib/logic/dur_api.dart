@@ -89,6 +89,16 @@ class DurApi {
     }
 
     addAll(await searchProducts(q));
+    // 연령금기 목록에 있는 제품도 후보로 (품목정보 검색에 안 나오는 경우 대비)
+    final tabooNames = <String>{};
+    try {
+      for (final r in await searchAgeTaboo(q)) {
+        final h = ProductHit(
+            fullName: r.itemName, company: r.company, ingredient: r.ingredient);
+        tabooNames.add(h.displayName);
+        hits.putIfAbsent(h.displayName, () => h);
+      }
+    } catch (_) {}
     final hasPrefixMatch = hits.values.any((h) => h.searchName.startsWith(q));
     if (!hasPrefixMatch) {
       // 오타·제형 차이 대비: 제형 뗀 이름, 앞 두 글자로도 찾아본다.
@@ -103,15 +113,25 @@ class DurApi {
 
     final ranked = hits.values.toList()
       ..sort((a, b) => nameScore(q, a.searchName).compareTo(nameScore(q, b.searchName)));
+    // "정확히 찾았다"고 할 수 있는 건 이름 앞부분이 거의 같을 때만 (오타 1~2자 허용).
+    // 가까운 후보가 딱 하나이거나, 입력이 제품명과 정확히 같을 때만 "찾았다"고 한다.
+    // (예: "코대원" → 코대원정·코대원포르테시럽… 여러 개라 고르게 함)
+    final close = ranked.where((h) => nameScore(q, h.searchName) <= 3).toList();
+    final exact = close.where((h) => h.searchName == q).toList();
     ProductHit? best;
-    if (ranked.isNotEmpty && nameScore(q, ranked.first.searchName) <= 6) {
-      best = ranked.first;
+    var ambiguous = false;
+    if (exact.isNotEmpty) {
+      best = exact.first;
+    } else if (close.length == 1) {
+      best = close.first;
+    } else if (close.length > 1) {
+      ambiguous = true;
     }
     final similar = ranked
-        .where((h) => h != best && nameScore(q, h.searchName) <= 12)
-        .take(5)
+        .where((h) => h != best && nameScore(q, h.searchName) <= 8)
+        .take(ambiguous ? 10 : 6)
         .toList();
-    return Resolution(best, similar);
+    return Resolution(best, similar, tabooNames, ambiguous);
   }
 
   /// DUR 성분정보: 성분 코드별 특정연령대금기 (연령 기준 포함)
@@ -455,7 +475,14 @@ class ProductHit {
 }
 
 class Resolution {
-  Resolution(this.best, this.similar);
+  Resolution(this.best, this.similar,
+      [this.tabooNames = const {}, this.ambiguous = false]);
   final ProductHit? best;
+
+  /// 비슷한 약이 여러 개라 하나로 정할 수 없음
+  final bool ambiguous;
   final List<ProductHit> similar;
+
+  /// 후보 중 연령금기 목록에 있는 제품명
+  final Set<String> tabooNames;
 }

@@ -73,7 +73,7 @@ String formatAge(int months) {
   return mo == 0 ? '만 $y세' : '만 $y세 $mo개월';
 }
 
-enum CheckStatus { loading, danger, labelCaution, unknown, listedOk, notListed, error }
+enum CheckStatus { loading, danger, labelCaution, notFound, unknown, listedOk, notListed, error }
 
 class DrugCheck {
   DrugCheck(this.query);
@@ -91,6 +91,12 @@ class DrugCheck {
 
   /// "혹시 찾으시는 약이 이것인가요?" 후보
   List<ProductHit> similar = const [];
+
+  /// 후보 중 연령금기 목록에 있는 제품명 (후보 칩에 표시)
+  Set<String> tabooNames = const {};
+
+  /// 입력한 이름에 맞는 약이 여러 개라 골라야 함
+  bool ambiguous = false;
 
   /// 카드 제목: 찾은 정확한 제품명, 없으면 입력한 이름
   String get title => best?.displayName ?? query;

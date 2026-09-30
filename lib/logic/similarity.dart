@@ -46,7 +46,12 @@ double nameScore(String query, String candidate) {
   final prefix = c.length > q.length ? c.sublist(0, q.length) : c;
   final prefixDist = editDistance(q, prefix) * 2.0 + (c.length - q.length).abs() * 0.05;
   final fullDist = editDistance(q, c).toDouble();
-  final contains = candidate.contains(query) && !candidate.startsWith(query);
-  // 이름 중간에만 들어 있는 경우(예: "포타" → "로포타현탁액")는 불리하게
-  return (prefixDist < fullDist ? prefixDist : fullDist) + (contains ? 3 : 0);
+  final base = prefixDist < fullDist ? prefixDist : fullDist;
+  // 이름 중간에만 들어 있는 경우(예: "클로르프로" → "명인클로르프로마진정")는
+  // 후보로는 좋지만 "정확히 찾았다"고 하기엔 부족하므로 4점대로 둔다.
+  if (candidate.contains(query) && !candidate.startsWith(query)) {
+    final mid = 4 + (c.length - q.length).abs() * 0.02;
+    return mid < base ? mid : base;
+  }
+  return base;
 }
