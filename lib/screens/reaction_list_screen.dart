@@ -71,7 +71,7 @@ class _ReactionListScreenState extends State<ReactionListScreen> {
                   padding: EdgeInsets.all(32),
                   child: Center(
                     child: KText(
-                      '아직 적어둔 반응이 없어요. 처방 기록의 약 목록에서 "반응 기록"을 눌러 적을 수 있어요.',
+                      '아직 적어둔 반응이 없어요. 복용 기록의 약 목록에서 "반응 기록"을 눌러 적을 수 있어요.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.sub, height: 1.5),
                     ),

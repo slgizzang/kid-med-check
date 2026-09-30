@@ -114,7 +114,7 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const KText('삭제할까요?'),
-        content: const KText('이 사람의 처방 기록도 함께 지워져요.'),
+        content: const KText('이 사람의 복용 기록도 함께 지워져요.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),

@@ -79,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: KText('처방 기록 $n개를 지울까요?'),
+        title: KText('복용 기록 $n개를 지울까요?'),
         content: const KText('지운 기록은 되돌릴 수 없어요. 적어둔 복용 후 반응 기록은 남아요.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const KText('취소')),
@@ -120,12 +120,43 @@ class _HomeScreenState extends State<HomeScreen> {
       await _editChild();
       return;
     }
+    // 병원 처방약인지 약국에서 산 약인지 먼저 고른다
+    final otc = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const KText('어떤 약인가요?',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
+            const SizedBox(height: 12),
+            _KindOption(
+              otc: false,
+              title: '병원에서 처방받은 약',
+              sub: '처방전·약봉지의 약',
+              onTap: () => Navigator.pop(ctx, false),
+            ),
+            const SizedBox(height: 8),
+            _KindOption(
+              otc: true,
+              title: '약국에서 직접 산 약',
+              sub: '처방 없이 산 일반의약품',
+              onTap: () => Navigator.pop(ctx, true),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (otc == null) return;
     final now = DateTime.now();
     final r = MedRecord(
       id: now.microsecondsSinceEpoch.toString(),
       childId: child.id,
-      title: MedRecord.defaultTitle(now),
+      title: MedRecord.defaultTitle(now, otc: otc),
       createdAt: now,
+      otc: otc,
     );
     await AppStorage.saveRecord(r);
     await _openRecord(r);
@@ -152,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       fontSize: 12, color: AppColors.sub))),
                       _childRow(),
                       const SizedBox(height: 28),
-                      SectionTitle('처방 기록',
+                      SectionTitle('복용 기록',
                           trailing: _selected == null || _myRecords.isEmpty
                               ? null
                               : TextButton(
@@ -180,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
               elevation: 0,
               highlightElevation: 0,
               icon: const Icon(Icons.add),
-              label: KText('새 처방 기록',
+              label: KText('새 복용 기록',
                   style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
     );
@@ -307,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
         reactionsButton,
         _EmptyBox(
           icon: Icons.add_circle_outline,
-          text: '아직 처방 기록이 없어요.\n여기를 눌러 처방받은 약을 입력해보세요.',
+          text: '아직 복용 기록이 없어요.\n여기를 눌러 처방약이나 약국에서 산 약을 입력해보세요.',
           onTap: _newRecord,
         ),
       ];
@@ -516,26 +547,53 @@ class _RecordCard extends StatelessWidget {
                 ),
               )
             else
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: AppColors.mint,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(Icons.medication_outlined,
-                  color: AppColors.primary),
-            ),
+              Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: record.otc ? kOtcBg : AppColors.mint,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                      record.otc ? Icons.storefront_outlined : Icons.medication_outlined,
+                      color: record.otc ? kOtcFg : AppColors.primary),
+                ),
+                const SizedBox(height: 3),
+                Text(record.otc ? '일반' : '처방',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: record.otc ? kOtcFg : AppColors.primary)),
+              ]),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  KText(record.title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: AppColors.ink)),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(
+                      child: KText(record.title,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: AppColors.ink)),
+                    ),
+                    const SizedBox(width: 6),
+                    // 어디서 온 기록인지
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F4F3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(record.imported ? '심평원 불러옴' : '직접 입력',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.sub,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ]),
                   const SizedBox(height: 3),
                   KText(
                     names.isEmpty
@@ -614,4 +672,56 @@ class _OneLine extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: Text(text, maxLines: 1, softWrap: false, style: _noticeStyle),
       );
+}
+
+/// 약국 구입약(일반의약품) 색
+const kOtcFg = Color(0xFF3B6FB6);
+const kOtcBg = Color(0xFFE8F0FB);
+
+class _KindOption extends StatelessWidget {
+  const _KindOption({required this.otc, required this.title, required this.sub, required this.onTap});
+
+  final bool otc;
+  final String title;
+  final String sub;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.line),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: otc ? kOtcBg : AppColors.mint,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(otc ? Icons.storefront_outlined : Icons.medication_outlined,
+                  color: otc ? kOtcFg : AppColors.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                KText(title,
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink)),
+                KText(sub, style: const TextStyle(fontSize: 13, color: AppColors.sub)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.sub),
+          ]),
+        ),
+      ),
+    );
+  }
 }

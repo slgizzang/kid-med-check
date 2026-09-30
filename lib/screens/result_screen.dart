@@ -770,7 +770,7 @@ class _CheckCard extends StatelessWidget {
           for (final g in groups.where((g) => g.applies == true)) ...g.conds
         ]);
         return past
-            ? '처방 당시 $a 기준 연령금기에 해당했어요 (연령금기 기준: $src)'
+            ? '당시 $a 기준 연령금기에 해당했어요 (연령금기 기준: $src)'
             : '$a 기준 연령금기에 해당해요 (연령금기 기준: $src)';
       case CheckStatus.labelCaution:
         final f = c.labelFinding;
@@ -779,8 +779,8 @@ class _CheckCard extends StatelessWidget {
         const note = '다만 DUR 연령금기약은 아니에요. 사용 연령보다 어려도 의사가 판단해 처방할 수 있어요. '
             '걱정되면 약사에게 용량을 한 번 더 확인하세요.';
         return f.prohibited
-            ? '설명서에 "${f.evidence}"라고 되어 있고, ${past ? '처방 당시 나이($a)가 해당했어요' : '현재 나이($a)가 해당해요'}. $note'
-            : '설명서에는 "${f.evidence}"에게 쓰는 약으로 되어 있어요. ${past ? '처방 당시 나이($a)는 이보다 어렸어요' : '현재 나이($a)는 이보다 어려요'}. $note';
+            ? '설명서에 "${f.evidence}"라고 되어 있고, ${past ? '당시 나이($a)가 해당했어요' : '현재 나이($a)가 해당해요'}. $note'
+            : '설명서에는 "${f.evidence}"에게 쓰는 약으로 되어 있어요. ${past ? '당시 나이($a)는 이보다 어렸어요' : '현재 나이($a)는 이보다 어려요'}. $note';
       case CheckStatus.unknown:
         return '연령금기 목록에 있지만 나이 기준이 적혀 있지 않아요. 약사에게 몇 살부터 먹을 수 있는지 확인하세요.';
       case CheckStatus.listedOk:

@@ -320,7 +320,7 @@ class _RecordScreenState extends State<RecordScreen> {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
             children: [
               KText(
-                '${widget.child.name} · 처방일 기준 ${formatAge(widget.child.ageInMonths(_r.createdAt))} · ${formatDate(_r.createdAt)}',
+                '${_r.otc ? '약국 구입' : '처방'} · ${widget.child.name} · ${_r.otc ? '구입일' : '처방일'} 기준 ${formatAge(widget.child.ageInMonths(_r.createdAt))} · ${formatDate(_r.createdAt)}',
                 style: const TextStyle(color: AppColors.sub),
               ),
               const SizedBox(height: 18),
@@ -369,7 +369,7 @@ class _RecordScreenState extends State<RecordScreen> {
                     border: Border.all(color: AppColors.line),
                   ),
                   child: const KText(
-                    '처방받은 약을 입력해주세요.\n아래의 촬영·사진첩·직접 입력 중 편한 방법을 쓰면 되고, 입력한 약은 자동으로 저장돼요.',
+                    '먹는 약을 입력해주세요.\n아래의 촬영·사진첩·직접 입력 중 편한 방법을 쓰면 되고, 입력한 약은 자동으로 저장돼요.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.sub, height: 1.5),
                   ),

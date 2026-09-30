@@ -61,7 +61,14 @@ class MedRecord {
     List<String>? drugs,
     this.last,
     this.importKey,
+    this.otc = false,
   }) : drugs = drugs ?? [];
+
+  /// 약국에서 직접 산 약(일반의약품)이면 true, 병원 처방이면 false
+  bool otc;
+
+  /// 심평원 투약이력에서 불러온 기록인지
+  bool get imported => importKey != null;
 
   /// 심평원 투약이력에서 불러온 기록이면 그 키 (중복 방지)
   final String? importKey;
@@ -75,7 +82,8 @@ class MedRecord {
   /// 마지막 확인 결과 (없으면 null)
   ResultSnapshot? last;
 
-  static String defaultTitle(DateTime d) => '${d.month}월 ${d.day}일 처방';
+  static String defaultTitle(DateTime d, {bool otc = false}) =>
+      '${d.month}월 ${d.day}일 ${otc ? '약국 구입' : '처방'}';
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -85,6 +93,7 @@ class MedRecord {
         'drugs': drugs,
         if (last != null) 'last': last!.toJson(),
         if (importKey != null) 'import': importKey,
+        if (otc) 'otc': true,
       };
 
   factory MedRecord.fromJson(Map<String, dynamic> j) => MedRecord(
@@ -97,6 +106,7 @@ class MedRecord {
             ? ResultSnapshot.fromJson(Map<String, dynamic>.from(j['last'] as Map))
             : null,
         importKey: j['import'] as String?,
+        otc: j['otc'] == true,
       );
 }
 

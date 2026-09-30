@@ -115,8 +115,8 @@ class _ImportScreenState extends State<ImportScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: KText(skipped > 0
-          ? '처방 기록 $added개를 만들었어요. 이미 있던 $skipped개는 건너뛰었어요.'
-          : '처방 기록 $added개를 만들었어요.'),
+          ? '복용 기록 $added개를 만들었어요. 이미 있던 $skipped개는 건너뛰었어요.'
+          : '복용 기록 $added개를 만들었어요.'),
     ));
     Navigator.pop(context, true);
   }
@@ -194,7 +194,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 FilledButton(
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                   onPressed: _save,
-                  child: const KText('처방 기록으로 저장'),
+                  child: const KText('복용 기록으로 저장'),
                 ),
                 const SizedBox(height: 8),
                 const KText('이미 불러온 처방은 다시 저장하지 않아요. 원본 파일은 앱에 보관하지 않아요.',
