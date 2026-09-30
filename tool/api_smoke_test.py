@@ -78,7 +78,8 @@ else:
 
     # DUR 성분정보: 성분별 특정연령대금기 (연령 기준 필드 확인용) - 서비스 이름 후보를 차례로 시도
     import urllib.error
-    for svc, op in [("DURIrdntInfoService03", "getSpcifyAgrdeTabooInfoList02")]:
+    for svc, op in [("DURIrdntInfoService03", "getSpcifyAgrdeTabooInfoList02"),
+                    ("DURIrdntInfoService03", "getUsjntTabooInfoList02")]:
         url = f"https://apis.data.go.kr/1471000/{svc}/{op}"
         q = urllib.parse.urlencode({"serviceKey": key, "type": "json", "pageNo": 1, "numOfRows": 3})
         try:
@@ -93,11 +94,10 @@ else:
                     items = items.get("item", [])
                 if isinstance(items, dict):
                     items = [items]
-                out.append(f"[DUR성분 {svc}] resultCode={root.get('header', {}).get('resultCode')} totalCount={b2.get('totalCount')}")
+                out.append(f"[DUR성분 {svc}/{op}] resultCode={root.get('header', {}).get('resultCode')} totalCount={b2.get('totalCount')}")
                 for it in items[:3]:
                     it = it.get("item", it) if isinstance(it, dict) else it
                     out.append("  " + " | ".join(f"{k}={str(v)[:40]}" for k, v in it.items()))
-                break
             except json.JSONDecodeError:
                 out.append(f"[DUR성분 {svc}] JSON 아님: {body[:200]}")
         except urllib.error.HTTPError as e:

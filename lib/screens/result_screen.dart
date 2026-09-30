@@ -176,11 +176,25 @@ class _ResultScreenState extends State<ResultScreen> {
       return null;
     }
 
+    // 성분 단위 병용금기 표로도 대조 (제품 목록이 길어 잘린 경우 대비)
+    String? byTable(DrugCheck a, DrugCheck b) {
+      final ai = norm(a.ingredientText), bi = norm(b.ingredientText);
+      if (ai.isEmpty || bi.isEmpty) return null;
+      for (final p in _mixTable) {
+        final pa = norm(p.a), pb = norm(p.b);
+        if (pa.length < 2 || pb.length < 2) continue;
+        if ((ai.contains(pa) && bi.contains(pb)) || (ai.contains(pb) && bi.contains(pa))) {
+          return p.reason.isEmpty ? '함께 쓰면 위험할 수 있는 조합이에요.' : p.reason;
+        }
+      }
+      return null;
+    }
+
     final ok = _checks.where((c) => c.best != null).toList();
     for (var i = 0; i < ok.length; i++) {
       for (var j = i + 1; j < ok.length; j++) {
         final a = ok[i], b = ok[j];
-        final reason = match(a, b) ?? match(b, a);
+        final reason = match(a, b) ?? match(b, a) ?? byTable(a, b);
         if (reason != null) {
           a.interactions.add(Interaction(b.title, reason));
           b.interactions.add(Interaction(a.title, reason));
@@ -191,6 +205,7 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   DurApi? _api;
+  List<MixPair> _mixTable = const [];
 
   /// "혹시 이 약인가요?"에서 고르면 그 약으로 카드를 다시 만들고 기록에도 반영한다.
   Future<void> _pick(DrugCheck old, String name) async {
@@ -206,7 +221,11 @@ class _ResultScreenState extends State<ResultScreen> {
   Future<void> _run() async {
     final api = DurApi(await AppStorage.apiKey());
     _api = api;
-    await Future.wait(_checks.map((c) => _lookup(api, c)));
+    await Future.wait([
+      ..._checks.map((c) => _lookup(api, c)),
+      if (_checks.length > 1)
+        api.ingredientMixTable().then((t) => _mixTable = t),
+    ]);
     _computeInteractions();
   }
 

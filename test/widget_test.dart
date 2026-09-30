@@ -375,6 +375,24 @@ void main() {
     expect(ChildProfile(id: '2', name: '아기', birthDate: DateTime(2025, 1, 1)).isAdult, isFalse);
   });
 
+  test('성분 병용금기 표 받기', () async {
+    final client = MockClient((req) async {
+      expect(req.url.path, contains('getUsjntTabooInfoList02'));
+      final page = req.url.queryParameters['pageNo'];
+      final items = page == '1'
+          ? [
+              {'INGR_KOR_NAME': '이트라코나졸', 'MIXTURE_INGR_KOR_NAME': '심바스타틴', 'PROHBT_CONTENT': '횡문근융해증'},
+            ]
+          : <Map<String, String>>[];
+      return http.Response.bytes(
+          utf8.encode(jsonEncode({'header': {'resultCode': '00'}, 'body': {'items': items}})), 200);
+    });
+    final t = await DurApi('k', client: client).ingredientMixTable();
+    expect(t.single.a, '이트라코나졸');
+    expect(t.single.b, '심바스타틴');
+    expect(t.single.reason, '횡문근융해증');
+  });
+
   test('처방 기록 저장 형식', () {
     final r = MedRecord(
         id: '1', childId: 'c', title: '9월 30일 처방', createdAt: DateTime(2026, 9, 30))

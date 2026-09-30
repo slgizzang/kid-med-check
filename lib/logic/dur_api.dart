@@ -174,7 +174,7 @@ class DurApi {
   /// DUR 병용금기: 이 제품과 함께 쓰면 안 되는 상대 약(제품명·성분)
   Future<List<MixTaboo>> mixTaboo(ProductHit best) async {
     try {
-      final rows = await _itemRows(_usjntPath, best, pages: 5);
+      final rows = await _itemRows(_usjntPath, best, pages: 2);
       return rows
           .map((m) => MixTaboo(
                 partnerItem: TabooRow._pick(m, ['MIXTURE_ITEM_NAME', 'MIX_ITEM_NAME']),
@@ -187,6 +187,40 @@ class DurApi {
               ))
           .toList();
     } catch (_) {
+      return [];
+    }
+  }
+
+  /// DUR 성분정보: 성분 단위 병용금기 표 (성분 A + 성분 B = 금기)
+  static const _ingrMixPath = '/1471000/DURIrdntInfoService03/getUsjntTabooInfoList02';
+  static Future<List<MixPair>>? _mixTable;
+
+  Future<List<MixPair>> _loadMixTable() async {
+    final out = <MixPair>[];
+    var pageSize = 0;
+    for (var page = 1; page <= 60; page++) {
+      final items =
+          await _fetchItems(_ingrMixPath, {'pageNo': '$page'}, 500);
+      if (page == 1) pageSize = items.length;
+      for (final m in items) {
+        final a = TabooRow._pick(m, ['INGR_KOR_NAME', 'INGR_NAME']);
+        final b = TabooRow._pick(m, ['MIXTURE_INGR_KOR_NAME', 'MIXTURE_INGR_NAME']);
+        if (a.isEmpty || b.isEmpty) continue;
+        out.add(MixPair(a, b, TabooRow._pick(m, ['PROHBT_CONTENT', 'REMARK'])));
+      }
+      // 서버가 한 번에 주는 개수(100 또는 500)보다 적게 오면 마지막 페이지
+      if (items.isEmpty || items.length < pageSize) break;
+    }
+    return out;
+  }
+
+  /// 성분 병용금기 표 (앱 실행 중 한 번만 받음). 실패하면 빈 목록.
+  Future<List<MixPair>> ingredientMixTable() async {
+    try {
+      _mixTable ??= _loadMixTable();
+      return await _mixTable!;
+    } catch (_) {
+      _mixTable = null;
       return [];
     }
   }
@@ -576,5 +610,12 @@ class MixTaboo {
   MixTaboo({required this.partnerItem, required this.partnerIngr, required this.reason});
   final String partnerItem;
   final String partnerIngr;
+  final String reason;
+}
+
+class MixPair {
+  MixPair(this.a, this.b, this.reason);
+  final String a;
+  final String b;
   final String reason;
 }
