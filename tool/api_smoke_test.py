@@ -46,6 +46,8 @@ else:
     extra = [
         ("e약은요", "https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList", "타이레놀"),
         ("DUR품목", "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getDurPrdlstInfoList03", "세토펜"),
+        ("병용금기", "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getUsjntTabooInfoList03", "코대원정"),
+        ("임부금기", "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getPwnmTabooInfoList03", "코대원정"),
     ]
     for label, url, name in extra:
         q = urllib.parse.urlencode(
@@ -67,9 +69,7 @@ else:
                 if items:
                     first = items[0]
                     out.append(f"  fields: {', '.join(first.keys())}")
-                    for k in ("itemName", "efcyQesitm", "ITEM_NAME", "CLASS_NAME", "ETC_OTC_NAME", "MAIN_INGR"):
-                        if k in first:
-                            out.append(f"  {k}: {str(first[k])[:100]}")
+                    out.append("  " + " | ".join(f"{k}={str(v)[:50]}" for k, v in first.items()))
             except json.JSONDecodeError:
                 out.append(f"[{label}] JSON 아님: {body[:300]}")
         except Exception as e:  # noqa: BLE001
