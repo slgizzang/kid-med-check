@@ -289,6 +289,7 @@ class TabooRow {
     required this.date,
     required this.rule,
     this.ingrCode = '',
+    this.className = '',
   });
 
   final String itemName;
@@ -298,6 +299,7 @@ class TabooRow {
   final String remark;
   final String date;
   final String ingrCode;
+  final String className;
   AgeRule rule;
 
   /// DUR 성분정보에서 가져온 연령 기준 (예: "12세 미만")
@@ -345,6 +347,7 @@ class TabooRow {
       date: _pick(m, ['NOTIFICATION_DATE', 'CHANGE_DATE']),
       rule: AgeRule.parse(ruleText),
       ingrCode: _pick(m, ['INGR_CODE']),
+      className: ProductHit.cleanClass(_pick(m, ['CLASS_NAME'])),
     );
   }
 }
@@ -429,6 +432,7 @@ class ProductHit {
     this.company = '',
     this.ingredient = '',
     this.etcOtc = '',
+    this.className = '',
     this.easy,
   });
 
@@ -436,6 +440,9 @@ class ProductHit {
   final String company;
   final String ingredient;
   final String etcOtc;
+
+  /// 약 분류 (예: "해열.진통.소염제")
+  final String className;
 
   /// e약은요 원본 (있으면 설명을 바로 쓸 수 있음)
   final Map<String, dynamic>? easy;
@@ -456,7 +463,12 @@ class ProductHit {
         company: _s(m['ENTP_NAME']),
         ingredient: DrugInfo._ingredients(_s(m['MATERIAL_NAME'] ?? m['MAIN_INGR'])),
         etcOtc: _s(m['ETC_OTC_CODE'] ?? m['ETC_OTC_NAME']),
+        className: cleanClass(_s(m['CLASS_NO'] ?? m['CLASS_NAME'])),
       );
+
+  /// "[01140]해열.진통.소염제" → "해열.진통.소염제"
+  static String cleanClass(String raw) =>
+      raw.replaceAll(RegExp(r'\[[^\]]*\]'), '').trim();
 
   factory ProductHit.fromEasy(Map<String, dynamic> m) => ProductHit(
         fullName: _s(m['itemName']),
@@ -469,7 +481,18 @@ class ProductHit {
         company: company.isNotEmpty ? company : _s(m['entpName']),
         ingredient: ingredient,
         etcOtc: etcOtc,
+        className: className,
         easy: m,
+      );
+
+  /// 빠진 정보(구분·성분·분류)를 다른 출처의 같은 제품으로 채운다.
+  ProductHit fillFrom(ProductHit o) => ProductHit(
+        fullName: fullName,
+        company: company.isNotEmpty ? company : o.company,
+        ingredient: ingredient.isNotEmpty ? ingredient : o.ingredient,
+        etcOtc: etcOtc.isNotEmpty ? etcOtc : o.etcOtc,
+        className: className.isNotEmpty ? className : o.className,
+        easy: easy ?? o.easy,
       );
 }
 

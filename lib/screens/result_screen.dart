@@ -77,21 +77,47 @@ class _ResultScreenState extends State<ResultScreen> {
     }
     if (mounted) setState(() {});
 
-    // 3) 약 설명: 찾은 제품의 e약은요 → 없으면 제품명으로 다시 검색 → 없으면 품목정보 요약
-    final best = c.best;
-    if (best == null) return;
-    DrugInfo? info;
-    if (best.easy != null) {
-      info = DrugInfo.fromEasy(best.easy!);
-    } else {
-      final found = await api.searchDrugInfo(best.displayName);
-      if (found != null && found.itemName.startsWith(best.searchName)) info = found;
+    // 3) 약 설명: 구분(전문/일반)·효능·성분을 항상 같은 형식으로.
+    //    e약은요(효능)와 DUR 품목정보(구분·성분·분류)를 같은 제품끼리 합친다.
+    final picked = c.best;
+    if (picked == null) return;
+    var best = picked;
+    if (best.etcOtc.isEmpty || best.ingredient.isEmpty || best.className.isEmpty) {
+      for (final h in await api.searchProducts(best.searchName)) {
+        if (h.displayName == best.displayName) best = best.fillFrom(h);
+      }
     }
-    info ??= DrugInfo(
+    var className = best.className;
+    if (className.isEmpty) {
+      for (final r in c.rows) {
+        if (r.className.isNotEmpty) {
+          className = r.className;
+          break;
+        }
+      }
+    }
+    var easy = best.easy;
+    if (easy == null) {
+      final found = await api.searchDrugInfo(best.displayName);
+      if (found != null && found.itemName.startsWith(best.searchName) && found.efficacy.isNotEmpty) {
+        easy = {
+          'itemName': found.itemName,
+          'efcyQesitm': found.efficacy,
+          'useMethodQesitm': found.usage,
+          'atpnQesitm': found.warnings,
+        };
+      }
+    }
+    final fromEasy = easy != null ? DrugInfo.fromEasy(easy) : null;
+    final DrugInfo info = DrugInfo(
       itemName: best.fullName,
       etcOtc: best.etcOtc,
       ingredient: best.ingredient,
-      source: 'DUR 품목정보',
+      className: className,
+      efficacy: fromEasy?.efficacy ?? '',
+      usage: fromEasy?.usage ?? '',
+      warnings: fromEasy?.warnings ?? '',
+      source: fromEasy != null ? 'e약은요 · DUR 품목정보' : 'DUR 품목정보',
     );
     c.info = info;
     c.infoLoading = false;
@@ -737,6 +763,7 @@ class _InfoView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final info = check.info;
+    if (check.status == CheckStatus.notFound) return const SizedBox.shrink();
     if (info == null) {
       if (check.infoLoading && check.status != CheckStatus.error) {
         return Padding(
@@ -754,53 +781,58 @@ class _InfoView extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final tags = [
-      if (info.className.isNotEmpty) info.className,
-      if (info.etcOtc.isNotEmpty) info.etcOtc,
-    ].join(' · ');
     final ingredient = info.ingredient.isNotEmpty
         ? info.ingredient
         : (check.best?.ingredient ?? '');
-    final desc = info.efficacy.isNotEmpty
-        ? _firstSentences(info.efficacy, 120)
-        : [
-            if (tags.isNotEmpty) tags,
-            if (info.ingredient.isNotEmpty) '성분 ${info.ingredient}',
-          ].join(' · ');
+    final etc = info.etcOtc.contains('전문')
+        ? '전문의약품'
+        : info.etcOtc.contains('일반')
+            ? '일반의약품'
+            : info.etcOtc;
+    final String efficacy;
+    if (info.efficacy.isNotEmpty) {
+      efficacy = _firstSentences(info.efficacy, 140);
+    } else if (info.className.isNotEmpty) {
+      efficacy = '${info.className} (약 분류)';
+    } else {
+      efficacy = '식약처 자료에 효능 설명이 없어요.';
+    }
+
+    Widget row(String k, String v, {bool bold = false}) => Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 40,
+                child: Text(k,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: Colors.black54, height: 1.5)),
+              ),
+              Expanded(
+                child: Text(v,
+                    style: TextStyle(
+                        height: 1.45,
+                        fontWeight: bold ? FontWeight.w600 : FontWeight.normal)),
+              ),
+            ],
+          ),
+        );
 
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF4F7F6),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 2),
-            child: Icon(Icons.medication_outlined, size: 18, color: Colors.black54),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('어떤 약?',
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(color: Colors.black54)),
-                const SizedBox(height: 2),
-                Text(desc.isEmpty ? info.itemName : desc,
-                    style: const TextStyle(height: 1.4)),
-                if (ingredient.isNotEmpty && !desc.contains(ingredient)) ...[
-                  const SizedBox(height: 4),
-                  Text('성분: $ingredient', style: theme.textTheme.bodySmall),
-                ],
-              ],
-            ),
-          ),
+          row('구분', etc.isEmpty ? '정보 없음' : etc, bold: true),
+          row('효능', efficacy),
+          row('성분', ingredient.isEmpty ? '정보 없음' : ingredient),
         ],
       ),
     );
