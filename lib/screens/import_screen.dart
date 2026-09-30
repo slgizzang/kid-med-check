@@ -1,7 +1,7 @@
-import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -55,8 +55,7 @@ class _ImportScreenState extends State<ImportScreen> {
           if (c.importConsent && c.id != widget.person.id) (c.name, c.birthDate),
       ];
       // 암호 풀기는 계산이 많아 화면이 멈추지 않게 별도 스레드에서
-      final r = await Isolate.run(
-          () => HiraImport.open(bytes, people: people, manualPassword: password));
+      final r = await compute(HiraImport.openArgs, (bytes, people, password));
       setState(() {
         _visits = r.visits;
         _openedWith = r.passwordOwner;

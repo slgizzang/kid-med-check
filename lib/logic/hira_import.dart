@@ -46,6 +46,10 @@ class HiraImport {
 
   /// 파일을 열어 방문 목록으로. [people]은 생년월일 사용에 동의한 복용자들(이름, 생년월일).
   /// 자동으로 못 열면 [manualPassword]가 필요하다는 예외(wrongPassword)를 던진다.
+  /// 별도 스레드(compute)용 진입점. 화면 객체를 붙잡지 않도록 값만 받는다.
+  static HiraImportResult openArgs((Uint8List, List<(String, DateTime)>, String?) a) =>
+      open(a.$1, people: a.$2, manualPassword: a.$3);
+
   static HiraImportResult open(
     Uint8List bytes, {
     List<(String, DateTime)> people = const [],
