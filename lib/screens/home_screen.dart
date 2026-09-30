@@ -5,6 +5,7 @@ import '../logic/storage.dart';
 import '../ui/theme.dart';
 import 'child_edit_screen.dart';
 import 'import_screen.dart';
+import 'reaction_list_screen.dart';
 import 'record_screen.dart';
 import 'settings_screen.dart';
 
@@ -285,9 +286,25 @@ class _HomeScreenState extends State<HomeScreen> {
         label: const KText('지난 1년 기록 불러오기'),
       ),
     );
+    final reactionsButton = Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(46),
+          foregroundColor: AppColors.ink,
+          side: const BorderSide(color: AppColors.line),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        onPressed: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => ReactionListScreen(person: _selected!))),
+        icon: const Icon(Icons.edit_note, size: 20),
+        label: const KText('복용 후 반응 기록 모아보기'),
+      ),
+    );
     if (list.isEmpty) {
       return [
         importButton,
+        reactionsButton,
         _EmptyBox(
           icon: Icons.add_circle_outline,
           text: '아직 처방 기록이 없어요.\n여기를 눌러 처방받은 약을 입력해보세요.',
@@ -298,6 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final allPicked = list.isNotEmpty && list.every((r) => _picked.contains(r.id));
     return [
       if (!_selecting) importButton,
+      if (!_selecting) reactionsButton,
       if (_selecting)
         Padding(
           padding: const EdgeInsets.only(bottom: 10),

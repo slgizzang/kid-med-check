@@ -10,6 +10,7 @@ import '../ui/theme.dart';
 import '../ui/dashboard.dart';
 import '../ui/reaction_sheet.dart';
 import 'confirm_screen.dart';
+import 'reaction_list_screen.dart';
 import 'result_screen.dart';
 
 /// 처방 기록 하나. 약을 찍거나 입력해서 모아두고, 언제든 다시 열어 확인한다.
@@ -438,6 +439,21 @@ class _RecordScreenState extends State<RecordScreen> {
                     onPressed: _addGroupReaction,
                     icon: const Icon(Icons.edit_note, size: 20),
                     label: const KText('어떤 약 때문인지 모르겠다면: 처방 전체에 반응 기록'),
+                  ),
+                ),
+              if (_r.drugs.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () async {
+                      await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => ReactionListScreen(person: widget.child)));
+                      await _loadNotes();
+                    },
+                    icon: const Icon(Icons.list_alt, size: 20),
+                    label: const KText('적어둔 반응 기록 보기·고치기'),
                   ),
                 ),
               const SizedBox(height: 20),

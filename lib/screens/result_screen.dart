@@ -56,6 +56,14 @@ class _ResultScreenState extends State<ResultScreen> {
   late final int _age = widget.child.ageInMonths(widget.asOf);
   bool get _adult => _age >= 19 * 12;
 
+  /// 오늘이 아닌 지난 날짜 기준으로 확인하는지
+  bool get _past {
+    final d = widget.asOf;
+    if (d == null) return false;
+    final now = DateTime.now();
+    return DateTime(d.year, d.month, d.day).isBefore(DateTime(now.year, now.month, now.day));
+  }
+
   /// 이 복용자가 적어둔 복용 후 반응 기록
   List<ReactionNote> _notes = const [];
 
@@ -427,6 +435,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 age: _age,
                 adult: _adult,
                 pregnant: widget.child.pregnant,
+                past: _past,
                 notes: _notesFor(c),
                 onDeleteReaction: _deleteReaction,
                 onRetry: () => _retry(c),
@@ -479,6 +488,7 @@ class _CheckCard extends StatelessWidget {
     required this.age,
     required this.adult,
     this.pregnant = false,
+    this.past = false,
     required this.onRetry,
     required this.onPick,
     this.notes = const [],
@@ -494,6 +504,9 @@ class _CheckCard extends StatelessWidget {
   final int age;
   final bool adult;
   final bool pregnant;
+
+  /// 지난 처방 기록을 그때 나이로 확인하는 중
+  final bool past;
   final VoidCallback onRetry;
   final ValueChanged<String> onPick;
 
@@ -580,7 +593,7 @@ class _CheckCard extends StatelessWidget {
     final groups = _IngredientGroup.from(check.rows, age)
         .where((g) => g.applies == true || (g.applies == null && !adult))
         .toList();
-    final verdict = ageIrrelevant ? null : _verdict(check, age, groups);
+    final verdict = ageIrrelevant ? null : _verdict(check, age, groups, past: past);
 
     return Card(
       color: Colors.white,
@@ -748,14 +761,17 @@ class _CheckCard extends StatelessWidget {
   }
 
   /// 카드 맨 위에 보여줄 한 줄 결론
-  static String? _verdict(DrugCheck c, int age, List<_IngredientGroup> groups) {
+  static String? _verdict(DrugCheck c, int age, List<_IngredientGroup> groups,
+      {bool past = false}) {
     final a = formatAge(age);
     switch (c.status) {
       case CheckStatus.danger:
         final src = AgeRule.summarize([
           for (final g in groups.where((g) => g.applies == true)) ...g.conds
         ]);
-        return '$a 기준 연령금기에 해당해요 (연령금기 기준: $src)';
+        return past
+            ? '처방 당시 $a 기준 연령금기에 해당했어요 (연령금기 기준: $src)'
+            : '$a 기준 연령금기에 해당해요 (연령금기 기준: $src)';
       case CheckStatus.labelCaution:
         final f = c.labelFinding;
         if (f == null) return null;
@@ -763,8 +779,8 @@ class _CheckCard extends StatelessWidget {
         const note = '다만 DUR 연령금기약은 아니에요. 사용 연령보다 어려도 의사가 판단해 처방할 수 있어요. '
             '걱정되면 약사에게 용량을 한 번 더 확인하세요.';
         return f.prohibited
-            ? '설명서에 "${f.evidence}"라고 되어 있고, 현재 나이($a)가 해당해요. $note'
-            : '설명서에는 "${f.evidence}"에게 쓰는 약으로 되어 있어요. 현재 나이($a)는 이보다 어려요. $note';
+            ? '설명서에 "${f.evidence}"라고 되어 있고, ${past ? '처방 당시 나이($a)가 해당했어요' : '현재 나이($a)가 해당해요'}. $note'
+            : '설명서에는 "${f.evidence}"에게 쓰는 약으로 되어 있어요. ${past ? '처방 당시 나이($a)는 이보다 어렸어요' : '현재 나이($a)는 이보다 어려요'}. $note';
       case CheckStatus.unknown:
         return '연령금기 목록에 있지만 나이 기준이 적혀 있지 않아요. 약사에게 몇 살부터 먹을 수 있는지 확인하세요.';
       case CheckStatus.listedOk:
@@ -983,6 +999,12 @@ class _Sources extends StatelessWidget {
     ('의약품 제품 허가정보', '성분, 전문·일반의약품 구분'),
   ];
 
+  static Widget _fit(String t, TextStyle style) => FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(t, maxLines: 1, softWrap: false, style: style),
+      );
+
   @override
   Widget build(BuildContext context) {
     const small = TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5);
@@ -992,14 +1014,17 @@ class _Sources extends StatelessWidget {
         const KText('출처: 식품의약품안전처 공공데이터',
             style: TextStyle(fontSize: 12, color: AppColors.sub, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
-        for (final (name, use) in _items)
+        // 출처 이름 한 줄, 쓰는 항목은 다음 줄에 (각각 한 줄에 맞춤)
+        for (final (name, use) in _items) ...[
           Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('· ', style: small),
-              Expanded(child: KText('$name: $use', style: small)),
-            ]),
+            padding: const EdgeInsets.only(top: 4),
+            child: _fit('· $name', small),
           ),
+          Padding(
+            padding: const EdgeInsets.only(left: 10),
+            child: _fit(': $use', small),
+          ),
+        ],
         const SizedBox(height: 8),
         const KText('이 앱은 참고용이며 의학적 판단을 대신하지 않아요.', style: small),
       ],

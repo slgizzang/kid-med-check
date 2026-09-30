@@ -13,6 +13,7 @@ Future<ReactionNote?> showReactionSheet(
   String ingredient = '',
   String recordId = '',
   List<(String, String)> items = const [],
+  ReactionNote? existing,
 }) {
   return showModalBottomSheet<ReactionNote>(
     context: context,
@@ -25,7 +26,8 @@ Future<ReactionNote?> showReactionSheet(
         drug: drug,
         ingredient: ingredient,
         recordId: recordId,
-        items: items),
+        items: items,
+        existing: existing),
   );
 }
 
@@ -36,7 +38,11 @@ class _ReactionSheet extends StatefulWidget {
     required this.ingredient,
     required this.recordId,
     this.items = const [],
+    this.existing,
   });
+
+  /// 고칠 기록 (없으면 새로 적기)
+  final ReactionNote? existing;
 
   /// 처방 전체 기록일 때 함께 먹은 약들
   final List<(String, String)> items;
@@ -60,6 +66,17 @@ class _ReactionSheetState extends State<_ReactionSheet> {
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    if (e != null) {
+      _picked.addAll(e.symptoms);
+      _memo.text = e.memo;
+      _date = e.date;
+    }
+  }
+
   bool get _canSave => _picked.isNotEmpty || _memo.text.trim().isNotEmpty;
 
   Future<void> _pickDate() async {
@@ -75,7 +92,7 @@ class _ReactionSheetState extends State<_ReactionSheet> {
 
   Future<void> _save() async {
     final n = ReactionNote(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: widget.existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
       childId: widget.childId,
       recordId: widget.recordId,
       drug: widget.drug,
@@ -99,7 +116,12 @@ class _ReactionSheetState extends State<_ReactionSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            KText(widget.items.isEmpty ? '복용 후 반응 기록' : '이 처방 복용 후 반응 기록',
+            KText(
+                widget.existing != null
+                    ? '반응 기록 고치기'
+                    : widget.items.isEmpty
+                        ? '복용 후 반응 기록'
+                        : '이 처방 복용 후 반응 기록',
                 style: const TextStyle(
                     fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
             const SizedBox(height: 4),
