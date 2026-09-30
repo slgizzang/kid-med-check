@@ -13,6 +13,7 @@ import 'package:kid_med_check/logic/snapshot.dart';
 import 'package:kid_med_check/ui/theme.dart';
 import 'package:kid_med_check/logic/models.dart';
 import 'package:kid_med_check/logic/reaction.dart';
+import 'package:kid_med_check/logic/dur_text.dart';
 import 'package:kid_med_check/logic/hira_import.dart';
 import 'package:kid_med_check/logic/office_decrypt.dart';
 
@@ -605,5 +606,12 @@ void main() {
       expect(HiraImport.parseDate('46093'), DateTime(2026, 3, 12));
       expect(HiraImport.passwordsFor(DateTime(1990, 1, 1)), ['19900101', '900101']);
     });
+  });
+
+  test('DUR 금기 사유 문장 나누기와 용어 풀이', () {
+    expect(friendlyTaboo('임부에 대한 안전성 미확립 랫트 태자에서 짧은 과잉목갈비뼈 증가 보고'),
+        '임부에 대한 안전성 미확립. (동물실험) 쥐 태아에서 짧은 과잉목갈비뼈 증가 보고.');
+    expect(friendlyTaboo('태아 기형 유발 가능성'), '태아 기형 유발 가능성.');
+    expect(friendlyTaboo('포함 제제 투여 금지'), '포함 제제 투여 금지.');
   });
 }

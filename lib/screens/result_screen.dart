@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../logic/age_rule.dart';
 import '../logic/drug_name_extractor.dart';
 import '../logic/dur_api.dart';
+import '../logic/dur_text.dart';
 import '../logic/models.dart';
 import '../logic/reaction.dart';
 import '../logic/snapshot.dart';
@@ -648,14 +649,14 @@ class _CheckCard extends StatelessWidget {
             for (final x in check.interactions)
               _Alert(
                   title: '병용금기 · ${x.other}',
-                  body: '${x.other}와(과) 함께 먹으면 안 되는 조합이에요. ${x.reason}',
+                  body: '${x.other}와(과) 함께 먹으면 안 되는 조합이에요. ${friendlyTaboo(x.reason)}',
                   danger: true),
             if (check.hasPreg)
               _Alert(
                   title: '임부금기',
                   body: check.pregRows.first.content.isEmpty
                       ? '임신 중에는 쓰지 않도록 지정된 약이에요.'
-                      : check.pregRows.first.content,
+                      : friendlyTaboo(check.pregRows.first.content),
                   danger: true),
             if (check.nursingNote != null)
               _Alert(title: '수유부 주의', body: check.nursingNote!, danger: false),
@@ -825,7 +826,7 @@ class _IngredientGroup {
           g.conds.add(c);
         }
         final reason = r.content.replaceAll(RegExp(r'^[\s_\-]+|[\s_\-]+$'), '');
-        if (reason.length > 1) g.reasons.add(reason);
+        if (reason.length > 1) g.reasons.add(friendlyTaboo(reason));
         if (r.ageBase.isNotEmpty) g.ageBase = r.ageBase;
       }
       // 공식 기준이 하나라도 있으면 "추정" 표시는 하지 않는다
