@@ -41,6 +41,15 @@ class LabelAge {
   static final RegExp _prohibit = RegExp(
       r'(?:만\s*)?(\d{1,2})\s*(세|개월)\s*(미만|이하)[^.。]{0,25}?(?:복용|투여|사용|먹이)(?:하지|해서는|하면 안)');
 
+  /// 금지 문구는 "복용하지"에서 끊지 않고 문장 끝("마십시오" 등)까지 보여준다.
+  static String _sentence(String text, RegExpMatch m) {
+    final rest = text.substring(m.end);
+    final stop = RegExp(r'[.。\n]').firstMatch(rest);
+    var tail = stop == null ? rest : rest.substring(0, stop.start);
+    if (tail.length > 30) tail = tail.substring(0, 30);
+    return (m.group(0)! + tail).trim();
+  }
+
   static int _months(String n, String unit) =>
       unit == '개월' ? int.parse(n) : int.parse(n) * 12;
 
@@ -57,7 +66,7 @@ class LabelAge {
       }
       if (ageMonths < months) {
         return LabelAgeFinding(
-            months: months, evidence: m.group(0)!.trim(), prohibited: true);
+            months: months, evidence: _sentence(text, m), prohibited: true);
       }
     }
 

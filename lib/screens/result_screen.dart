@@ -68,17 +68,6 @@ class _ResultScreenState extends State<ResultScreen> {
   List<(ReactionNote, ReactionMatch)> _notesFor(DrugCheck c) =>
       c.best == null ? const [] : reactionsFor(_notes, c.title, c.ingredientText);
 
-  Future<void> _addReaction(DrugCheck c) async {
-    final n = await showReactionSheet(context,
-        childId: widget.child.id,
-        drug: c.title,
-        ingredient: c.ingredientText,
-        recordId: widget.recordId);
-    if (n == null) return;
-    await _loadNotes();
-    _report();
-  }
-
   Future<void> _deleteReaction(ReactionNote n) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -432,7 +421,6 @@ class _ResultScreenState extends State<ResultScreen> {
                 adult: widget.child.isAdult,
                 pregnant: widget.child.pregnant,
                 notes: _notesFor(c),
-                onAddReaction: () => _addReaction(c),
                 onDeleteReaction: _deleteReaction,
                 onRetry: () => _retry(c),
                 onPick: (name) => _pick(c, name)),

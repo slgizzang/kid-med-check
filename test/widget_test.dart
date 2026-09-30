@@ -614,4 +614,10 @@ void main() {
     expect(friendlyTaboo('태아 기형 유발 가능성'), '태아 기형 유발 가능성.');
     expect(friendlyTaboo('포함 제제 투여 금지'), '포함 제제 투여 금지.');
   });
+
+  test('설명서 금지 문구는 문장 끝까지', () {
+    final f = LabelAge.check('2세 미만 영아는 이 약을 복용하지 마십시오. 기타', 20)!;
+    expect(f.evidence, '2세 미만 영아는 이 약을 복용하지 마십시오');
+    expect(f.prohibited, isTrue);
+  });
 }

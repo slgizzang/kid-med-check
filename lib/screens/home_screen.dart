@@ -18,6 +18,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<ChildProfile> _children = [];
   List<MedRecord> _records = [];
+
+  /// 처방 기록 여러 개 선택해서 지우기
+  bool _selecting = false;
+  final Set<String> _picked = {};
   String? _selectedId;
   bool _hasKey = true;
   bool _loading = true;
@@ -66,6 +70,28 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openSettings() async {
     await Navigator.push(
         context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+    await _load();
+  }
+
+  Future<void> _deletePicked() async {
+    final n = _picked.length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: KText('처방 기록 $n개를 지울까요?'),
+        content: const KText('지운 기록은 되돌릴 수 없어요. 적어둔 복용 후 반응 기록은 남아요.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const KText('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const KText('삭제')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    for (final id in _picked.toList()) {
+      await AppStorage.deleteRecord(id);
+    }
+    _picked.clear();
+    _selecting = false;
     await _load();
   }
 
@@ -126,10 +152,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       _childRow(),
                       const SizedBox(height: 28),
                       SectionTitle('처방 기록',
-                          trailing: _selected == null
+                          trailing: _selected == null || _myRecords.isEmpty
                               ? null
-                              : KText('${_myRecords.length}개',
-                                  style: const TextStyle(color: AppColors.sub))),
+                              : TextButton(
+                                  onPressed: () => setState(() {
+                                    _selecting = !_selecting;
+                                    _picked.clear();
+                                  }),
+                                  child: KText(_selecting ? '완료' : '선택',
+                                      maxLines: 1),
+                                )),
                       ..._recordList(),
                       const SizedBox(height: 20),
                       _notice(),
@@ -138,7 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-      floatingActionButton: _loading || _selected == null || _myRecords.isEmpty
+      floatingActionButton: _loading || _selected == null || _myRecords.isEmpty || _selecting
           ? null
           : FloatingActionButton.extended(
               onPressed: _newRecord,
@@ -213,7 +245,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: c,
                 selected: c.id == _selectedId,
                 onTap: () {
-                  setState(() => _selectedId = c.id);
+                  setState(() {
+                    _selectedId = c.id;
+                    _selecting = false;
+                    _picked.clear();
+                  });
                   AppStorage.setSelectedChildId(c.id);
                 },
                 onLongPress: () => _editChild(c),
@@ -259,12 +295,46 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ];
     }
+    final allPicked = list.isNotEmpty && list.every((r) => _picked.contains(r.id));
     return [
-      importButton,
+      if (!_selecting) importButton,
+      if (_selecting)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(children: [
+            Checkbox(
+              value: allPicked ? true : (_picked.isEmpty ? false : null),
+              tristate: true,
+              onChanged: (_) => setState(() {
+                if (allPicked) {
+                  _picked.clear();
+                } else {
+                  _picked.addAll(list.map((r) => r.id));
+                }
+              }),
+            ),
+            const KText('전체 선택', maxLines: 1),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _picked.isEmpty ? null : _deletePicked,
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFFC62828)),
+              icon: const Icon(Icons.delete_outline, size: 20),
+              label: KText('삭제 ${_picked.length}개', maxLines: 1),
+            ),
+          ]),
+        ),
       for (final r in list)
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: _RecordCard(record: r, onTap: () => _openRecord(r)),
+          child: _RecordCard(
+            record: r,
+            selecting: _selecting,
+            selected: _picked.contains(r.id),
+            onTap: _selecting
+                ? () => setState(() =>
+                    _picked.contains(r.id) ? _picked.remove(r.id) : _picked.add(r.id))
+                : () => _openRecord(r),
+          ),
         ),
     ];
   }
@@ -390,10 +460,17 @@ class _AddChildCard extends StatelessWidget {
 }
 
 class _RecordCard extends StatelessWidget {
-  const _RecordCard({required this.record, required this.onTap});
+  const _RecordCard({
+    required this.record,
+    required this.onTap,
+    this.selecting = false,
+    this.selected = false,
+  });
 
   final MedRecord record;
   final VoidCallback onTap;
+  final bool selecting;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -405,6 +482,16 @@ class _RecordCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(children: [
+            if (selecting)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Icon(
+                  selected ? Icons.check_box : Icons.check_box_outline_blank,
+                  color: selected ? AppColors.primary : AppColors.sub,
+                  size: 26,
+                ),
+              )
+            else
             Container(
               width: 46,
               height: 46,
@@ -445,7 +532,7 @@ class _RecordCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.sub),
+            if (!selecting) const Icon(Icons.chevron_right, color: AppColors.sub),
           ]),
         ),
       ),

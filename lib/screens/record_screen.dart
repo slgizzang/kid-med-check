@@ -388,14 +388,38 @@ class _RecordScreenState extends State<RecordScreen> {
                             style: const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: _noteLine(_r.drugs[i]),
                         onTap: () => _addReaction(_r.drugs[i]),
-                        trailing: IconButton(
-                          tooltip: '빼기',
-                          icon: const Icon(Icons.close, size: 20),
-                          onPressed: () {
-                            setState(() => _r.drugs.removeAt(i));
-                            _save();
-                          },
-                        ),
+                        contentPadding: const EdgeInsets.only(left: 14, right: 2),
+                        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                          // 누를 수 있다는 걸 보이도록 버튼 모양으로
+                          Material(
+                            color: kNoteBg,
+                            borderRadius: BorderRadius.circular(18),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: () => _addReaction(_r.drugs[i]),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Icon(Icons.edit_note, size: 18, color: kNoteFg),
+                                  SizedBox(width: 4),
+                                  Text('반응 기록',
+                                      style: TextStyle(
+                                          color: kNoteFg,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700)),
+                                ]),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: '빼기',
+                            icon: const Icon(Icons.close, size: 20, color: AppColors.sub),
+                            onPressed: () {
+                              setState(() => _r.drugs.removeAt(i));
+                              _save();
+                            },
+                          ),
+                        ]),
                       ),
                     ],
                   ]),
@@ -403,7 +427,7 @@ class _RecordScreenState extends State<RecordScreen> {
               if (_r.drugs.isNotEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 8, left: 4),
-                  child: KText('약을 누르면 그 약의 복용 후 반응을 기록할 수 있어요.',
+                  child: KText('약을 먹고 설사·발진 같은 반응이 있었다면 "반응 기록"을 눌러 적어두세요.',
                       style: TextStyle(fontSize: 12, color: AppColors.sub)),
                 ),
               if (_r.drugs.length >= 2)
