@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   build:
@@ -35,7 +36,19 @@ jobs:
         run: dart run flutter_launcher_icons
 
       - name: Unit tests
-        run: flutter test
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter test 2>&1 | tee test.log
+
+      # 테스트가 실패하면 로그 끝부분을 이슈로 남긴다 (휴대폰·원격에서 원인 확인용)
+      - name: Report test failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo '```'; tail -n 80 test.log; echo '```'; } > fail.md
+          gh issue create --repo "${{ github.repository }}" --title "빌드 ${{ github.run_number }} 테스트 실패" --body-file fail.md
 
       - name: Build release APK
         env:

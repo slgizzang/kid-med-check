@@ -287,7 +287,7 @@ void main() {
       final res = await DurApi('k', client: client).resolve('포타갤');
       expect(res.best!.displayName, '포타겔현탁액');
       expect(res.best!.ingredient, '디옥타헤드랄스멕타이트');
-      expect(res.similar.map((h) => h.displayName), contains('로포타현탁액'));
+      expect(res.ambiguous, isFalse);
     });
 
     test('여러 약이 맞으면(코대원) 하나로 정하지 않고 고르게 한다', () async {
