@@ -47,11 +47,19 @@ jobs:
           name: kid-med-check-apk
           path: kid-med-check-${{ github.run_number }}.apk
 
+      - name: 식약처 API 점검
+        continue-on-error: true
+        env:
+          DUR_API_KEY: ${{ secrets.DUR_API_KEY }}
+        run: |
+          python3 tool/api_smoke_test.py
+          { echo "휴대폰에서 아래 APK 파일을 눌러 받고 설치하세요."; echo; echo '```'; cat api_smoke.txt; echo '```'; } > release_body.md
+
       # 휴대폰에서 바로 받을 수 있게 Releases 에도 올린다
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: 아이 약 안심체크 (빌드 ${{ github.run_number }})
-          body: 휴대폰에서 아래 APK 파일을 눌러 받고 설치하세요.
+          body_path: release_body.md
           files: kid-med-check-${{ github.run_number }}.apk
           make_latest: true
