@@ -9,7 +9,6 @@ class ChildProfile {
     required this.birthDate,
     this.pregnant = false,
     this.nursing = false,
-    this.importConsent = false,
   });
 
   final String id;
@@ -21,9 +20,6 @@ class ChildProfile {
 
   /// 수유 중 (성인만)
   final bool nursing;
-
-  /// 심평원 투약이력 파일을 열 때 이 생년월일을 비밀번호로 쓰는 데 동의함
-  final bool importConsent;
 
   /// 만 19세 이상
   bool get isAdult => ageInMonths() >= 19 * 12;
@@ -38,7 +34,6 @@ class ChildProfile {
         'birth': birthDate.toIso8601String(),
         'pregnant': pregnant,
         'nursing': nursing,
-        'importPw': importConsent,
       };
 
   factory ChildProfile.fromJson(Map<String, dynamic> j) => ChildProfile(
@@ -47,7 +42,6 @@ class ChildProfile {
         birthDate: DateTime.parse('${j['birth']}'),
         pregnant: j['pregnant'] == true,
         nursing: j['nursing'] == true,
-        importConsent: j['importPw'] == true,
       );
 }
 

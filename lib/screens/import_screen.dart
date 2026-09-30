@@ -47,13 +47,8 @@ class _ImportScreenState extends State<ImportScreen> {
       _error = null;
     });
     try {
-      // 생년월일 사용에 동의한 복용자만 자동 입력에 쓴다 (지금 복용자 먼저)
-      final all = await AppStorage.children();
-      final people = <(String, DateTime)>[
-        if (widget.person.importConsent) (widget.person.name, widget.person.birthDate),
-        for (final c in all)
-          if (c.importConsent && c.id != widget.person.id) (c.name, c.birthDate),
-      ];
+      // 비밀번호는 저장하지 않고 이번에 여는 데만 쓴다
+      const people = <(String, DateTime)>[];
       // 암호 풀기는 계산이 많아 화면이 멈추지 않게 별도 스레드에서
       final r = await compute(HiraImport.openArgs, (bytes, people, password));
       setState(() {
@@ -89,15 +84,16 @@ class _ImportScreenState extends State<ImportScreen> {
           children: [
             KText(retry
                 ? '비밀번호가 맞지 않아요. 다시 입력해주세요.'
-                : '파일을 내려받은 사람의 생년월일을 입력해주세요.'),
+                : '파일을 내려받은 사람(로그인한 사람)의 생년월일 8자리를 입력해주세요.'),
             const SizedBox(height: 12),
             TextField(
               controller: c,
               autofocus: true,
               obscureText: true,
               keyboardType: TextInputType.number,
+              maxLength: 8,
               decoration: const InputDecoration(
-                hintText: '예: 19900101 또는 900101',
+                hintText: '생년월일 8자리 (예: 19900101)',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -152,14 +148,13 @@ class _ImportScreenState extends State<ImportScreen> {
             const _Step(
               n: 2,
               title: '엑셀로 내려받기',
-              body: '조회 화면에서 엑셀 파일로 저장하세요. 파일은 생년월일로 잠겨 있어요.',
+              body: '조회 화면에서 엑셀 파일로 저장하세요. 파일은 내려받은 사람의 생년월일 8자리로 잠겨 있어요.',
             ),
             _Step(
               n: 3,
               title: '내려받은 파일 고르기',
-              body: widget.person.importConsent
-                  ? '복용자 정보에서 동의한 생년월일로 파일을 자동으로 열어요. 안 열리면 직접 입력하게 해드려요.'
-                  : '파일을 열 때 비밀번호(생년월일)를 직접 입력해요. 복용자 정보에서 동의하면 자동으로 입력돼요.',
+              body: '파일을 열 때 비밀번호로 내려받은 사람의 생년월일 8자리(예: 19900101)를 입력해요. '
+                  '자녀 기록을 부모가 내려받았다면 부모 생년월일이에요. 비밀번호는 저장하지 않아요.',
               action: FilledButton.icon(
                 onPressed: _busy ? null : _pickFile,
                 icon: const Icon(Icons.upload_file, size: 18),
