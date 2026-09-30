@@ -318,6 +318,30 @@ void main() {
     });
   });
 
+  test('DUR 성분정보 표에서 공식 연령 기준을 찾는다', () async {
+    var calls = 0;
+    final client = MockClient((req) async {
+      calls++;
+      expect(req.url.path, contains('DURIrdntInfoService03/getSpcifyAgrdeTabooInfoList02'));
+      return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'header': {'resultCode': '00'},
+            'body': {
+              'items': [
+                {'INGR_CODE': 'D000147', 'AGE_BASE': '12세 미만', 'DEL_YN': '정상'},
+                {'INGR_CODE': 'D000254', 'AGE_BASE': '2세 미만', 'DEL_YN': '정상'},
+              ]
+            }
+          })),
+          200);
+    });
+    final api = DurApi('k', client: client);
+    expect(await api.ingredientAgeBase('D000147'), '12세 미만');
+    expect(await api.ingredientAgeBase('D000254'), '2세 미만');
+    expect(await api.ingredientAgeBase('D999999'), '');
+    expect(calls, 1); // 표는 한 번만 받는다
+  });
+
   test('처방 기록 저장 형식', () {
     final r = MedRecord(
         id: '1', childId: 'c', title: '9월 30일 처방', createdAt: DateTime(2026, 9, 30))

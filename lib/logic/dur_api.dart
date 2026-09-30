@@ -138,39 +138,38 @@ class DurApi {
   static const _ingrAgePath =
       '/1471000/DURIrdntInfoService03/getSpcifyAgrdeTabooInfoList02';
 
-  static final Map<String, String> _ageBaseCache = {};
-  static final RegExp _ageText = RegExp(r'\d+\s*(세|개월)|신생아|영아|소아|유아');
+  /// 성분코드 → 연령 기준 목록. 전체가 수백 건뿐이라 한 번에 받아 둔다.
+  static Future<Map<String, Set<String>>>? _ageTable;
 
-  /// 성분 코드로 연령 기준 문구를 찾는다. 실패하거나 없으면 빈 문자열.
+  Future<Map<String, Set<String>>> _loadAgeTable() async {
+    final table = <String, Set<String>>{};
+    for (var page = 1; page <= 3; page++) {
+      final uri = {'pageNo': '$page'};
+      final items = await _fetchItems(_ingrAgePath, uri, 500);
+      for (final m in items) {
+        final code = '${m['INGR_CODE'] ?? ''}'.trim();
+        final base = '${m['AGE_BASE'] ?? ''}'.trim();
+        final del = '${m['DEL_YN'] ?? ''}';
+        if (code.isEmpty || base.isEmpty || base == 'null' || del.contains('삭제')) continue;
+        table.putIfAbsent(code, () => <String>{}).add(base);
+      }
+      if (items.length < 500) break;
+    }
+    return table;
+  }
+
+  /// 성분 코드로 연령 기준 문구(예: "12세 미만")를 찾는다. 실패하거나 없으면 빈 문자열.
+  /// 같은 성분에 기준이 여럿이면 모두 이어 붙인다 (가장 넓은 기준이 적용되도록).
   Future<String> ingredientAgeBase(String ingrCode) async {
     if (ingrCode.isEmpty) return '';
-    final cached = _ageBaseCache[ingrCode];
-    if (cached != null) return cached;
-    var result = '';
     try {
-      final items = await _fetchItems(_ingrAgePath, {'ingrCode': ingrCode}, 5);
-      for (final m in items) {
-        // 연령 기준 필드 우선, 없으면 연령 문구가 들어 있는 아무 필드
-        for (final k in ['AGE_BASE', 'AGE', 'SPCIFY_AGRDE', 'AGRDE']) {
-          final v = m[k];
-          if (v != null && _ageText.hasMatch('$v')) {
-            result = '$v'.trim();
-            break;
-          }
-        }
-        if (result.isEmpty) {
-          for (final e in m.entries) {
-            if (e.key.toUpperCase().contains('AGE') && _ageText.hasMatch('${e.value}')) {
-              result = '${e.value}'.trim();
-              break;
-            }
-          }
-        }
-        if (result.isNotEmpty) break;
-      }
-    } catch (_) {}
-    _ageBaseCache[ingrCode] = result;
-    return result;
+      _ageTable ??= _loadAgeTable();
+      final table = await _ageTable!;
+      return (table[ingrCode] ?? const <String>{}).join(', ');
+    } catch (_) {
+      _ageTable = null; // 다음에 다시 시도
+      return '';
+    }
   }
 
   Future<List<Map<String, dynamic>>> _fetchItems(

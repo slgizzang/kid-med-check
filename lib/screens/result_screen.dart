@@ -64,12 +64,8 @@ class _ResultScreenState extends State<ResultScreen> {
               best.searchName)
           .toList();
       c.matchedQuery = best.searchName;
-      // 금기 내용에 나이가 없으면 DUR 성분정보에서 성분별 연령 기준을 가져온다.
-      await Future.wait(c.rows
-          .where((r) =>
-              r.ingrCode.isNotEmpty &&
-              (!r.rule.isParsed || r.rule.conditions.every((x) => x.assumed)))
-          .map((r) async {
+      // 식약처 DUR 성분정보의 공식 연령 기준(AGE_BASE)을 우선 적용한다.
+      await Future.wait(c.rows.where((r) => r.ingrCode.isNotEmpty).map((r) async {
         final base = await api.ingredientAgeBase(r.ingrCode);
         if (base.isNotEmpty) r.applyAgeBase(base);
       }));
