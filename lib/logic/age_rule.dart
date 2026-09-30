@@ -103,4 +103,39 @@ class AgeRule {
     }
     return conditions.any((c) => c.matches(ageMonths));
   }
+
+  /// 여러 조건을 사람이 읽을 한 문구로 합친다.
+  /// 같은 성분에 "12세 미만", "12세 이하"처럼 기준이 여럿이면 가장 넓은(더 많은 아이가 해당하는) 것 하나만.
+  static String summarize(Iterable<AgeCondition> conds) {
+    final list = conds.toList();
+    if (list.isEmpty) return '';
+    final real = list.where((c) => !c.assumed).toList();
+    if (real.isEmpty) return list.first.source;
+
+    String unit(int m) => m % 12 == 0 ? '${m ~/ 12}세' : '$m개월';
+    int reach(AgeCondition c) => c.cmp == AgeCmp.lt
+        ? c.months
+        : (c.months % 12 == 0 ? c.months + 12 : c.months + 1);
+    String word(AgeCmp c) => const {
+          AgeCmp.lt: '미만',
+          AgeCmp.le: '이하',
+          AgeCmp.ge: '이상',
+          AgeCmp.gt: '초과',
+        }[c]!;
+
+    final parts = <String>[];
+    final uppers = real.where((c) => c.isUpperBound).toList();
+    if (uppers.isNotEmpty) {
+      uppers.sort((a, b) => reach(b).compareTo(reach(a)));
+      final u = uppers.first;
+      parts.add('${unit(u.months)} ${word(u.cmp)}');
+    }
+    final lowers = real.where((c) => !c.isUpperBound).toList();
+    if (lowers.isNotEmpty) {
+      lowers.sort((a, b) => a.months.compareTo(b.months));
+      final l = lowers.first;
+      parts.add('${unit(l.months)} ${word(l.cmp)}');
+    }
+    return parts.join(', ');
+  }
 }

@@ -342,6 +342,21 @@ void main() {
     expect(calls, 1); // 표는 한 번만 받는다
   });
 
+  test('연령금기 기준은 가장 넓은 것 하나만 표시', () {
+    final conds = [
+      ...AgeRule.parse('12세 미만').conditions,
+      ...AgeRule.parse('만 12세 이하').conditions,
+    ];
+    expect(AgeRule.summarize(conds), '12세 이하');
+    expect(AgeRule.summarize(AgeRule.parse('6개월 미만').conditions), '6개월 미만');
+    expect(
+        AgeRule.summarize([
+          ...AgeRule.parse('소아').conditions,
+          ...AgeRule.parse('2세 미만').conditions,
+        ]),
+        '2세 미만');
+  });
+
   test('처방 기록 저장 형식', () {
     final r = MedRecord(
         id: '1', childId: 'c', title: '9월 30일 처방', createdAt: DateTime(2026, 9, 30))

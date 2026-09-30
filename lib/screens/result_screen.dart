@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../logic/age_rule.dart';
 import '../logic/drug_name_extractor.dart';
 import '../logic/dur_api.dart';
 import '../logic/models.dart';
@@ -363,15 +364,8 @@ class _Banner extends StatelessWidget {
   }
 }
 
-String _ruleText(List<TabooRow> rows) {
-  final parts = <String>{};
-  for (final r in rows) {
-    for (final c in r.rule.conditions) {
-      parts.add(c.source);
-    }
-  }
-  return parts.isEmpty ? '' : parts.join(', ');
-}
+String _ruleText(List<TabooRow> rows) =>
+    AgeRule.summarize([for (final r in rows) ...r.rule.conditions]);
 
 class _CheckCard extends StatelessWidget {
   const _CheckCard({
@@ -424,7 +418,7 @@ class _CheckCard extends StatelessWidget {
           const Color(0xFFE8F0FE),
           const Color(0xFF1A56B8),
           Icons.info_outline,
-          '금기 연령 아님'
+          '연령금기 해당 없음'
         ),
       CheckStatus.notListed => (
           const Color(0xFFE6F4EA),
@@ -589,10 +583,10 @@ class _CheckCard extends StatelessWidget {
     final a = formatAge(age);
     switch (c.status) {
       case CheckStatus.danger:
-        final src = <String>{
-          for (final g in groups.where((g) => g.applies == true)) ...g.conditions
-        };
-        return '우리 아이($a)는 연령금기에 해당해요: ${src.join(', ')}';
+        final src = AgeRule.summarize([
+          for (final g in groups.where((g) => g.applies == true)) ...g.conds
+        ]);
+        return '우리 아이($a)는 연령금기에 해당해요 (연령금기 기준: $src)';
       case CheckStatus.labelCaution:
         final f = c.labelFinding;
         if (f == null) return null;
@@ -625,7 +619,10 @@ class _IngredientGroup {
   final String name;
   final List<TabooRow> rows = [];
   bool? applies;
-  final Set<String> conditions = {};
+  final List<AgeCondition> conds = [];
+
+  /// 화면에 보여줄 연령금기 기준 한 문구 (예: "12세 이하")
+  String get label => AgeRule.summarize(conds);
   final Set<String> reasons = {};
   bool assumed = false;
   String ageBase = '';
@@ -646,13 +643,14 @@ class _IngredientGroup {
               : false;
       for (final r in g.rows) {
         for (final c in r.rule.conditions) {
-          g.conditions.add(c.source);
-          if (c.assumed) g.assumed = true;
+          g.conds.add(c);
         }
         final reason = r.content.replaceAll(RegExp(r'^[\s_\-]+|[\s_\-]+$'), '');
         if (reason.length > 1) g.reasons.add(reason);
         if (r.ageBase.isNotEmpty) g.ageBase = r.ageBase;
       }
+      // 공식 기준이 하나라도 있으면 "추정" 표시는 하지 않는다
+      g.assumed = g.conds.isNotEmpty && g.conds.every((c) => c.assumed);
     }
     final list = map.values.toList();
     int rank(_IngredientGroup g) => g.applies == true ? 0 : g.applies == null ? 1 : 2;
@@ -696,9 +694,9 @@ class _IngredientView extends StatelessWidget {
                 style: TextStyle(
                     color: c, fontWeight: FontWeight.w700, fontSize: 13)),
           ]),
-          if (g.conditions.isNotEmpty) ...[
+          if (g.label.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('금기 연령: ${g.conditions.join(', ')}',
+            Text('연령금기 기준: ${g.label}',
                 style: theme.textTheme.bodyMedium),
           ],
           if (g.ageBase.isNotEmpty)
