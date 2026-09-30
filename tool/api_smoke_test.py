@@ -102,7 +102,7 @@ else:
             except json.JSONDecodeError:
                 out.append(f"[DUR성분 {svc}] JSON 아님: {body[:200]}")
         except urllib.error.HTTPError as e:
-            detail = e.read().decode("utf-8", "replace")[:200] if hasattr(e, "read") else ""
+            detail = " ".join(e.read().decode("utf-8", "replace").split())[:300] if hasattr(e, "read") else ""
             out.append(f"[DUR성분 {svc}] HTTP {e.code}: {detail}")
         except Exception as e:  # noqa: BLE001
             out.append(f"[DUR성분 {svc}] 호출 실패: {type(e).__name__}: {str(e)[:150]}")

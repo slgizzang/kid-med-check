@@ -167,13 +167,19 @@ class _ResultScreenState extends State<ResultScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const Text('종합 결과',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black54)),
+          const SizedBox(height: 8),
           _Summary(
               child: widget.child,
               done: done,
               dangers: dangers,
               cautions: cautions,
               age: _age),
-          const SizedBox(height: 12),
+          const SizedBox(height: 28),
+          Text('약별 결과 · ${_checks.length}개',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black54)),
+          const SizedBox(height: 8),
           for (final c in sorted)
             _CheckCard(
                 check: c,
@@ -212,7 +218,8 @@ class _Summary extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (!done) {
-      return Card(
+      return _Banner(
+        color: const Color(0xFFEFF3F2),
         child: ListTile(
           leading: const SizedBox(
               width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
@@ -221,7 +228,7 @@ class _Summary extends StatelessWidget {
       );
     }
     if (dangers.isEmpty && cautions.isEmpty) {
-      return Card(
+      return _Banner(
         color: const Color(0xFFE6F4EA),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -235,7 +242,7 @@ class _Summary extends StatelessWidget {
       );
     }
     if (dangers.isEmpty) {
-      return Card(
+      return _Banner(
         color: const Color(0xFFFFE9D6),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -277,7 +284,7 @@ class _Summary extends StatelessWidget {
         ),
       );
     }
-    return Card(
+    return _Banner(
       color: const Color(0xFFFDE7E7),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -315,6 +322,28 @@ class _Summary extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 종합 결과용 배너: 테두리 없는 진한 배경 (아래 약별 카드와 구분)
+class _Banner extends StatelessWidget {
+  const _Banner({required this.color, required this.child});
+
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 4)),
+        ],
+      ),
+      child: child,
     );
   }
 }
@@ -394,7 +423,7 @@ class _CheckCard extends StatelessWidget {
     final verdict = _verdict(check, age, groups);
 
     return Card(
-      color: bg,
+      color: Colors.white,
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -432,7 +461,7 @@ class _CheckCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: bg,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(label,
@@ -581,7 +610,7 @@ class _IngredientView extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF4F7F6),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -676,7 +705,7 @@ class _InfoView extends StatelessWidget {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xCCFFFFFF),
+        color: const Color(0xFFF4F7F6),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
