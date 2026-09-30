@@ -51,7 +51,19 @@ else:
             "-dontwarn com.google.mlkit.vision.text.chinese.**",
             "-dontwarn com.google.mlkit.vision.text.devanagari.**",
             "-dontwarn com.google.mlkit.vision.text.japanese.**",
-            "-keep class com.google.mlkit.vision.text.korean.** { *; }",
+            # ML Kit 는 내부 컴포넌트를 리플렉션으로 불러오므로 축소·이름변경에서 제외
+            "-keep class com.google.mlkit.** { *; }",
+            "-keep class com.google.android.gms.internal.mlkit_vision_text_common.** { *; }",
+            "-keep class com.google.android.gms.internal.mlkit_vision_text_bundled_common.** { *; }",
+            "-keep class com.google.android.gms.internal.mlkit_vision_common.** { *; }",
+            "-keep class com.google.android.gms.internal.mlkit_common.** { *; }",
+            "-keep class com.google.android.odml.** { *; }",
+            "-keep class com.google.firebase.components.** { *; }",
+            "-keep class com.google_mlkit_commons.** { *; }",
+            "-keep class com.google_mlkit_text_recognition.** { *; }",
+            "-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod",
+            # 이름을 섞지 않으면 오류가 나도 원인을 읽을 수 있다 (용량 차이는 작음)
+            "-dontobfuscate",
             "",
         ]
     ),

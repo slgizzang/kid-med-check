@@ -120,7 +120,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.pop(context); // 로딩 닫기
 
     if (error != null) {
-      _snack('글자 인식에 실패했어요. 직접 입력해주세요. ($error)');
+      debugPrint('OCR error: $error');
+      _snack('사진에서 글자를 읽지 못했어요. 약 이름을 직접 입력해주세요.');
     }
     final candidates = DrugNameExtractor.extract(text);
     _goConfirm(candidates, text);
