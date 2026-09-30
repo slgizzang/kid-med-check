@@ -36,7 +36,7 @@ class ResultDashboard extends StatelessWidget {
       _Tile(label: '연령금기', count: snap.ageCount, icon: Icons.child_care),
       _Tile(
         label: '임부·수유부 금기',
-        count: snap.pregCount + snap.nursingCount,
+        count: snap.pregCount,
         icon: Icons.pregnant_woman,
         notApplicable: !pn,
       ),
@@ -167,9 +167,15 @@ class _Tile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          KText(label,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12.5)),
+          SizedBox(
+            height: 18,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(label,
+                  maxLines: 1,
+                  style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12.5)),
+            ),
+          ),
         ],
       ),
     );
@@ -210,7 +216,7 @@ class _DrugRow extends StatelessWidget {
       if (d.ageRule != null) _Chip('연령금기 ${d.ageRule}', danger: true),
       if (d.preg) const _Chip('임부금기', danger: true),
       if (d.mixWith.isNotEmpty) const _Chip('병용금기', danger: true),
-      if (d.nursing) const _Chip('수유 주의', danger: false),
+      if (d.nursing) const _Chip('수유부 주의', danger: false),
       if (d.labelNote != null) const _Chip('설명서 사용연령', danger: false),
       if (d.needsPick) const _Chip('약 선택 필요', danger: false, gray: true),
     ];

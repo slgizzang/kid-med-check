@@ -425,6 +425,15 @@ void main() {
     expect(back.last!.matches(['세토펜', '코푸정', '타이레놀']), isFalse);
   });
 
+  test('수유부 부분만 요약', () {
+    const t = '이 약에 과민증 환자, 15세 미만의 소아는 이 약을 복용하지 마십시오.이 약을 복용하기 전에 '
+        '알레르기 체질, 임부 또는 임신하고 있을 가능성이 있는 여성 및 수유부, 고령자는 의사 또는 약사와 상의하십시오.'
+        '정해진 용법과 용량을 잘 지키십시오.';
+    expect(nursingSummary(t), '수유부는 복용 전에 의사 또는 약사와 상의하도록 되어 있어요.');
+    expect(nursingSummary('수유부는 이 약을 복용하지 마십시오.'), '수유부는 복용하지 않도록 되어 있어요.');
+    expect(nursingSummary('정해진 용법을 지키십시오.'), isNull);
+  });
+
   test('처방 기록 저장 형식', () {
     final r = MedRecord(
         id: '1', childId: 'c', title: '9월 30일 처방', createdAt: DateTime(2026, 9, 30))

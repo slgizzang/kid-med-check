@@ -181,14 +181,9 @@ class _ResultScreenState extends State<ResultScreen> {
     return out;
   }
 
-  /// 설명서에서 수유 관련 문장 하나
-  static String? _nursingSentence(DrugInfo info) {
-    final text = '${info.warnings} ${info.usage} ${info.efficacy}';
-    for (final sentence in text.split(RegExp(r'(?<=[.。])\s+'))) {
-      if (sentence.contains('수유')) return sentence.trim();
-    }
-    return null;
-  }
+  /// 설명서에서 수유부에 해당하는 내용만 짧게
+  static String? _nursingSentence(DrugInfo info) =>
+      nursingSummary('${info.warnings} ${info.usage} ${info.efficacy}');
 
   /// 같은 기록 안의 약끼리 DUR 병용금기에 걸리는 조합을 찾는다.
   void _computeInteractions() {
@@ -491,6 +486,12 @@ class _CheckCard extends StatelessWidget {
       icon = Icons.check_circle_outline;
       label = '금기 없음';
     }
+    if (check.nursingNote != null && !check.isDanger) {
+      bg = const Color(0xFFFFE9D6);
+      fg = const Color(0xFFB45309);
+      icon = Icons.warning_amber_rounded;
+      label = '수유부 주의';
+    }
     if (check.hasMix || check.hasPreg) {
       bg = const Color(0xFFFDE7E7);
       fg = const Color(0xFFC62828);
@@ -569,7 +570,7 @@ class _CheckCard extends StatelessWidget {
                       : check.pregRows.first.content,
                   danger: true),
             if (check.nursingNote != null)
-              _Alert(title: '수유 중 주의', body: check.nursingNote!, danger: false),
+              _Alert(title: '수유부 주의', body: check.nursingNote!, danger: false),
             if (check.status == CheckStatus.error) ...[
               const SizedBox(height: 8),
               KText(check.error ?? ''),

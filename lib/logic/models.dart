@@ -218,3 +218,28 @@ String efficacyPhrase(String text) {
   if (t.length > 90) t = '${t.substring(0, 90)}…';
   return t;
 }
+
+/// 설명서 문장 중 수유부 관련 부분만 한 줄로 요약한다.
+/// e약은요는 "…마십시오.이 약을…"처럼 마침표 뒤에 띄어쓰기가 없어 마침표 기준으로 나눈다.
+String? nursingSummary(String text) {
+  final sentences = text
+      .split(RegExp(r'(?<=[.。])(?!\d)'))
+      .map((x) => x.trim())
+      .where((x) => x.isNotEmpty);
+  for (final sen in sentences) {
+    if (!sen.contains('수유')) continue;
+    if (RegExp(r'수유를?\s*(중단|중지|피)').hasMatch(sen)) {
+      return '복용하는 동안에는 수유를 중단하도록 되어 있어요.';
+    }
+    if (RegExp(r'(복용|투여|사용)하지\s*(마|않)').hasMatch(sen) &&
+        !sen.contains('상의')) {
+      return '수유부는 복용하지 않도록 되어 있어요.';
+    }
+    if (sen.contains('상의')) {
+      return '수유부는 복용 전에 의사 또는 약사와 상의하도록 되어 있어요.';
+    }
+    if (sen.length <= 60) return sen;
+    return '설명서에 수유부 관련 주의사항이 있어요. 약사에게 확인해주세요.';
+  }
+  return null;
+}
