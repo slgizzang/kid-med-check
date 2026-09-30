@@ -153,6 +153,8 @@ class AppStorage {
     await p.setString(_kReactions, jsonEncode(list.map((r) => r.toJson()).toList()));
   }
 
+  static Future<List<ReactionNote>> allReactions() => _allReactions();
+
   /// 이 복용자의 반응 기록
   static Future<List<ReactionNote>> reactions(String childId) async =>
       (await _allReactions()).where((x) => x.childId == childId).toList();

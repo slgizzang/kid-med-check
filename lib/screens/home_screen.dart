@@ -19,6 +19,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<ChildProfile> _children = [];
   List<MedRecord> _records = [];
+  Map<String, int> _reactionCount = {};
 
   /// 처방 기록 여러 개 선택해서 지우기
   bool _selecting = false;
@@ -35,6 +36,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _load() async {
     final children = await AppStorage.children();
+    final notes = await AppStorage.allReactions();
+    final counts = <String, int>{};
+    for (final n in notes) {
+      counts[n.childId] = (counts[n.childId] ?? 0) + 1;
+    }
+    _reactionCount = counts;
     final records = await AppStorage.records();
     final sel = await AppStorage.selectedChildId();
     final key = await AppStorage.apiKey();
@@ -326,10 +333,13 @@ class _HomeScreenState extends State<HomeScreen> {
           side: const BorderSide(color: AppColors.line),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        onPressed: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => ReactionListScreen(person: _selected!))),
+        onPressed: () async {
+          await Navigator.push(context,
+              MaterialPageRoute(builder: (_) => ReactionListScreen(person: _selected!)));
+          await _load();
+        },
         icon: const Icon(Icons.edit_note, size: 20),
-        label: const KText('복용 후 반응 기록 모아보기'),
+        label: KText('복용 후 반응 기록 모아보기 · ${_reactionCount[_selectedId] ?? 0}개'),
       ),
     );
     if (list.isEmpty) {
