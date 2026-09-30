@@ -758,11 +758,12 @@ class _CheckCard extends StatelessWidget {
       case CheckStatus.labelCaution:
         final f = c.labelFinding;
         if (f == null) return null;
+        // 설명서상 사용 연령보다 어리면 금지 문구든 권장 연령이든 항상 같은 안내를 붙인다
+        const note = '다만 DUR 연령금기 약은 아니에요. 사용 연령보다 어려도 의사가 판단해 처방할 수 있어요. '
+            '걱정되면 약사에게 용량을 한 번 더 확인하세요.';
         return f.prohibited
-            ? '설명서에 "${f.evidence}"라고 되어 있고, 현재 나이($a)가 해당해요.'
-            : '설명서에는 "${f.evidence}"에게 쓰는 약으로 되어 있어요. 현재 나이($a)는 이보다 어려요. '
-                '다만 연령금기 약은 아니에요. 사용 연령보다 어려도 의사가 판단해 처방할 수 있어요. '
-                '걱정되면 약사에게 용량을 한 번 더 확인하세요.';
+            ? '설명서에 "${f.evidence}"라고 되어 있고, 현재 나이($a)가 해당해요. $note'
+            : '설명서에는 "${f.evidence}"에게 쓰는 약으로 되어 있어요. 현재 나이($a)는 이보다 어려요. $note';
       case CheckStatus.unknown:
         return '연령금기 목록에 있지만 나이 기준이 적혀 있지 않아요. 약사에게 몇 살부터 먹을 수 있는지 확인하세요.';
       case CheckStatus.listedOk:
