@@ -31,16 +31,15 @@ class ResultDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final flagged = snap.drugs.where((d) => d.hasAny).toList();
+    final pn = snap.pregnant || snap.nursing;
     final tiles = <Widget>[
       _Tile(label: '연령금기', count: snap.ageCount, icon: Icons.child_care),
-      if (snap.pregnant)
-        _Tile(label: '임부금기', count: snap.pregCount, icon: Icons.pregnant_woman),
-      if (snap.nursing)
-        _Tile(
-            label: '수유 주의',
-            count: snap.nursingCount,
-            icon: Icons.baby_changing_station,
-            warnColor: true),
+      _Tile(
+        label: '임부·수유부 금기',
+        count: snap.pregCount + snap.nursingCount,
+        icon: Icons.pregnant_woman,
+        notApplicable: !pn,
+      ),
       _Tile(label: '병용금기', count: snap.mixPairs.length, icon: Icons.compare_arrows),
     ];
 
@@ -76,15 +75,15 @@ class ResultDashboard extends StatelessWidget {
               ),
             const SizedBox(height: 12),
             // 항목별 타일
-            LayoutBuilder(builder: (context, c) {
-              final cols = tiles.length >= 4 ? 2 : tiles.length;
-              final w = (c.maxWidth - 8 * (cols - 1)) / cols;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [for (final t in tiles) SizedBox(width: w, child: t)],
-              );
-            }),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < tiles.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(child: tiles[i]),
+                ],
+              ],
+            ),
             const SizedBox(height: 14),
             // 병용금기: 없어도 "없음"을 명시
             _Line(
@@ -132,35 +131,47 @@ class _Tile extends StatelessWidget {
     required this.label,
     required this.count,
     required this.icon,
-    this.warnColor = false,
+    this.notApplicable = false,
   });
 
   final String label;
   final int count;
   final IconData icon;
-  final bool warnColor;
+
+  /// 복용자에게 해당 없는 항목 (예: 아이의 임부·수유부 금기)
+  final bool notApplicable;
 
   @override
   Widget build(BuildContext context) {
-    final hit = count > 0;
-    final fg = !hit ? _green : (warnColor ? _orange : _red);
-    final bg = !hit ? _greenBg : (warnColor ? _orangeBg : _redBg);
+    final hit = count > 0 && !notApplicable;
+    final fg = notApplicable ? const Color(0xFF8A9691) : (hit ? _red : _green);
+    final bg = notApplicable ? const Color(0xFFF1F4F3) : (hit ? _redBg : _greenBg);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
-      child: Row(children: [
-        Icon(icon, color: fg, size: 22),
-        const SizedBox(width: 8),
-        Expanded(
-          child: KText(label,
-              maxLines: 1,
-              style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 13)),
-        ),
-        hit
-            ? Text('$count',
-                style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 20))
-            : Icon(Icons.check_rounded, color: fg, size: 22),
-      ]),
+      child: Column(
+        children: [
+          Icon(icon, color: fg, size: 22),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 28,
+            child: Center(
+              child: notApplicable
+                  ? Text('대상 아님',
+                      style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 13))
+                  : hit
+                      ? Text('$count개',
+                          style: TextStyle(
+                              color: fg, fontWeight: FontWeight.w800, fontSize: 20))
+                      : Icon(Icons.check_rounded, color: fg, size: 26),
+            ),
+          ),
+          const SizedBox(height: 4),
+          KText(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12.5)),
+        ],
+      ),
     );
   }
 }

@@ -91,11 +91,13 @@ class DurApi {
     addAll(await searchProducts(q));
     // 연령금기 목록에 있는 제품도 후보로 (품목정보 검색에 안 나오는 경우 대비)
     final tabooNames = <String>{};
+    final tabooRows = <String, List<TabooRow>>{};
     try {
       for (final r in await searchAgeTaboo(q)) {
         final h = ProductHit(
             fullName: r.itemName, company: r.company, ingredient: r.ingredient);
         tabooNames.add(h.displayName);
+        tabooRows.putIfAbsent(h.displayName, () => []).add(r);
         hits.putIfAbsent(h.displayName, () => h);
       }
     } catch (_) {}
@@ -131,7 +133,7 @@ class DurApi {
         .where((h) => h != best && nameScore(q, h.searchName) <= 8)
         .take(ambiguous ? 10 : 6)
         .toList();
-    return Resolution(best, similar, tabooNames, ambiguous);
+    return Resolution(best, similar, tabooNames, ambiguous, tabooRows);
   }
 
   static const _pwnmPath = '/1471000/DURPrdlstInfoService03/getPwnmTabooInfoList03';
@@ -168,6 +170,18 @@ class DurApi {
           .toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  /// 이름 일부로 찾은 임부금기 제품명들 (후보 목록 표시용)
+  Future<Set<String>> pregnancyNames(String q) async {
+    try {
+      final items = await _fetchItems(_pwnmPath, {'itemName': q}, 100);
+      return {
+        for (final m in items) ProductHit(fullName: '${m['ITEM_NAME'] ?? ''}').displayName
+      };
+    } catch (_) {
+      return {};
     }
   }
 
@@ -589,7 +603,10 @@ class ProductHit {
 
 class Resolution {
   Resolution(this.best, this.similar,
-      [this.tabooNames = const {}, this.ambiguous = false]);
+      [this.tabooNames = const {}, this.ambiguous = false, this.tabooRows = const {}]);
+
+  /// 후보 제품별 연령금기 행 (복용자 나이에 해당하는지 계산용)
+  final Map<String, List<TabooRow>> tabooRows;
   final ProductHit? best;
 
   /// 비슷한 약이 여러 개라 하나로 정할 수 없음

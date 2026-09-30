@@ -62,6 +62,7 @@ class _ResultScreenState extends State<ResultScreen> {
       c.ambiguous = res.ambiguous;
       final best = c.best;
       if (best == null) {
+        c.candidateTags = await _candidateTags(api, c.query, res);
         c.status = CheckStatus.notFound;
         c.infoLoading = false;
         if (mounted) setState(() {});
@@ -151,6 +152,33 @@ class _ResultScreenState extends State<ResultScreen> {
     c.infoLoading = false;
     if (c.status != CheckStatus.error) c.applyLabel(_age);
     if (mounted) setState(() {});
+  }
+
+  /// 후보 약마다 "이 복용자에게" 해당하는 주의만 표시한다.
+  /// 아이: 나이에 실제로 걸리는 연령금기 / 임신 중: 임부금기
+  Future<Map<String, List<String>>> _candidateTags(
+      DurApi api, String query, Resolution res) async {
+    final person = widget.child;
+    final out = <String, List<String>>{};
+    final preg = person.pregnant
+        ? await api.pregnancyNames(DrugNameExtractor.toSearchName(query))
+        : <String>{};
+    for (final h in res.similar) {
+      final tags = <String>[];
+      if (!person.isAdult) {
+        final rows = res.tabooRows[h.displayName] ?? const <TabooRow>[];
+        for (final r in rows) {
+          if (r.ingrCode.isNotEmpty) {
+            final base = await api.ingredientAgeBase(r.ingrCode);
+            if (base.isNotEmpty) r.applyAgeBase(base);
+          }
+        }
+        if (rows.any((r) => r.rule.appliesTo(_age) == true)) tags.add('연령금기');
+      }
+      if (preg.contains(h.displayName)) tags.add('임부금기');
+      if (tags.isNotEmpty) out[h.displayName] = tags;
+    }
+    return out;
   }
 
   /// 설명서에서 수유 관련 문장 하나
@@ -603,16 +631,16 @@ class _CheckCard extends StatelessWidget {
                               ],
                             ),
                           ),
-                          if (check.tabooNames.contains(h.displayName))
+                          for (final tag in check.candidateTags[h.displayName] ?? const <String>[])
                             Container(
-                              margin: const EdgeInsets.only(left: 8),
+                              margin: const EdgeInsets.only(left: 6),
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFDE7E7),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const KText('연령금기 약',
-                                  style: TextStyle(
+                              child: Text(tag,
+                                  style: const TextStyle(
                                       color: Color(0xFFC62828),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700)),

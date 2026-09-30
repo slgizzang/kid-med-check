@@ -129,8 +129,11 @@ class DrugCheck {
   /// "혹시 찾으시는 약이 이것인가요?" 후보
   List<ProductHit> similar = const [];
 
-  /// 후보 중 연령금기 목록에 있는 제품명 (후보 칩에 표시)
+  /// 후보 중 연령금기 목록에 있는 제품명
   Set<String> tabooNames = const {};
+
+  /// 후보별로 복용자에게 해당하는 주의 태그 (예: "연령금기", "임부금기")
+  Map<String, List<String>> candidateTags = const {};
 
   /// 입력한 이름에 맞는 약이 여러 개라 골라야 함
   bool ambiguous = false;
