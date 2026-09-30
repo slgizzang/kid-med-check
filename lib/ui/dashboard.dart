@@ -123,14 +123,6 @@ class ResultDashboard extends StatelessWidget {
               ),
             if (!snap.drugs.any((d) => d.hasAlert))
               const _Line(ok: true, text: '확인한 약 모두 주의할 점 없음'),
-            const Padding(
-              padding: EdgeInsets.only(top: 6, left: 28),
-              child: KText(
-                '금기 기준은 식약처 의약품안전사용서비스(DUR)가 정한 것이에요. '
-                'DUR은 나이·임신·함께 먹는 약에 따라 쓰면 안 되는 약을 정해 둔 국가 기준이에요.',
-                style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.45),
-              ),
-            ),
             if (flagged.isNotEmpty) ...[
               const SizedBox(height: 14),
               const KText('확인이 필요한 약',
