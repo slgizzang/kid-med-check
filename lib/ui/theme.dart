@@ -18,7 +18,7 @@ class AppColors {
 }
 
 const kAppName = '아이약콕';
-const kAppTagline = '우리 아이 약, 나이에 맞는지 콕 확인';
+const kAppTagline = '우리 아이 약, 안전한지 콕 확인';
 
 ThemeData buildTheme() {
   final scheme = ColorScheme.fromSeed(

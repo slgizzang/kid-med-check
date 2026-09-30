@@ -322,33 +322,8 @@ class _RecordScreenState extends State<RecordScreen> {
                 style: const TextStyle(color: AppColors.sub),
               ),
               const SizedBox(height: 18),
-              Row(children: [
-                Expanded(
-                  child: _AddTile(
-                    icon: Icons.photo_camera_outlined,
-                    label: '촬영',
-                    onTap: () => _scan(ImageSource.camera),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _AddTile(
-                    icon: Icons.photo_library_outlined,
-                    label: '사진첩',
-                    onTap: () => _scan(ImageSource.gallery),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _AddTile(
-                    icon: Icons.keyboard_outlined,
-                    label: '직접 입력',
-                    onTap: _manualAdd,
-                  ),
-                ),
-              ]),
               if (_r.last != null) ...[
-                const SizedBox(height: 22),
+                const SizedBox(height: 4),
                 const SectionTitle('지난 확인 결과'),
                 if (!_r.last!.matches(_r.drugs) ||
                     _r.last!.pregnant != widget.child.pregnant ||
@@ -365,7 +340,7 @@ class _RecordScreenState extends State<RecordScreen> {
                       Icon(Icons.refresh, size: 18, color: Color(0xFFB45309)),
                       SizedBox(width: 8),
                       Expanded(
-                        child: KText('약 목록이나 정보가 바뀌었어요. 아래 "금기 확인하기"를 다시 눌러주세요.',
+                        child: KText('약 목록이나 정보가 바뀌었어요. 아래 "약 안전 확인"을 다시 눌러주세요.',
                             style: TextStyle(color: Color(0xFF9A3412), fontWeight: FontWeight.w600)),
                       ),
                     ]),
@@ -392,7 +367,7 @@ class _RecordScreenState extends State<RecordScreen> {
                     border: Border.all(color: AppColors.line),
                   ),
                   child: const KText(
-                    '처방받은 약을 입력해주세요.\n위의 촬영·사진첩·직접 입력 중 편한 방법을 쓰면 되고, 입력한 약은 자동으로 저장돼요.',
+                    '처방받은 약을 입력해주세요.\n아래의 촬영·사진첩·직접 입력 중 편한 방법을 쓰면 되고, 입력한 약은 자동으로 저장돼요.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.sub, height: 1.5),
                   ),
@@ -440,6 +415,33 @@ class _RecordScreenState extends State<RecordScreen> {
                     label: const KText('어떤 약 때문인지 모르겠다면: 처방 전체에 반응 기록'),
                   ),
                 ),
+              const SizedBox(height: 20),
+              const SectionTitle('약 추가하기'),
+              Row(children: [
+                Expanded(
+                  child: _AddTile(
+                    icon: Icons.photo_camera_outlined,
+                    label: '촬영',
+                    onTap: () => _scan(ImageSource.camera),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _AddTile(
+                    icon: Icons.photo_library_outlined,
+                    label: '사진첩',
+                    onTap: () => _scan(ImageSource.gallery),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _AddTile(
+                    icon: Icons.keyboard_outlined,
+                    label: '직접 입력',
+                    onTap: _manualAdd,
+                  ),
+                ),
+              ]),
             ],
           ),
           if (_busy)
@@ -466,8 +468,10 @@ class _RecordScreenState extends State<RecordScreen> {
             onPressed: _r.drugs.isEmpty ? null : _check,
             icon: const Icon(Icons.verified_user_outlined),
             label: KText(_fresh
-                ? '확인 결과 자세히 보기'
-                : '${_r.drugs.length}개 약 금기 확인하기'),
+                ? '안전 확인 결과 자세히 보기'
+                : widget.child.isAdult
+                    ? '약 ${_r.drugs.length}개 안전 확인'
+                    : '우리 아이 약 ${_r.drugs.length}개 안전 확인'),
           ),
         ),
       ),

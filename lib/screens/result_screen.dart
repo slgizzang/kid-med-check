@@ -392,7 +392,7 @@ class _ResultScreenState extends State<ResultScreen> {
     final sorted = [..._checks]..sort((a, b) => rank(a).compareTo(rank(b)));
 
     return Scaffold(
-      appBar: AppBar(title: const KText('확인 결과')),
+      appBar: AppBar(title: const KText('안전 확인 결과')),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
             16, 16, 16, 40 + MediaQuery.of(context).padding.bottom),
