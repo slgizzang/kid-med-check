@@ -87,12 +87,26 @@ class ResultDashboard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            // 병용금기: 없어도 "없음"을 명시
+            // 항목마다 없어도 "없음"을 풀어서 명시
+            if (!person.isAdult)
+              _Line(
+                ok: snap.ageCount == 0,
+                text: snap.ageCount == 0
+                    ? '이 나이에 먹으면 안 되는 약(연령금기) 없음'
+                    : '이 나이에 먹으면 안 되는 약(연령금기) ${snap.ageCount}개',
+              ),
+            if (snap.pregnant)
+              _Line(
+                ok: snap.pregCount == 0,
+                text: snap.pregCount == 0
+                    ? '임신 중 먹으면 안 되는 약(임부금기) 없음'
+                    : '임신 중 먹으면 안 되는 약(임부금기) ${snap.pregCount}개',
+              ),
             _Line(
               ok: snap.mixPairs.isEmpty,
               text: snap.mixPairs.isEmpty
-                  ? '목록 안의 약끼리 병용금기 없음'
-                  : '병용금기 조합 ${snap.mixPairs.length}개',
+                  ? '목록 안의 약끼리 함께 먹으면 안 되는 조합(병용금기) 없음'
+                  : '함께 먹으면 안 되는 조합(병용금기) ${snap.mixPairs.length}개',
             ),
             for (final p in snap.mixPairs)
               Padding(
@@ -103,7 +117,15 @@ class ResultDashboard extends StatelessWidget {
                     style: const TextStyle(color: _red, fontWeight: FontWeight.w600)),
               ),
             if (!snap.drugs.any((d) => d.hasAlert))
-              const _Line(ok: true, text: '확인한 약 모두 해당 금기 없음'),
+              const _Line(ok: true, text: '확인한 약 모두 주의할 점 없음'),
+            const Padding(
+              padding: EdgeInsets.only(top: 6, left: 28),
+              child: KText(
+                '금기 기준은 식약처 의약품안전사용서비스(DUR)가 정한 것이에요. '
+                'DUR은 나이·임신·함께 먹는 약에 따라 쓰면 안 되는 약을 정해 둔 국가 기준이에요.',
+                style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.45),
+              ),
+            ),
             if (flagged.isNotEmpty) ...[
               const SizedBox(height: 14),
               const KText('확인이 필요한 약',
@@ -202,18 +224,18 @@ class _Line extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Icon(ok ? Icons.check_circle : Icons.error,
           size: 20, color: ok ? _green : _red),
       const SizedBox(width: 8),
       Expanded(
         child: KText(text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: TextStyle(
                 fontWeight: FontWeight.w600, color: ok ? AppColors.ink : _red)),
       ),
-    ]);
+    ]));
   }
 }
 

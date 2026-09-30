@@ -425,13 +425,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 onRetry: () => _retry(c),
                 onPick: (name) => _pick(c, name)),
           const SizedBox(height: 16),
-          KText(
-            '출처: 식품의약품안전처 의약품안전사용서비스(DUR) 품목정보 - 특정연령대금기. '
-            '"목록에 없음"은 이 이름으로 연령금기 품목이 검색되지 않았다는 뜻이며, '
-            '약 이름이 정확하지 않으면 결과가 나오지 않을 수 있어요. '
-            '이 앱은 참고용이며 의학적 판단을 대신하지 않아요.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          const _Sources(),
         ],
       ),
     );
@@ -968,6 +962,41 @@ class _InfoView extends StatelessWidget {
           row('성분', ingredient.isEmpty ? '정보 없음' : ingredient),
         ],
       ),
+    );
+  }
+}
+
+/// 화면 맨 아래 출처 (항목마다 한 줄씩, 어색하게 끊기지 않도록)
+class _Sources extends StatelessWidget {
+  const _Sources();
+
+  static const _items = [
+    ('의약품안전사용서비스(DUR) 품목·성분 정보', '연령금기, 임부금기, 병용금기'),
+    ('의약품개요정보(e약은요)', '효능, 설명서의 사용 연령, 수유부 주의'),
+    ('의약품 제품 허가정보', '성분, 전문·일반의약품 구분'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    const small = TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const KText('출처: 식품의약품안전처 공공데이터',
+            style: TextStyle(fontSize: 12, color: AppColors.sub, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        for (final (name, use) in _items)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('· ', style: small),
+              Expanded(child: KText('$name: $use', style: small)),
+            ]),
+          ),
+        const SizedBox(height: 8),
+        const KText('약 이름이 정확하지 않으면 결과가 나오지 않을 수 있어요.', style: small),
+        const KText('이 앱은 참고용이며 의학적 판단을 대신하지 않아요.', style: small),
+      ],
     );
   }
 }

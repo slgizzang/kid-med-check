@@ -352,7 +352,8 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(width: 10),
             Expanded(
               child: KText(
-                '식약처 DUR의 연령금기·임부금기·병용금기와 약 설명서를 복용자 정보에 맞춰 확인해요. '
+                '식약처 공공데이터로 복용자 정보에 맞춰 확인해요. '
+                '금기는 의약품안전사용서비스(DUR), 효능과 주의사항은 e약은요, 성분과 전문·일반 구분은 의약품 제품 허가정보를 써요. '
                 '경고가 나와도 약을 임의로 끊지 말고 약국·병원에 꼭 확인하세요.',
                 style: TextStyle(color: AppColors.primaryDark, height: 1.45),
               ),
