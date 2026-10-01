@@ -412,49 +412,98 @@ class _InsightCard extends StatelessWidget {
   const _InsightCard(this.i);
   final SymptomInsight i;
 
-  String _pct(int a, int b) => b == 0 ? '0%' : '${(a * 100 / b).round()}%';
+  static String _pct(int a, int b) => b == 0 ? '0%' : '${(a * 100 / b).round()}%';
 
-  @override
-  Widget build(BuildContext context) {
-    const line = TextStyle(color: AppColors.ink, height: 1.5);
-    final lines = <String>[
-      if (i.records > 0)
-        '전체 복용 ${i.totalRecords}번 중 ${i.records}번(${_pct(i.records, i.totalRecords)})에 기록됐어요.',
-      if (i.topDrug != null)
-        '${withJosa(i.symptom, '이', '가')} 있던 복용 ${i.records}번 중 ${i.topDrug!.$2}번에 '
-            '${withJosa(i.topDrug!.$1, '이', '가')} 들어 있었어요.',
-      if (i.contrast != null)
-        '${withJosa(i.contrast!.$1, '이', '가')} 들어간 복용에선 ${i.contrast!.$3}번 중 ${i.contrast!.$2}번'
-            '(${_pct(i.contrast!.$2, i.contrast!.$3)}), '
-            '안 들어간 복용에선 ${i.contrast!.$5}번 중 ${i.contrast!.$4}번'
-            '(${_pct(i.contrast!.$4, i.contrast!.$5)}) 기록됐어요.',
-      if (i.direct.isNotEmpty)
-        '약을 정해 적은 기록: ${i.direct.map((d) => '${d.$1} ${d.$2}번').join(', ')}',
-    ];
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: kNoteBg, borderRadius: BorderRadius.circular(14)),
+  /// 라벨 · 막대 · 숫자 한 줄
+  static Widget _bar(String label, int a, int b, {Color color = kNoteFg, String? right}) {
+    final ratio = b == 0 ? 0.0 : a / b;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
-            child: KText(i.symptom,
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.w800, color: kNoteFg)),
+            child: KText(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, color: AppColors.ink, fontWeight: FontWeight.w600)),
           ),
-          Text('${i.notes}번 기록',
-              style: const TextStyle(fontWeight: FontWeight.w800, color: kNoteFg)),
+          Text(right ?? '$b번 중 $a번',
+              style: const TextStyle(fontSize: 12, color: AppColors.sub)),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 40,
+            child: Text(_pct(a, b),
+                textAlign: TextAlign.right,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: color)),
+          ),
         ]),
-        const SizedBox(height: 6),
-        for (final l in lines)
-          Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('· ', style: line),
-              Expanded(child: KText(l, style: line)),
-            ]),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: ratio,
+            minHeight: 8,
+            backgroundColor: Colors.white,
+            color: color,
           ),
+        ),
+      ]),
+    );
+  }
+
+  static Widget _label(String t) => Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: Text(t,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: kNoteFg)),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final c = i.contrast;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(color: kNoteBg, borderRadius: BorderRadius.circular(16)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // 증상 이름과 횟수
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(
+            child: KText(i.symptom,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kNoteFg)),
+          ),
+          Text('${i.notes}',
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: kNoteFg)),
+          const Padding(
+            padding: EdgeInsets.only(left: 2, bottom: 4),
+            child: Text('번 기록', style: TextStyle(fontSize: 13, color: kNoteFg)),
+          ),
+        ]),
+        if (i.records > 0) _bar('전체 복용 중', i.records, i.totalRecords),
+        if (i.topDrug != null) ...[
+          _label('이 반응이 있을 때 가장 자주 함께 있던 약'),
+          _bar(i.topDrug!.$1, i.topDrug!.$2, i.records),
+        ],
+        if (c != null) ...[
+          _label('${c.$1} 복용 여부에 따라'),
+          _bar('들어간 복용', c.$2, c.$3, color: const Color(0xFFC62828)),
+          _bar('안 들어간 복용', c.$4, c.$5, color: const Color(0xFF8A9691)),
+        ],
+        if (i.direct.isNotEmpty) ...[
+          _label('약을 정해 적은 기록'),
+          const SizedBox(height: 6),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final d in i.direct)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                    color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                child: Text('${d.$1} · ${d.$2}번',
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700, color: kNoteFg)),
+              ),
+          ]),
+        ],
       ]),
     );
   }
