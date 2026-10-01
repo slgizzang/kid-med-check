@@ -14,7 +14,11 @@ class DrugSnap {
     this.ingredient = '',
     this.reaction,
     this.cls = '',
+    this.allergy,
   });
+
+  /// 알레르기 약물과 같은 계열이면 그 알레르기 이름 (예: "페니실린계")
+  final String? allergy;
 
   /// 약 분류(계열). 예: "해열.진통.소염제"
   final String cls;
@@ -41,7 +45,7 @@ class DrugSnap {
   /// 이 약(또는 같은 성분)에 대해 보호자가 적어둔 지난 반응 (예: "설사")
   final String? reaction;
 
-  bool get isDanger => ageRule != null || preg || mixWith.isNotEmpty;
+  bool get isDanger => ageRule != null || preg || mixWith.isNotEmpty || allergy != null;
 
   /// 금기·주의·선택 필요 (반응 기록 제외)
   bool get hasAlert => isDanger || labelNote != null || nursing || needsPick;
@@ -58,6 +62,7 @@ class DrugSnap {
         'pick': needsPick,
         if (ingredient.isNotEmpty) 'ingr': ingredient,
         if (cls.isNotEmpty) 'cls': cls,
+        if (allergy != null) 'alg': allergy,
         if (reaction != null) 'react': reaction,
       };
 
@@ -72,6 +77,7 @@ class DrugSnap {
         needsPick: j['pick'] == true,
         ingredient: '${j['ingr'] ?? ''}',
         cls: '${j['cls'] ?? ''}',
+        allergy: j['alg'] as String?,
         reaction: j['react'] as String?,
       );
 }
@@ -84,7 +90,11 @@ class ResultSnapshot {
     required this.pregnant,
     required this.nursing,
     this.ageMonths,
+    this.allergies = const [],
   });
+
+  /// 확인 당시 복용자 알레르기 목록
+  final List<String> allergies;
 
   /// 확인에 쓴 나이(개월) — 처방일 기준
   final int? ageMonths;
@@ -104,6 +114,7 @@ class ResultSnapshot {
   int get nursingCount => drugs.where((d) => d.nursing).length;
   int get labelCount => drugs.where((d) => d.labelNote != null).length;
   int get pickCount => drugs.where((d) => d.needsPick).length;
+  int get allergyCount => drugs.where((d) => d.allergy != null).length;
   int get reactionCount => drugs.where((d) => d.reaction != null).length;
 
   /// 기록의 약 목록이 확인 당시와 같은지
@@ -120,6 +131,7 @@ class ResultSnapshot {
         'preg': pregnant,
         'nurse': nursing,
         if (ageMonths != null) 'age': ageMonths,
+        if (allergies.isNotEmpty) 'alg': allergies,
       };
 
   factory ResultSnapshot.fromJson(Map<String, dynamic> j) => ResultSnapshot(
@@ -131,5 +143,6 @@ class ResultSnapshot {
         pregnant: j['preg'] == true,
         nursing: j['nurse'] == true,
         ageMonths: j['age'] is int ? j['age'] as int : null,
+        allergies: (j['alg'] as List? ?? const []).map((e) => '$e').toList(),
       );
 }

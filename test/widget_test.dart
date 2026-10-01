@@ -13,6 +13,7 @@ import 'package:kid_med_check/logic/snapshot.dart';
 import 'package:kid_med_check/ui/theme.dart';
 import 'package:kid_med_check/logic/models.dart';
 import 'package:kid_med_check/logic/reaction.dart';
+import 'package:kid_med_check/logic/allergy.dart';
 import 'package:kid_med_check/logic/report.dart';
 import 'package:kid_med_check/logic/dur_text.dart';
 import 'package:kid_med_check/logic/hira_import.dart';
@@ -711,5 +712,17 @@ void main() {
     expect(d.contrast!.$4, 0); // 안 들어간 6번 중 0번
     expect(withJosa('설사', '이', '가'), '설사가');
     expect(withJosa('발진', '이', '가'), '발진이');
+  });
+
+  test('알레르기 약물: 같은 계열·성분 찾기', () {
+    expect(allergyHits(['페니실린계'], '오구멘틴듀오시럽', '아목시실린수화물, 클라불란산칼륨', '').single.matched,
+        '아목시실린');
+    expect(allergyHits(['페니실린'], '어떤약', 'Amoxicillin Hydrate', '').length, 1);
+    expect(allergyHits(['세파계'], '오메프시럽', '세프디니르', '').length, 1);
+    expect(allergyHits(['페니실린계'], '세토펜현탁액', '아세트아미노펜', ''), isEmpty);
+    expect(allergyHits(['이부프로펜'], '맥시부펜시럽', '덱시부프로펜', ''), isEmpty); // 성분 직접 입력은 같은 성분만
+    expect(allergyHits(['소염진통제(NSAIDs)'], '맥시부펜시럽', '덱시부프로펜', '').length, 1);
+    final p = ChildProfile(id: 'a', name: 'n', birthDate: DateTime(2024), allergies: ['페니실린계']);
+    expect(ChildProfile.fromJson(p.toJson()).allergies, ['페니실린계']);
   });
 }

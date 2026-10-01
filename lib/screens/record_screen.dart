@@ -41,6 +41,7 @@ class _RecordScreenState extends State<RecordScreen> {
       '${c.ageInMonths(_r.createdAt)}',
       '${c.pregnant}',
       '${c.nursing}',
+      ...c.allergies,
     ].join('|');
   }
 
@@ -49,7 +50,8 @@ class _RecordScreenState extends State<RecordScreen> {
       _r.last != null &&
       _r.last!.matches(_r.drugs) &&
       _r.last!.pregnant == widget.child.pregnant &&
-      _r.last!.nursing == widget.child.nursing;
+      _r.last!.nursing == widget.child.nursing &&
+      _r.last!.allergies.join('|') == widget.child.allergies.join('|');
 
   List<ReactionNote> _notes = const [];
 
@@ -330,9 +332,7 @@ class _RecordScreenState extends State<RecordScreen> {
               if (_r.last != null) ...[
                 const SizedBox(height: 4),
                 const SectionTitle('지난 확인 결과'),
-                if (!_r.last!.matches(_r.drugs) ||
-                    _r.last!.pregnant != widget.child.pregnant ||
-                    _r.last!.nursing != widget.child.nursing)
+                if (!_fresh)
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 8),
@@ -354,9 +354,7 @@ class _RecordScreenState extends State<RecordScreen> {
                   snap: _r.last!,
                   person: widget.child,
                   showDate: true,
-                  stale: !_r.last!.matches(_r.drugs) ||
-                      _r.last!.pregnant != widget.child.pregnant ||
-                      _r.last!.nursing != widget.child.nursing,
+                  stale: !_fresh,
                 ),
               ],
               const SizedBox(height: 26),

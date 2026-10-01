@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../logic/allergy.dart';
 import '../logic/models.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
@@ -20,6 +21,8 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
   DateTime? _birth;
   bool _pregnant = false;
   bool _nursing = false;
+  final List<String> _allergies = [];
+  final _allergyInput = TextEditingController();
 
   bool get _isAdult =>
       _birth != null && monthsBetween(_birth!, DateTime.now()) >= 19 * 12;
@@ -30,11 +33,13 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
     _birth = widget.child?.birthDate;
     _pregnant = widget.child?.pregnant ?? false;
     _nursing = widget.child?.nursing ?? false;
+    _allergies.addAll(widget.child?.allergies ?? const []);
   }
 
   @override
   void dispose() {
     _name.dispose();
+    _allergyInput.dispose();
     super.dispose();
   }
 
@@ -97,6 +102,7 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
       birthDate: _birth!,
       pregnant: _isAdult && _pregnant,
       nursing: _isAdult && _nursing,
+      allergies: List.of(_allergies),
     );
     final idx = list.indexWhere((c) => c.id == id);
     if (idx >= 0) {
@@ -131,6 +137,62 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
     await AppStorage.saveChildren(list);
     await AppStorage.deleteRecordsOfChild(widget.child!.id);
     if (mounted) Navigator.pop(context, true);
+  }
+
+  void _addAllergy(String v) {
+    final t = v.trim();
+    if (t.isEmpty || _allergies.contains(t)) return;
+    setState(() => _allergies.add(t));
+    _allergyInput.clear();
+  }
+
+  /// 알레르기가 있는 약물: 자주 쓰는 계열을 누르거나 이름을 직접 입력
+  Widget _allergyBox() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const KText('알레르기가 있는 약 (선택)',
+            style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink)),
+        const SizedBox(height: 4),
+        const KText('입력하면 약 안전 확인 때 같은 계열·성분이 들어 있는지 알려드려요.',
+            style: TextStyle(fontSize: 13, color: AppColors.sub)),
+        const SizedBox(height: 10),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final a in _allergies)
+            InputChip(
+              label: Text(a),
+              selected: true,
+              showCheckmark: false,
+              selectedColor: const Color(0xFFFDECEC),
+              labelStyle: const TextStyle(
+                  color: Color(0xFFC62828), fontWeight: FontWeight.w700),
+              side: const BorderSide(color: Color(0xFFF5C2C2)),
+              onDeleted: () => setState(() => _allergies.remove(a)),
+            ),
+          for (final q in kAllergyQuickPicks.where((q) => !_allergies.contains(q)))
+            ActionChip(
+              label: Text('+ $q'),
+              labelStyle: const TextStyle(color: AppColors.sub),
+              onPressed: () => _addAllergy(q),
+            ),
+        ]),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _allergyInput,
+          textInputAction: TextInputAction.done,
+          onSubmitted: _addAllergy,
+          decoration: InputDecoration(
+            hintText: '목록에 없으면 약·성분 이름 입력 (예: 세프디니르)',
+            border: const OutlineInputBorder(),
+            isDense: true,
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => _addAllergy(_allergyInput.text),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -168,6 +230,8 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
           ),
           const SizedBox(height: 8),
           const KText('나이는 만 나이(개월)로 계산해 금기 기준과 비교해요.'),
+          const SizedBox(height: 24),
+          _allergyBox(),
           if (_isAdult) ...[
             const SizedBox(height: 20),
             const KText('성인이면 함께 확인해요',

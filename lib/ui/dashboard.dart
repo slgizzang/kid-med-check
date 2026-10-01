@@ -100,6 +100,13 @@ class ResultDashboard extends StatelessWidget {
                     ? '이 나이에 먹으면 안 되는 약(연령금기) 없음'
                     : '이 나이에 먹으면 안 되는 약(연령금기) ${snap.ageCount}개',
               ),
+            if (snap.allergies.isNotEmpty)
+              _Line(
+                ok: snap.allergyCount == 0,
+                text: snap.allergyCount == 0
+                    ? '알레르기 약물(${snap.allergies.join(', ')})과 같은 성분 없음'
+                    : '알레르기 약물과 같은 성분 ${snap.allergyCount}개',
+              ),
             if (snap.pregnant)
               _Line(
                 ok: snap.pregCount == 0,
@@ -245,6 +252,7 @@ class _DrugRow extends StatelessWidget {
   Widget build(BuildContext context) {
     // 아래 약별 카드의 상태 표시와 같은 이름을 쓴다
     final chips = <Widget>[
+      if (d.allergy != null) const _Chip('알레르기 확인', danger: true),
       if (d.ageRule != null) const _Chip('연령금기 해당', danger: true),
       if (d.preg) const _Chip('임부금기', danger: true),
       if (d.mixWith.isNotEmpty) const _Chip('병용금기', danger: true),

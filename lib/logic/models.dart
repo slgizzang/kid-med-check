@@ -1,3 +1,4 @@
+import 'allergy.dart';
 import 'dur_api.dart';
 import 'label_age.dart';
 import 'snapshot.dart';
@@ -9,7 +10,11 @@ class ChildProfile {
     required this.birthDate,
     this.pregnant = false,
     this.nursing = false,
+    this.allergies = const [],
   });
+
+  /// 알레르기가 있는 약물 (계열 이름 또는 약·성분 이름)
+  final List<String> allergies;
 
   final String id;
   final String name;
@@ -34,6 +39,7 @@ class ChildProfile {
         'birth': birthDate.toIso8601String(),
         'pregnant': pregnant,
         'nursing': nursing,
+        if (allergies.isNotEmpty) 'allergies': allergies,
       };
 
   factory ChildProfile.fromJson(Map<String, dynamic> j) => ChildProfile(
@@ -42,6 +48,7 @@ class ChildProfile {
         birthDate: DateTime.parse('${j['birth']}'),
         pregnant: j['pregnant'] == true,
         nursing: j['nursing'] == true,
+        allergies: (j['allergies'] as List? ?? const []).map((e) => '$e').toList(),
       );
 }
 
@@ -169,11 +176,15 @@ class DrugCheck {
   /// 같은 기록 안에서 함께 먹으면 안 되는 약들
   List<Interaction> interactions = [];
 
+  /// 복용자 알레르기 약물과 같은 성분·계열
+  List<AllergyHit> allergyHits = const [];
+  bool get hasAllergy => allergyHits.isNotEmpty;
+
   bool get hasPreg => pregRows.isNotEmpty;
   bool get hasMix => interactions.isNotEmpty;
 
   /// 빨간 경고가 필요한지 (연령금기·임부금기·병용금기)
-  bool get isDanger => status == CheckStatus.danger || hasPreg || hasMix;
+  bool get isDanger => status == CheckStatus.danger || hasPreg || hasMix || hasAllergy;
 
   /// 카드 제목: 찾은 정확한 제품명, 없으면 입력한 이름
   String get title => best?.displayName ?? query;

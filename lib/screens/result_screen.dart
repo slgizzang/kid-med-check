@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../logic/age_rule.dart';
+import '../logic/allergy.dart';
 import '../logic/drug_name_extractor.dart';
 import '../logic/dur_api.dart';
 import '../logic/dur_text.dart';
@@ -227,6 +228,9 @@ class _ResultScreenState extends State<ResultScreen> {
 
     // 4) 임신·수유 중인 성인이면 임부금기·수유 주의, 그리고 병용금기 원자료
     final person = widget.child;
+    // 복용자 알레르기 약물과 같은 성분·계열인지
+    c.allergyHits = allergyHits(
+        widget.child.allergies, best.fullName, c.ingredientText, className);
     if (pregF != null) c.pregRows = await pregF;
     if (person.nursing) c.nursingNote = _nursingSentence(info);
     c.mixRows = await mixF;
@@ -342,6 +346,7 @@ class _ResultScreenState extends State<ResultScreen> {
             needsPick: c.status == CheckStatus.notFound,
             ingredient: c.best != null ? c.ingredientText : '',
             cls: c.info?.className ?? '',
+            allergy: c.hasAllergy ? c.allergyHits.first.allergy : null,
             reaction: _notesFor(c).isEmpty ? null : _notesFor(c).first.$1.summary,
           ),
       ],
@@ -349,6 +354,7 @@ class _ResultScreenState extends State<ResultScreen> {
       pregnant: widget.child.pregnant,
       nursing: widget.child.nursing,
       ageMonths: _age,
+      allergies: widget.child.allergies,
     );
   }
 
@@ -601,6 +607,12 @@ class _CheckCard extends StatelessWidget {
       icon = Icons.warning_amber_rounded;
       label = '수유부 주의';
     }
+    if (check.hasAllergy) {
+      bg = const Color(0xFFFDE7E7);
+      fg = const Color(0xFFC62828);
+      icon = Icons.dangerous_outlined;
+      label = '알레르기 확인';
+    }
     if (check.hasMix || check.hasPreg) {
       bg = const Color(0xFFFDE7E7);
       fg = const Color(0xFFC62828);
@@ -670,6 +682,12 @@ class _CheckCard extends StatelessWidget {
               _Alert(
                   title: '병용금기 · ${x.other}',
                   body: '${x.other}와(과) 함께 먹으면 안 되는 조합이에요. ${friendlyTaboo(x.reason)}',
+                  danger: true),
+            for (final h in check.allergyHits)
+              _Alert(
+                  title: '알레르기 확인 · ${h.allergy}',
+                  body: '입력한 알레르기 약물(${h.allergy})과 같은 성분(${h.matched})이 들어 있어요. '
+                      '먹이기 전에 알레르기가 있다고 약사·의사에게 꼭 알려주세요.',
                   danger: true),
             if (check.hasPreg)
               _Alert(
