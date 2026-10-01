@@ -740,4 +740,29 @@ void main() {
     final names = DrugNameExtractor.extract('644900310 세토펜 \n 1회 3회 3일');
     expect(names, contains('세토펜'));
   });
+
+  test('반응 요약: 이름이 달라도 같은 성분·계열로 묶어 본다', () {
+    final records = [
+      MedRecord(id: 'a', childId: 'c', title: 't', createdAt: DateTime(2026, 1, 1), drugs: ['오구멘틴시럽']),
+      MedRecord(id: 'b', childId: 'c', title: 't', createdAt: DateTime(2026, 2, 1), drugs: ['아모크라시럽']),
+      MedRecord(id: 'd', childId: 'c', title: 't', createdAt: DateTime(2026, 3, 1), drugs: ['세토펜현탁액']),
+      MedRecord(id: 'e', childId: 'c', title: 't', createdAt: DateTime(2026, 4, 1), drugs: ['세토펜현탁액']),
+    ];
+    final notes = [
+      ReactionNote(id: '1', childId: 'c', recordId: 'a', drug: '오구멘틴시럽', date: DateTime(2026, 1, 2), symptoms: ['설사']),
+      ReactionNote(id: '2', childId: 'c', recordId: 'b', drug: '아모크라시럽', date: DateTime(2026, 2, 2), symptoms: ['설사']),
+    ];
+    final meta = {
+      '오구멘틴시럽': const DrugMeta(cls: '주로 그람양성균에 작용하는 것', ingredient: '아목시실린수화물, 클라불란산칼륨'),
+      '아모크라시럽': const DrugMeta(cls: '주로 그람양성균에 작용하는 것', ingredient: '아목시실린'),
+      '세토펜현탁액': const DrugMeta(cls: '해열.진통.소염제', ingredient: '아세트아미노펜'),
+    };
+    final d = symptomInsights(records, notes, meta).single;
+    final kinds = {for (final x in d.dims) x.kind: x};
+    expect(kinds.containsKey('약'), isFalse); // 약 이름은 달라서 2번 겹치는 약 없음
+    expect(kinds['성분']!.inSym, 2);
+    expect(kinds['성분']!.name, startsWith('아목시실린'));
+    expect(kinds['계열']!.name, '주로 그람양성균에 작용하는 것');
+    expect(kinds['계열']!.withoutSym, 0);
+  });
 }

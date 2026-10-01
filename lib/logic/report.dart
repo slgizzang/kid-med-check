@@ -53,6 +53,7 @@ class SymptomInsight {
     this.topDrug,
     this.contrast,
     this.direct = const [],
+    this.dims = const [],
   });
   final String symptom;
 
@@ -72,6 +73,47 @@ class SymptomInsight {
 
   /// 약을 지정해 적은 기록 (약, 횟수)
   final List<(String, int)> direct;
+
+  /// 약·성분·계열 기준으로 각각 가장 자주 함께 있던 것
+  final List<SymptomDim> dims;
+}
+
+/// 반응 기록과 함께 있던 약·성분·계열 하나
+class SymptomDim {
+  SymptomDim({
+    required this.kind,
+    required this.name,
+    required this.inSym,
+    required this.symTotal,
+    required this.withTotal,
+    required this.withoutSym,
+    required this.withoutTotal,
+  });
+
+  /// '약' · '성분' · '계열'
+  final String kind;
+  final String name;
+
+  /// 이 반응이 있던 복용 [symTotal]번 중 이것이 있던 횟수
+  final int inSym;
+  final int symTotal;
+
+  /// 이것이 들어간 복용 수 (그중 반응 기록 = [inSym])
+  final int withTotal;
+
+  /// 이것이 안 들어간 복용 중 반응 기록 수 / 안 들어간 복용 수
+  final int withoutSym;
+  final int withoutTotal;
+}
+
+/// 성분 이름 비교용: 띄어쓰기·염·수화물 표기를 뗀다 (아목시실린수화물 → 아목시실린)
+String baseIngredient(String s) {
+  var b = s.replaceAll(RegExp(r'\s'), '').toLowerCase();
+  final salt = RegExp(r'(이수화물|삼수화물|수화물|무수물|나트륨|칼륨|칼슘|염산염|황산염|말레산염|타르타르산염|hydrate|sodium|potassium|hydrochloride)$');
+  while (salt.hasMatch(b) && b.length > 3) {
+    b = b.replaceFirst(salt, '');
+  }
+  return b;
 }
 
 /// 생활 관리·영양제 참고 (약사와 상의하도록 안내하는 일반 정보)
@@ -257,7 +299,7 @@ MedReport buildReport(
     patterns: patterns,
     tips: careTips(classCount),
     unknownClass: unknown.toList(),
-    insights: symptomInsights(records, notes),
+    insights: symptomInsights(records, notes, meta),
   );
 }
 
@@ -270,7 +312,8 @@ String withJosa(String w, String a, String b) {
 }
 
 /// 반응 기록을 복용 기록과 맞춰 증상별로 요약한다.
-List<SymptomInsight> symptomInsights(List<MedRecord> records, List<ReactionNote> notes) {
+List<SymptomInsight> symptomInsights(List<MedRecord> records, List<ReactionNote> notes,
+    [Map<String, DrugMeta> meta = const {}]) {
   final byId = {for (final r in records) r.id: r};
   // 복용 기록마다 들어 있던 약
   final drugsOf = <String, Set<String>>{};
@@ -285,6 +328,28 @@ List<SymptomInsight> symptomInsights(List<MedRecord> records, List<ReactionNote>
       nameOf.putIfAbsent(k, () => k);
     }
     drugsOf[r.id] = set;
+  }
+  // 복용 기록마다 들어 있던 성분·계열 (약 분류 자료가 있는 약만)
+  final ingrOf = <String, Set<String>>{};
+  final clsOf = <String, Set<String>>{};
+  final ingrName = <String, String>{};
+  for (final r in records) {
+    final ingr = <String>{}, cls = <String>{};
+    for (final k in drugsOf[r.id] ?? const <String>{}) {
+      final m = meta[k];
+      if (m == null) continue;
+      for (final part in m.ingredient.split(RegExp(r'[,/·+]'))) {
+        final t = part.trim();
+        if (t.length < 2) continue;
+        final b = baseIngredient(t);
+        ingr.add(b);
+        ingrName.putIfAbsent(b, () => t);
+      }
+      final c = prettyClass(m.cls);
+      if (c.isNotEmpty) cls.add(c);
+    }
+    ingrOf[r.id] = ingr;
+    clsOf[r.id] = cls;
   }
   final symptoms = <String, List<ReactionNote>>{};
   for (final n in notes) {
@@ -339,7 +404,51 @@ List<SymptomInsight> symptomInsights(List<MedRecord> records, List<ReactionNote>
     }
     final directList = direct.entries.map((e) => (e.key, e.value)).toList()
       ..sort((a, b) => b.$2.compareTo(a.$2));
+    // 약·성분·계열마다 이 반응과 가장 자주 함께 있던 것 하나씩
+    SymptomDim? topOf(String kind, Map<String, Set<String>> setsOf, String Function(String) label) {
+      if (recIds.length < 2) return null;
+      final cnt = <String, int>{};
+      for (final id in recIds) {
+        for (final x in setsOf[id] ?? const <String>{}) {
+          cnt[x] = (cnt[x] ?? 0) + 1;
+        }
+      }
+      if (cnt.isEmpty) return null;
+      int withTotalOf(String x) => setsOf.values.where((v) => v.contains(x)).length;
+      double gap(String x) {
+        final wt = withTotalOf(x), wo = total - wt;
+        if (wt == 0 || wo == 0) return -1;
+        return cnt[x]! / wt - (recIds.length - cnt[x]!) / wo;
+      }
+
+      final maxC = cnt.values.reduce((a, b) => a > b ? a : b);
+      if (maxC < 2) return null;
+      final ties = cnt.keys.where((x) => cnt[x] == maxC).toList()
+        ..sort((a, b) => gap(b).compareTo(gap(a)));
+      final x = ties.first;
+      final wt = withTotalOf(x);
+      return SymptomDim(
+        kind: kind,
+        name: label(x),
+        inSym: maxC,
+        symTotal: recIds.length,
+        withTotal: wt,
+        withoutSym: recIds.length - maxC,
+        withoutTotal: total - wt,
+      );
+    }
+
+    final dims = <SymptomDim>[
+      for (final d in [
+        topOf('약', drugsOf, (k) => nameOf[k] ?? k),
+        topOf('성분', ingrOf, (k) => ingrName[k] ?? k),
+        topOf('계열', clsOf, (k) => k),
+      ])
+        if (d != null) d,
+    ];
+
     out.add(SymptomInsight(
+      dims: dims,
       symptom: sym,
       notes: list.length,
       records: recIds.length,

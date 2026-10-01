@@ -512,7 +512,6 @@ class _InsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = i.contrast;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
@@ -533,15 +532,9 @@ class _InsightCard extends StatelessWidget {
           ),
         ]),
         if (i.records > 0) _bar('전체 복용 중', i.records, i.totalRecords),
-        if (i.topDrug != null) ...[
-          _label('이 반응이 있을 때 가장 자주 함께 있던 약 · ${i.topDrug!.$1}'),
-          _bar('${i.symptom} 기록 중 이 약이 있던 비율', i.topDrug!.$2, i.records),
-          if (c != null) ...[
-            _bar('이 약을 먹은 복용 중 ${i.symptom} 기록', c.$2, c.$3,
-                color: const Color(0xFFC62828)),
-            _bar('이 약을 안 먹은 복용 중 ${i.symptom} 기록', c.$4, c.$5,
-                color: const Color(0xFF8A9691)),
-          ],
+        if (i.dims.isNotEmpty) ...[
+          _label('이 반응이 있을 때 가장 자주 함께 있던 것'),
+          for (final d in i.dims) _DimRow(d, i.symptom),
         ],
         if (i.direct.isNotEmpty) ...[
           _label('약을 정해 적은 기록'),
@@ -558,6 +551,79 @@ class _InsightCard extends StatelessWidget {
               ),
           ]),
         ],
+      ]),
+    );
+  }
+}
+
+/// 약·성분·계열 하나: 반응 기록 중 몇 번 함께 있었는지 + 먹었을 때/안 먹었을 때 비율
+class _DimRow extends StatelessWidget {
+  const _DimRow(this.d, this.symptom);
+  final SymptomDim d;
+  final String symptom;
+
+  static String _pct(int a, int b) => b == 0 ? '-' : '${(a * 100 / b).round()}%';
+
+  Widget _mini(String label, int a, int b, Color color) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: AppColors.sub)),
+            ),
+            Text(_pct(a, b),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
+          ]),
+          const SizedBox(height: 3),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: b == 0 ? 0 : a / b,
+              minHeight: 6,
+              backgroundColor: Colors.white,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text('$b번 중 $a번', style: const TextStyle(fontSize: 10, color: AppColors.sub)),
+        ],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(color: kNoteBg, borderRadius: BorderRadius.circular(6)),
+            child: Text(d.kind,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: kNoteFg)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: KText(d.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
+          ),
+          Text('$symptom ${d.symTotal}번 중 ${d.inSym}번',
+              style: const TextStyle(fontSize: 12, color: kNoteFg, fontWeight: FontWeight.w700)),
+        ]),
+        const SizedBox(height: 8),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: _mini('먹었을 때 $symptom', d.inSym, d.withTotal, const Color(0xFFC62828))),
+          const SizedBox(width: 12),
+          Expanded(
+              child: _mini('안 먹었을 때 $symptom', d.withoutSym, d.withoutTotal,
+                  const Color(0xFF8A9691))),
+        ]),
       ]),
     );
   }
