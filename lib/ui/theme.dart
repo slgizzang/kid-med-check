@@ -9,12 +9,15 @@ class AppColors {
   static const brand = Color(0xFF0E8F6E);
   static const brandTint = Color(0xFFE5F3EE);
 
-  /// 버튼·선택 등 화면 기본 색: 청록과 어울리는 짙은 슬레이트 네이비
-  static const primary = Color(0xFF2A3A4E);
-  static const primaryDark = Color(0xFF1C2838);
+  /// 버튼·선택 등 화면 기본 색: 청록과 어울리는 따뜻한 머스터드 옐로 (위 글자는 [onPrimary])
+  static const primary = Color(0xFFF5B82E);
+  static const onPrimary = Color(0xFF191F28);
 
-  /// 은은한 강조 배경 (중립 회청색)
-  static const mint = Color(0xFFEEF1F5);
+  /// 노랑 위·연한 배경 위 글자·아이콘용 짙은 황토색
+  static const primaryDark = Color(0xFF8A5F00);
+
+  /// 은은한 강조 배경 (연한 크림)
+  static const mint = Color(0xFFFFF5DC);
   static const capsule = Color(0xFFCFF2E6);
   static const bg = Color(0xFFF6F7F9);
   static const ink = Color(0xFF191F28);
@@ -31,6 +34,7 @@ ThemeData buildTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: AppColors.primary,
     primary: AppColors.primary,
+    onPrimary: AppColors.onPrimary,
     surface: Colors.white,
   );
   return ThemeData(

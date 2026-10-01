@@ -216,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : FloatingActionButton.extended(
               onPressed: _newRecord,
               backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onPrimary,
               elevation: 0,
               highlightElevation: 0,
               icon: const Icon(Icons.add),
@@ -468,7 +468,7 @@ class _ChildCard extends StatelessWidget {
               style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
-                  color: selected ? AppColors.primary : AppColors.primaryDark),
+                  color: AppColors.primaryDark),
             ),
           ),
           const SizedBox(width: 10),
@@ -483,12 +483,12 @@ class _ChildCard extends StatelessWidget {
                     style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
-                        color: selected ? Colors.white : AppColors.ink)),
+                        color: AppColors.ink)),
                 const SizedBox(height: 2),
                 KText(child.ageLabel,
                     style: TextStyle(
                         fontSize: 13,
-                        color: selected ? const Color(0xDDFFFFFF) : AppColors.sub)),
+                        color: selected ? const Color(0xCC191F28) : AppColors.sub)),
               ],
             ),
           ),
@@ -518,7 +518,7 @@ class _AddChildCard extends StatelessWidget {
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.person_add_alt_1_outlined, color: AppColors.primary),
+            Icon(Icons.person_add_alt_1_outlined, color: AppColors.primaryDark),
             SizedBox(height: 4),
             KText('복용자 추가', style: TextStyle(fontSize: 13, color: AppColors.sub)),
           ],
@@ -556,7 +556,7 @@ class _RecordCard extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 6),
                 child: Icon(
                   selected ? Icons.check_box : Icons.check_box_outline_blank,
-                  color: selected ? AppColors.primary : AppColors.sub,
+                  color: selected ? AppColors.primaryDark : AppColors.sub,
                   size: 26,
                 ),
               )
@@ -656,7 +656,7 @@ class _EmptyBox extends StatelessWidget {
       ),
       child: Column(children: [
         Icon(icon, size: 40,
-            color: onTap != null ? AppColors.primary : const Color(0xFFB7C9C3)),
+            color: onTap != null ? AppColors.primaryDark : const Color(0xFFB7C9C3)),
         const SizedBox(height: 10),
         KText(text,
             textAlign: TextAlign.center,
@@ -757,7 +757,7 @@ class _ToolTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = highlight ? Colors.white : AppColors.ink;
+    final fg = highlight ? AppColors.onPrimary : AppColors.ink;
     return Material(
       color: highlight ? AppColors.primary : Colors.white,
       shape: RoundedRectangleBorder(
@@ -772,7 +772,7 @@ class _ToolTile extends StatelessWidget {
           child: Stack(children: [
             Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(icon, color: highlight ? Colors.white : AppColors.primary, size: 24),
+                Icon(icon, color: highlight ? AppColors.onPrimary : AppColors.primaryDark, size: 24),
                 const SizedBox(height: 4),
                 Text(label,
                     textAlign: TextAlign.center,

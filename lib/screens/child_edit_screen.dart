@@ -236,7 +236,7 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
               // 입력한 말을 성분 이름 그대로 추가
               ListTile(
                 dense: true,
-                leading: const Icon(Icons.add, color: AppColors.primary),
+                leading: const Icon(Icons.add, color: AppColors.primaryDark),
                 title: KText('"${_allergyInput.text.trim()}" 그대로 추가'),
                 onTap: () => _addAllergy(_allergyInput.text),
               ),

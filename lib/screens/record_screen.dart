@@ -410,7 +410,7 @@ class _RecordScreenState extends State<RecordScreen> {
                           radius: 18,
                           backgroundColor: AppColors.mint,
                           child: Icon(Icons.medication_liquid_outlined,
-                              size: 20, color: AppColors.primary),
+                              size: 20, color: AppColors.primaryDark),
                         ),
                         title: KText(_r.drugs[i],
                             style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -581,12 +581,12 @@ class _AddTile extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 22, color: primary ? Colors.white : AppColors.primary),
+              Icon(icon, size: 22, color: primary ? AppColors.onPrimary : AppColors.primaryDark),
               const SizedBox(height: 4),
               KText(label,
                   style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: primary ? Colors.white : AppColors.ink)),
+                      color: AppColors.ink)),
             ],
           ),
         ),

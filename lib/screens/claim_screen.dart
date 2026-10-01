@@ -283,7 +283,7 @@ class _Check extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.check_circle_outline, size: 18, color: AppColors.primary),
+          const Icon(Icons.check_circle_outline, size: 18, color: AppColors.primaryDark),
           const SizedBox(width: 8),
           Expanded(child: KText(text, style: const TextStyle(color: AppColors.ink))),
         ]),
