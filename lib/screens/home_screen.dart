@@ -7,6 +7,7 @@ import '../ui/theme.dart';
 import 'child_edit_screen.dart';
 import 'import_screen.dart';
 import 'reaction_list_screen.dart';
+import 'result_screen.dart';
 import 'report_screen.dart';
 import 'record_screen.dart';
 import 'settings_screen.dart';
@@ -23,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MedRecord> _records = [];
   Map<String, int> _reactionCount = {};
 
-  /// 처방 기록 여러 개 선택해서 지우기
+  /// 복용 기록 여러 개 선택해서 함께 확인하거나 지우기
   bool _selecting = false;
   final Set<String> _picked = {};
   String? _selectedId;
@@ -103,6 +104,40 @@ class _HomeScreenState extends State<HomeScreen> {
     _picked.clear();
     _selecting = false;
     await _load();
+  }
+
+  /// 고른 기록들의 약 (같은 약은 한 번만) → 어느 기록의 약인지
+  Map<String, String> get _pickedDrugs {
+    final out = <String, List<String>>{};
+    // 오래된 기록부터 모아 표시 순서를 날짜순으로
+    final recs = _myRecords.where((r) => _picked.contains(r.id)).toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    for (final r in recs) {
+      for (final d in r.drugs) {
+        final name = d.trim();
+        if (name.isEmpty) continue;
+        (out[name] ??= []).add(r.title);
+      }
+    }
+    return {for (final e in out.entries) e.key: e.value.toSet().join(', ')};
+  }
+
+  /// 고른 기록의 약을 모두 모아 함께 먹어도 되는지(병용금기) 확인
+  Future<void> _checkTogether() async {
+    final person = _selected;
+    final drugs = _pickedDrugs;
+    if (person == null || drugs.length < 2) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ResultScreen(
+          child: person,
+          names: drugs.keys.toList(),
+          title: '함께 먹는 약 확인',
+          origins: drugs,
+        ),
+      ),
+    );
   }
 
   Future<void> _openImport() async {
@@ -211,6 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+      bottomNavigationBar: _selecting ? _togetherBar() : null,
       floatingActionButton: _loading || _selected == null || _myRecords.isEmpty || _selecting
           ? null
           : FloatingActionButton.extended(
@@ -223,6 +259,42 @@ class _HomeScreenState extends State<HomeScreen> {
               label: KText('새 복용 기록',
                   style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
+    );
+  }
+
+  /// 선택 중일 때 아래 고정 버튼: 고른 기록의 약끼리 병용금기 확인
+  Widget _togetherBar() {
+    final n = _pickedDrugs.length;
+    final ok = n >= 2;
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppColors.line)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          KText(
+            ok
+                ? '고른 기록의 약 $n개를 ${_selected?.name ?? ''}님 지금 나이로 함께 확인해요.'
+                : '함께 먹는 약이 든 기록을 골라주세요. (약 2개 이상)',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: AppColors.sub),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: ok ? _checkTogether : null,
+              icon: const Icon(Icons.compare_arrows),
+              label: KText(ok ? '함께 먹어도 되는지 확인 · 약 $n개' : '함께 먹어도 되는지 확인',
+                  maxLines: 1,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 

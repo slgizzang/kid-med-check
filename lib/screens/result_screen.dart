@@ -23,7 +23,15 @@ class ResultScreen extends StatefulWidget {
       this.recordId = '',
       this.reuse,
       this.onChecks,
-      this.asOf});
+      this.asOf,
+      this.title = '안전 확인 결과',
+      this.origins = const {}});
+
+  /// 화면 제목
+  final String title;
+
+  /// 여러 복용 기록을 함께 확인할 때 약 이름 → 어느 기록의 약인지 (예: "6월 3일 처방")
+  final Map<String, String> origins;
 
   /// 이 날짜 기준 나이로 확인 (처방 기록의 날짜). 없으면 오늘.
   final DateTime? asOf;
@@ -421,7 +429,7 @@ class _ResultScreenState extends State<ResultScreen> {
     final sorted = [..._checks]..sort((a, b) => rank(a).compareTo(rank(b)));
 
     return Scaffold(
-      appBar: AppBar(title: const KText('안전 확인 결과')),
+      appBar: AppBar(title: KText(widget.title)),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
             16, 16, 16, 40 + MediaQuery.of(context).padding.bottom),
@@ -460,6 +468,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 adult: _adult,
                 pregnant: widget.child.pregnant,
                 past: _past,
+                origin: widget.origins[c.query],
                 notes: _notesFor(c),
                 onDeleteReaction: _deleteReaction,
                 onRetry: () => _retry(c),
@@ -518,7 +527,11 @@ class _CheckCard extends StatelessWidget {
     this.notes = const [],
     this.onAddReaction,
     this.onDeleteReaction,
+    this.origin,
   });
+
+  /// 어느 복용 기록의 약인지 (여러 기록을 함께 확인할 때)
+  final String? origin;
 
   final List<(ReactionNote, ReactionMatch)> notes;
   final VoidCallback? onAddReaction;
@@ -643,6 +656,10 @@ class _CheckCard extends StatelessWidget {
                     KText(check.title,
                         style: theme.textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold)),
+                    if (origin != null)
+                      KText(origin!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppColors.primaryDark, fontWeight: FontWeight.w600)),
                     if (check.best != null &&
                         check.best!.searchName !=
                             DrugNameExtractor.toSearchName(check.query))
