@@ -238,12 +238,25 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                KText(kAppName,
-                    style: TextStyle(
-                        color: AppColors.ink,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(kAppName,
+                        style: TextStyle(
+                            color: AppColors.ink,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5)),
+                    SizedBox(width: 8),
+                    Text(kAppSlogan,
+                        style: TextStyle(
+                            color: AppColors.brand,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2)),
+                  ],
+                ),
                 SizedBox(height: 2),
                 KText(kAppTagline,
                     style: TextStyle(color: AppColors.sub, fontSize: 13)),

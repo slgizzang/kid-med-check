@@ -31,6 +31,9 @@ class AppColors {
 }
 
 const kAppName = '아이필';
+
+/// 영문 슬로건 (아이필 = I pill)
+const kAppSlogan = 'I pill safe';
 const kAppTagline = '우리 아이 약, 안전한지 콕 확인';
 
 ThemeData buildTheme() {
