@@ -78,7 +78,7 @@ ThemeData buildTheme() {
   );
 }
 
-/// 앱 심볼: 캡슐 약 + "콕" 눌러 확인하는 체크 (아이약콕). 런처 아이콘과 같은 모양.
+/// 앱 심볼: 캡슐 약으로 만든 체크 표시 — "약을 콕 확인". 런처 아이콘과 같은 모양.
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key, this.size = 48});
 
@@ -98,56 +98,38 @@ class _LogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final k = size.width / 1024;
-    Offset p(double x, double y) => Offset(x * k, y * k);
     canvas.drawRRect(
         RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(size.width * 0.23)),
         Paint()..color = AppColors.brand);
+    final w = 140 * k;
+    final a = Offset(256 * k, 550 * k), b = Offset(418 * k, 712 * k), c = Offset(768 * k, 332 * k);
 
-    // 캡슐 (/ 방향으로 45도)
+    // 체크의 짧은 획 (흰색)
+    canvas.drawLine(
+        a,
+        b,
+        Paint()
+          ..color = Colors.white
+          ..strokeWidth = w
+          ..strokeCap = StrokeCap.round);
+
+    // 체크의 긴 획 = 캡슐 (아래 절반 흰색, 위 절반 민트)
+    final d = c - b;
+    final len = d.distance + w;
     canvas.save();
-    canvas.translate(430 * k, 600 * k);
-    canvas.rotate(-math.pi / 4);
-    final w = 540 * k, h = 230 * k;
+    canvas.translate((b.dx + c.dx) / 2, (b.dy + c.dy) / 2);
+    canvas.rotate(math.atan2(d.dy, d.dx));
     final capsule = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset.zero, width: w, height: h), Radius.circular(h / 2));
+        Rect.fromCenter(center: Offset.zero, width: len, height: w), Radius.circular(w / 2));
     canvas.save();
-    canvas.clipRect(Rect.fromLTRB(-w / 2, -h / 2, 0, h / 2));
+    canvas.clipRect(Rect.fromLTRB(-len / 2, -w / 2, 0, w / 2));
     canvas.drawRRect(capsule, Paint()..color = Colors.white);
     canvas.restore();
     canvas.save();
-    canvas.clipRect(Rect.fromLTRB(0, -h / 2, w / 2, h / 2));
-    canvas.drawRRect(capsule, Paint()..color = const Color(0xFFBFEBDD));
+    canvas.clipRect(Rect.fromLTRB(0, -w / 2, len / 2, w / 2));
+    canvas.drawRRect(capsule, Paint()..color = const Color(0xFFA6E2CE));
     canvas.restore();
     canvas.restore();
-
-    // "콕" 파동
-    final t = p(716, 312);
-    for (final (r, a) in [(198.0, 105), (138.0, 195)]) {
-      canvas.drawArc(
-        Rect.fromCircle(center: t, radius: r * k),
-        232 * math.pi / 180,
-        166 * math.pi / 180,
-        false,
-        Paint()
-          ..color = Colors.white.withAlpha(a)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 24 * k,
-      );
-    }
-    // 확인 체크
-    canvas.drawCircle(t, 80 * k, Paint()..color = AppColors.yellow);
-    canvas.drawPath(
-      Path()
-        ..moveTo(t.dx - 36 * k, t.dy + 2 * k)
-        ..lineTo(t.dx - 9 * k, t.dy + 29 * k)
-        ..lineTo(t.dx + 38 * k, t.dy - 26 * k),
-      Paint()
-        ..color = AppColors.brand
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 22 * k
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
   }
 
   @override
