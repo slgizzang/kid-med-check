@@ -13,6 +13,9 @@ class AppColors {
   static const primary = Color(0xFFF5B82E);
   static const onPrimary = Color(0xFF191F28);
 
+  /// 선택된 카드처럼 넓은 면에 쓰는 연한 노랑
+  static const primarySoft = Color(0xFFFFE8A6);
+
   /// 노랑 위·연한 배경 위 글자·아이콘용 짙은 황토색
   static const primaryDark = Color(0xFF8A5F00);
 

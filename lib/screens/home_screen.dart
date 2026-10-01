@@ -455,9 +455,9 @@ class _ChildCard extends StatelessWidget {
         width: 150,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.white,
+          color: selected ? AppColors.primarySoft : Colors.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: selected ? AppColors.primary : AppColors.line),
+          border: Border.all(color: selected ? AppColors.primarySoft : AppColors.line),
         ),
         child: Row(children: [
           CircleAvatar(
@@ -759,7 +759,7 @@ class _ToolTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final fg = highlight ? AppColors.onPrimary : AppColors.ink;
     return Material(
-      color: highlight ? AppColors.primary : Colors.white,
+      color: highlight ? AppColors.primarySoft : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: highlight ? BorderSide.none : const BorderSide(color: AppColors.line),
