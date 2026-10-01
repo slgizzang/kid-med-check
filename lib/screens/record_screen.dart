@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../logic/claim.dart';
 import '../logic/drug_name_extractor.dart';
 import '../logic/models.dart';
 import '../logic/reaction.dart';
@@ -9,6 +13,7 @@ import '../logic/storage.dart';
 import '../ui/theme.dart';
 import '../ui/dashboard.dart';
 import '../ui/reaction_sheet.dart';
+import 'claim_screen.dart';
 import 'confirm_screen.dart';
 import 'result_screen.dart';
 
@@ -231,6 +236,9 @@ class _RecordScreenState extends State<RecordScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
 
+    // 실손보험 청구용으로 사진을 기록에 보관한다 (휴대폰 안에만)
+    await _keepPhoto(file.path, text);
+
     if (error != null) {
       debugPrint('OCR error: $error');
       _snack('사진에서 글자를 읽지 못했어요. 직접 입력해주세요.');
@@ -247,6 +255,23 @@ class _RecordScreenState extends State<RecordScreen> {
       ),
     );
     if (picked != null && picked.isNotEmpty) _addNames(picked);
+  }
+
+  Future<void> _keepPhoto(String src, String text) async {
+    try {
+      final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/photos');
+      await dir.create(recursive: true);
+      final dst = '${dir.path}/${_r.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await File(src).copy(dst);
+      _r.photos.add(RecordPhoto(path: dst, text: text, at: DateTime.now()));
+      await _save();
+    } catch (_) {}
+  }
+
+  Future<void> _openClaim() async {
+    await Navigator.push(context,
+        MaterialPageRoute(builder: (_) => ClaimScreen(child: widget.child, record: _r)));
+    if (mounted) setState(() {});
   }
 
   Future<void> _check() async {
@@ -471,10 +496,23 @@ class _RecordScreenState extends State<RecordScreen> {
               ]),
               const SizedBox(height: 10),
               const KText(
-                '촬영·사진첩은 사진 속 글자를 읽는 기술(OCR)로 약 이름을 찾아요. '
-                '약 이름이 아닌 단어도 함께 잡힐 수 있어요. '
-                '다음 화면에서 처방받은 약만 골라 추가해주세요.',
+                '촬영·사진첩은 사진 속 글자를 읽어(OCR) 식약처 약 목록과 맞는 이름만 골라요. '
+                '처방전·약봉지·영수증을 통째로 찍어도 돼요. '
+                '찍은 사진은 실비 청구에 쓸 수 있게 이 기록에 보관돼요.',
                 style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
+              ),
+              const SizedBox(height: 20),
+              // 실손보험 청구 준비
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  foregroundColor: AppColors.ink,
+                ),
+                onPressed: _openClaim,
+                icon: const Icon(Icons.receipt_long_outlined, size: 20),
+                label: KText(_r.photos.isEmpty
+                    ? '실비 보험 청구 준비'
+                    : '실비 보험 청구 준비 · 사진 ${_r.photos.length}장'),
               ),
             ],
           ),

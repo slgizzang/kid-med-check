@@ -110,6 +110,10 @@ class DrugNameExtractor {
   /// "패치", "현탁액"처럼 제형만 있는 이름인지 (약 이름으로 쓸 수 없음)
   static bool isFormOnly(String name) => _formOnlyName.hasMatch(name.replaceAll(' ', ''));
 
+  /// 처방전의 약품코드(보험코드 9자리) 바로 뒤에 오는 이름: "644900310 세토펜현탁액"
+  static final RegExp _afterCode =
+      RegExp(r'(?<!\d)\d{9}(?!\d)\s*([가-힣A-Za-z][가-힣A-Za-z0-9\-]{1,30})');
+
   static List<String> extract(String text) {
     final result = <String>[];
     final seen = <String>{};
@@ -121,8 +125,15 @@ class DrugNameExtractor {
         if (_blockedParts.any(name.contains)) continue;
         if (seen.add(name)) result.add(name);
       }
+      // 제형으로 끝나지 않아도 약품코드 뒤의 이름은 약일 가능성이 높다
+      for (final m in _afterCode.allMatches(line)) {
+        final name = toSearchName(m.group(1)!);
+        if (name.length < 2 || _blockedParts.any(name.contains)) continue;
+        if (result.any((r) => r.startsWith(name) || name.startsWith(r))) continue;
+        if (seen.add(name)) result.add(name);
+      }
     }
-    return result.take(30).toList();
+    return result.take(40).toList();
   }
 
   static final RegExp _trailingForm = RegExp('(?:$_modAlt)*(?:$_formAlt)\$');

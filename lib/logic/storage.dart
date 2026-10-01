@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -93,8 +94,20 @@ class AppStorage {
 
   static Future<void> deleteRecord(String id) async {
     final list = await records();
+    for (final r in list.where((x) => x.id == id)) {
+      _deletePhotos(r);
+    }
     list.removeWhere((x) => x.id == id);
     await _saveRecords(list);
+  }
+
+  /// 기록을 지울 때 찍어둔 사진 파일도 지운다
+  static void _deletePhotos(MedRecord r) {
+    for (final p in r.photos) {
+      try {
+        File(p.path).deleteSync();
+      } catch (_) {}
+    }
   }
 
   /// 불러온 처방을 기록으로 저장. 이미 불러온 것은 건너뛴다. (새로 만든 수, 건너뛴 수)
@@ -128,6 +141,9 @@ class AppStorage {
   /// 아이를 지우면 그 아이의 기록(처방·반응)도 지운다.
   static Future<void> deleteRecordsOfChild(String childId) async {
     final list = await records();
+    for (final r in list.where((x) => x.childId == childId)) {
+      _deletePhotos(r);
+    }
     list.removeWhere((x) => x.childId == childId);
     await _saveRecords(list);
     final notes = await _allReactions();

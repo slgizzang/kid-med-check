@@ -9,7 +9,7 @@ import pathlib
 import re
 import sys
 
-APP_LABEL = "아이약콕"
+APP_LABEL = "아이필"
 KOREAN_OCR = "com.google.mlkit:text-recognition-korean:16.0.1"
 
 root = pathlib.Path(__file__).resolve().parent.parent

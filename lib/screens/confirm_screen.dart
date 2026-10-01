@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../logic/drug_name_extractor.dart';
+import '../logic/dur_api.dart';
+import '../logic/storage.dart';
 import '../logic/models.dart';
 import '../ui/theme.dart';
 
@@ -22,15 +24,53 @@ class ConfirmScreen extends StatefulWidget {
 }
 
 class _Entry {
-  _Entry(this.name);
+  _Entry(this.name, {this.checked = true});
   String name;
-  bool checked = true;
+  bool checked;
+
+  /// 식약처 자료에서 실제 약으로 확인됐는지 (null = 확인 중)
+  bool? verified;
+
+  /// 확인된 제품명
+  String? product;
 }
 
 class _ConfirmScreenState extends State<ConfirmScreen> {
   late final List<_Entry> _entries =
-      widget.initialNames.map((n) => _Entry(n)).toList();
+      widget.initialNames.map((n) => _Entry(n, checked: false)).toList();
   final _input = TextEditingController();
+  bool _verifying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.rawText.isNotEmpty && _entries.isNotEmpty) _verify();
+  }
+
+  /// 사진 전체에서 뽑은 후보 중 실제 약 이름만 골라 체크한다 (식약처 품목 자료와 대조)
+  Future<void> _verify() async {
+    setState(() => _verifying = true);
+    final api = DurApi(await AppStorage.apiKey());
+    final list = List.of(_entries);
+    for (var i = 0; i < list.length; i += 6) {
+      await Future.wait(list.skip(i).take(6).map((e) async {
+        final q = DrugNameExtractor.toSearchName(e.name);
+        try {
+          final hits = await api.searchProducts(q);
+          final match = hits.where((h) => h.searchName.startsWith(q) || q.startsWith(h.searchName));
+          e.verified = match.isNotEmpty;
+          if (match.isNotEmpty) e.product = match.first.displayName;
+        } catch (_) {
+          e.verified = null;
+        }
+        e.checked = e.verified == true;
+        if (mounted) setState(() {});
+      }));
+    }
+    // 확인된 약을 위로
+    _entries.sort((a, b) => (b.verified == true ? 1 : 0) - (a.verified == true ? 1 : 0));
+    if (mounted) setState(() => _verifying = false);
+  }
 
   @override
   void dispose() {
@@ -101,7 +141,9 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           KText(
             widget.rawText.isEmpty
                 ? '처방받은 약 이름을 입력해주세요.'
-                : '사진에서 찾은 이름이에요. 틀린 글자는 눌러서 고치고, 약이 아닌 건 체크를 빼주세요.',
+                : _verifying
+                    ? '사진에서 찾은 글자 중 실제 약 이름을 식약처 자료로 확인하는 중이에요…'
+                    : '식약처 자료로 확인된 약만 골라 두었어요. 빠진 약은 체크하거나 아래에서 직접 추가해주세요.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
@@ -120,6 +162,14 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
                 value: e.checked,
                 onChanged: (v) => setState(() => e.checked = v ?? false),
                 title: KText(e.name),
+                subtitle: e.verified == null
+                    ? (_verifying ? const KText('확인 중…', style: TextStyle(fontSize: 12)) : null)
+                    : KText(
+                        e.verified! ? '확인됨 · ${e.product ?? ''}' : '약 목록에서 찾지 못함',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: e.verified! ? AppColors.primaryDark : AppColors.sub),
+                      ),
                 secondary: IconButton(
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: () => _edit(e),

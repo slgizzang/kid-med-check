@@ -13,6 +13,7 @@ import 'package:kid_med_check/logic/snapshot.dart';
 import 'package:kid_med_check/ui/theme.dart';
 import 'package:kid_med_check/logic/models.dart';
 import 'package:kid_med_check/logic/reaction.dart';
+import 'package:kid_med_check/logic/claim.dart';
 import 'package:kid_med_check/logic/allergy.dart';
 import 'package:kid_med_check/logic/report.dart';
 import 'package:kid_med_check/logic/dur_text.dart';
@@ -724,5 +725,19 @@ void main() {
     expect(allergyHits(['소염진통제(NSAIDs)'], '맥시부펜시럽', '덱시부프로펜', '').length, 1);
     final p = ChildProfile(id: 'a', name: 'n', birthDate: DateTime(2024), allergies: ['페니실린계']);
     expect(ChildProfile.fromJson(p.toJson()).allergies, ['페니실린계']);
+  });
+
+  test('약국 영수증에서 날짜·약국·본인부담금 읽기', () {
+    const t = '약제비 계산서·영수증\n행복약국\n조제일자 2026-03-12\n총액 12,400\n본인부담금\n3,700원\n';
+    final c = parseReceipt(t);
+    expect(c.pharmacy, '행복약국');
+    expect(c.date, DateTime(2026, 3, 12));
+    expect(c.amount, 3700);
+    expect(formatWon(12400), '12,400원');
+  });
+
+  test('처방전 약품코드 뒤 이름도 후보로', () {
+    final names = DrugNameExtractor.extract('644900310 세토펜 \n 1회 3회 3일');
+    expect(names, contains('세토펜'));
   });
 }

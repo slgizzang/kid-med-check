@@ -19,7 +19,7 @@ class AppColors {
   static const line = Color(0xFFE8EBEE);
 }
 
-const kAppName = '아이약콕';
+const kAppName = '아이필';
 const kAppTagline = '우리 아이 약, 안전한지 콕 확인';
 
 ThemeData buildTheme() {
@@ -78,7 +78,7 @@ ThemeData buildTheme() {
   );
 }
 
-/// 앱 심볼: 캡슐 약으로 만든 체크 표시 — "약을 콕 확인". 런처 아이콘과 같은 모양.
+/// 앱 심볼: 두 고리가 이어진 캡슐 — "약 정보를 잇는다". 런처 아이콘과 같은 모양.
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key, this.size = 48});
 
@@ -95,40 +95,40 @@ class AppLogo extends StatelessWidget {
 }
 
 class _LogoPainter extends CustomPainter {
+  // 1024 기준 크기 (런처 아이콘 생성과 같은 값)
+  static const _l = 700.0, _h = 290.0, _g = 150.0, _d = 85.0, _w = 72.0;
+
   @override
   void paint(Canvas canvas, Size size) {
     final k = size.width / 1024;
     canvas.drawRRect(
         RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(size.width * 0.23)),
         Paint()..color = AppColors.brand);
-    final w = 140 * k;
-    final a = Offset(256 * k, 550 * k), b = Offset(418 * k, 712 * k), c = Offset(768 * k, 332 * k);
-
-    // 체크의 짧은 획 (흰색)
-    canvas.drawLine(
-        a,
-        b,
-        Paint()
-          ..color = Colors.white
-          ..strokeWidth = w
-          ..strokeCap = StrokeCap.round);
-
-    // 체크의 긴 획 = 캡슐 (아래 절반 흰색, 위 절반 민트)
-    final d = c - b;
-    final len = d.distance + w;
+    const r = _h / 2;
+    final path = Path()
+      ..moveTo(-_g, -r)
+      ..lineTo(-_l / 2 + r, -r)
+      ..arcTo(Rect.fromCircle(center: const Offset(-_l / 2 + r, 0), radius: r), -math.pi / 2,
+          -math.pi, false)
+      ..lineTo(-_d, r)
+      ..lineTo(_d, -r)
+      ..lineTo(_l / 2 - r, -r)
+      ..arcTo(Rect.fromCircle(center: const Offset(_l / 2 - r, 0), radius: r), -math.pi / 2,
+          math.pi, false)
+      ..lineTo(_g, r);
     canvas.save();
-    canvas.translate((b.dx + c.dx) / 2, (b.dy + c.dy) / 2);
-    canvas.rotate(math.atan2(d.dy, d.dx));
-    final capsule = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset.zero, width: len, height: w), Radius.circular(w / 2));
-    canvas.save();
-    canvas.clipRect(Rect.fromLTRB(-len / 2, -w / 2, 0, w / 2));
-    canvas.drawRRect(capsule, Paint()..color = Colors.white);
-    canvas.restore();
-    canvas.save();
-    canvas.clipRect(Rect.fromLTRB(0, -w / 2, len / 2, w / 2));
-    canvas.drawRRect(capsule, Paint()..color = const Color(0xFFA6E2CE));
-    canvas.restore();
+    canvas.translate(size.width / 2, size.height / 2);
+    canvas.scale(k);
+    canvas.rotate(-28 * math.pi / 180);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _w
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
     canvas.restore();
   }
 

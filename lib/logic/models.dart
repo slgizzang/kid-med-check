@@ -1,4 +1,5 @@
 import 'allergy.dart';
+import 'claim.dart';
 import 'dur_api.dart';
 import 'label_age.dart';
 import 'snapshot.dart';
@@ -69,7 +70,12 @@ class MedRecord {
     this.last,
     this.importKey,
     this.otc = false,
-  }) : drugs = drugs ?? [];
+    List<RecordPhoto>? photos,
+  })  : drugs = drugs ?? [],
+        photos = photos ?? [];
+
+  /// 찍어둔 처방전·약봉지·영수증 사진 (실손보험 청구용)
+  final List<RecordPhoto> photos;
 
   /// 약국에서 직접 산 약(일반의약품)이면 true, 병원 처방이면 false
   bool otc;
@@ -101,6 +107,7 @@ class MedRecord {
         if (last != null) 'last': last!.toJson(),
         if (importKey != null) 'import': importKey,
         if (otc) 'otc': true,
+        if (photos.isNotEmpty) 'photos': photos.map((p) => p.toJson()).toList(),
       };
 
   factory MedRecord.fromJson(Map<String, dynamic> j) => MedRecord(
@@ -114,6 +121,9 @@ class MedRecord {
             : null,
         importKey: j['import'] as String?,
         otc: j['otc'] == true,
+        photos: (j['photos'] as List? ?? const [])
+            .map((e) => RecordPhoto.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
       );
 }
 
