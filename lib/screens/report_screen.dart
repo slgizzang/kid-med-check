@@ -6,6 +6,7 @@ import '../logic/report.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
 import '../ui/theme.dart';
+import 'reaction_list_screen.dart';
 
 /// 복용 리포트: 지난 기록을 모아 많이 먹은 약 계열, 반응 기록 패턴, 생활 관리 참고를 보여준다.
 class ReportScreen extends StatefulWidget {
@@ -122,19 +123,35 @@ class _ReportScreenState extends State<ReportScreen> {
                       ]),
                     ),
                     _Section(
-                      title: '복용 후 반응 기록',
-                      sub: '보호자가 적어둔 기록을 센 것이에요',
-                      child: r.patterns.isEmpty
+                      title: '복용 후 반응 요약',
+                      sub: '적어둔 기록의 횟수·비율이에요. 원인을 판단한 것은 아니에요',
+                      child: r.insights.isEmpty
                           ? const _Empty('적어둔 반응 기록이 없어요.')
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                for (final p in r.patterns.take(8)) _PatternLine(p),
+                                for (final i in r.insights.take(3)) _InsightCard(i),
+                                if (r.insights.length > 3)
+                                  KText(
+                                      '그 밖의 반응: ${r.insights.skip(3).map((i) => '${i.symptom} ${i.notes}번').join(', ')}',
+                                      style: const TextStyle(fontSize: 13, color: AppColors.sub)),
                                 const SizedBox(height: 6),
                                 const KText(
-                                  '여러 약을 함께 먹은 기록은 어떤 약 때문인지 알 수 없어요. '
-                                  '반복되는 반응은 다음 진료 때 의사·약사에게 알려주세요.',
+                                  '자주 처방되는 약일수록 반응 기록과 겹치는 횟수도 많아질 수 있어요. '
+                                  '반복되는 반응은 다음 진료 때 이 화면을 보여주며 의사·약사와 상의하세요.',
                                   style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
+                                ),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton.icon(
+                                    onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (_) =>
+                                                ReactionListScreen(person: widget.person))),
+                                    icon: const Icon(Icons.list_alt, size: 18),
+                                    label: const KText('반응 기록 전체 보기'),
+                                  ),
                                 ),
                               ],
                             ),
@@ -366,30 +383,6 @@ class _DrugLine extends StatelessWidget {
       );
 }
 
-class _PatternLine extends StatelessWidget {
-  const _PatternLine(this.p);
-  final ReactionPattern p;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: kNoteBg, borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          KText('${p.drug} 복용 후 ${p.symptom} ${p.times}번',
-              style: const TextStyle(fontWeight: FontWeight.w800, color: kNoteFg)),
-          KText(
-            [
-              if (p.taken > 0) '이 약이 들어간 복용 기록 ${p.taken}번 중',
-              if (p.withOthers) '다른 약과 함께 먹은 기록 포함',
-            ].join(' · '),
-            style: const TextStyle(fontSize: 12, color: kNoteFg),
-          ),
-        ]),
-      );
-}
-
 class _TipCard extends StatelessWidget {
   const _TipCard(this.t);
   final CareTip t;
@@ -413,4 +406,56 @@ class _TipCard extends StatelessWidget {
           KText(t.body, style: const TextStyle(color: AppColors.ink, height: 1.5)),
         ]),
       );
+}
+
+class _InsightCard extends StatelessWidget {
+  const _InsightCard(this.i);
+  final SymptomInsight i;
+
+  String _pct(int a, int b) => b == 0 ? '0%' : '${(a * 100 / b).round()}%';
+
+  @override
+  Widget build(BuildContext context) {
+    const line = TextStyle(color: AppColors.ink, height: 1.5);
+    final lines = <String>[
+      if (i.records > 0)
+        '전체 복용 ${i.totalRecords}번 중 ${i.records}번(${_pct(i.records, i.totalRecords)})에 기록됐어요.',
+      if (i.topDrug != null)
+        '${withJosa(i.symptom, '이', '가')} 있던 복용 ${i.records}번 중 ${i.topDrug!.$2}번에 '
+            '${withJosa(i.topDrug!.$1, '이', '가')} 들어 있었어요.',
+      if (i.contrast != null)
+        '${withJosa(i.contrast!.$1, '이', '가')} 들어간 복용에선 ${i.contrast!.$3}번 중 ${i.contrast!.$2}번'
+            '(${_pct(i.contrast!.$2, i.contrast!.$3)}), '
+            '안 들어간 복용에선 ${i.contrast!.$5}번 중 ${i.contrast!.$4}번'
+            '(${_pct(i.contrast!.$4, i.contrast!.$5)}) 기록됐어요.',
+      if (i.direct.isNotEmpty)
+        '약을 정해 적은 기록: ${i.direct.map((d) => '${d.$1} ${d.$2}번').join(', ')}',
+    ];
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: kNoteBg, borderRadius: BorderRadius.circular(14)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: KText(i.symptom,
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.w800, color: kNoteFg)),
+          ),
+          Text('${i.notes}번 기록',
+              style: const TextStyle(fontWeight: FontWeight.w800, color: kNoteFg)),
+        ]),
+        const SizedBox(height: 6),
+        for (final l in lines)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('· ', style: line),
+              Expanded(child: KText(l, style: line)),
+            ]),
+          ),
+      ]),
+    );
+  }
 }

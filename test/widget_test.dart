@@ -685,4 +685,31 @@ void main() {
             recordId: 'r2', before: DateTime(2026, 9, 1), includeOwn: true).length,
         1);
   });
+
+  test('반응 요약: 횟수·비율만, 차이가 뚜렷할 때만 비교', () {
+    final records = <MedRecord>[];
+    final notes = <ReactionNote>[];
+    for (var i = 0; i < 10; i++) {
+      final hasA = i < 4;
+      records.add(MedRecord(
+          id: 'r$i', childId: 'c', title: 't', createdAt: DateTime(2026, 1, i + 1),
+          drugs: [if (hasA) '에이시럽', '비시럽']));
+      if (i < 3) {
+        notes.add(ReactionNote(id: 'n$i', childId: 'c', recordId: 'r$i', drug: 't',
+            date: DateTime(2026, 1, i + 2), symptoms: ['설사'],
+            items: [if (hasA) ('에이시럽', ''), ('비시럽', '')]));
+      }
+    }
+    final ins = symptomInsights(records, notes);
+    final d = ins.single;
+    expect(d.symptom, '설사');
+    expect(d.records, 3);
+    expect(d.totalRecords, 10);
+    expect(d.contrast!.$1, '에이시럽');
+    expect(d.contrast!.$2, 3); // 에이시럽 들어간 4번 중 3번
+    expect(d.contrast!.$3, 4);
+    expect(d.contrast!.$4, 0); // 안 들어간 6번 중 0번
+    expect(withJosa('설사', '이', '가'), '설사가');
+    expect(withJosa('발진', '이', '가'), '발진이');
+  });
 }

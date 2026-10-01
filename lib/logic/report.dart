@@ -43,6 +43,37 @@ class ReactionPattern {
   final bool withOthers;
 }
 
+/// 증상 하나에 대한 요약: 사실(횟수·비율)만 보여주고 원인은 판단하지 않는다.
+class SymptomInsight {
+  SymptomInsight({
+    required this.symptom,
+    required this.notes,
+    required this.records,
+    required this.totalRecords,
+    this.topDrug,
+    this.contrast,
+    this.direct = const [],
+  });
+  final String symptom;
+
+  /// 이 증상을 적은 횟수
+  final int notes;
+
+  /// 이 증상이 적힌 복용 기록 수 / 전체 복용 기록 수
+  final int records;
+  final int totalRecords;
+
+  /// 이 증상이 있던 복용에 가장 자주 들어 있던 약 (이름, 몇 번)
+  final (String, int)? topDrug;
+
+  /// 약이 들어간 복용과 안 들어간 복용의 비율 차이가 뚜렷할 때만:
+  /// (약, 들어간 복용 중 증상 수, 들어간 복용 수, 안 들어간 복용 중 증상 수, 안 들어간 복용 수)
+  final (String, int, int, int, int)? contrast;
+
+  /// 약을 지정해 적은 기록 (약, 횟수)
+  final List<(String, int)> direct;
+}
+
 /// 생활 관리·영양제 참고 (약사와 상의하도록 안내하는 일반 정보)
 class CareTip {
   CareTip(this.title, this.body, this.because);
@@ -68,7 +99,11 @@ class MedReport {
     required this.patterns,
     required this.tips,
     required this.unknownClass,
+    this.insights = const [],
   });
+
+  /// 증상별 요약 (많이 적은 증상부터)
+  final List<SymptomInsight> insights;
 
   final int records;
   final int rxCount;
@@ -222,7 +257,96 @@ MedReport buildReport(
     patterns: patterns,
     tips: careTips(classCount),
     unknownClass: unknown.toList(),
+    insights: symptomInsights(records, notes),
   );
+}
+
+/// 받침에 맞는 조사: withJosa('세토펜', '이', '가') → "세토펜이"
+String withJosa(String w, String a, String b) {
+  if (w.isEmpty) return w;
+  final c = w.codeUnitAt(w.length - 1);
+  if (c < 0xAC00 || c > 0xD7A3) return '$w$a($b)';
+  return (c - 0xAC00) % 28 != 0 ? '$w$a' : '$w$b';
+}
+
+/// 반응 기록을 복용 기록과 맞춰 증상별로 요약한다.
+List<SymptomInsight> symptomInsights(List<MedRecord> records, List<ReactionNote> notes) {
+  final byId = {for (final r in records) r.id: r};
+  // 복용 기록마다 들어 있던 약
+  final drugsOf = <String, Set<String>>{};
+  final nameOf = <String, String>{};
+  for (final r in records) {
+    final set = <String>{};
+    for (final q in r.drugs) {
+      final name = resolvedName(r, q);
+      final k = drugKey(name);
+      if (k.isEmpty) continue;
+      set.add(k);
+      nameOf.putIfAbsent(k, () => k);
+    }
+    drugsOf[r.id] = set;
+  }
+  final symptoms = <String, List<ReactionNote>>{};
+  for (final n in notes) {
+    for (final s in (n.symptoms.isEmpty ? ['기타 반응'] : n.symptoms)) {
+      symptoms.putIfAbsent(s, () => []).add(n);
+    }
+  }
+  final out = <SymptomInsight>[];
+  final total = records.length;
+  symptoms.forEach((sym, list) {
+    final recIds = {
+      for (final n in list)
+        if (byId.containsKey(n.recordId)) n.recordId
+    };
+    // 증상이 있던 복용에 들어 있던 약 세기
+    final inSym = <String, int>{};
+    for (final id in recIds) {
+      for (final k in drugsOf[id] ?? const <String>{}) {
+        inSym[k] = (inSym[k] ?? 0) + 1;
+      }
+    }
+    (String, int)? topDrug;
+    if (inSym.isNotEmpty && recIds.length >= 2) {
+      final e = inSym.entries.reduce((a, b) => b.value > a.value ? b : a);
+      if (e.value >= 2) topDrug = (nameOf[e.key] ?? e.key, e.value);
+    }
+    // 들어간 복용 vs 안 들어간 복용 비율 비교 (차이가 뚜렷할 때만)
+    (String, int, int, int, int)? contrast;
+    var bestGap = 0.0;
+    inSym.forEach((k, withSym) {
+      if (withSym < 2) return;
+      final withTotal = drugsOf.values.where((d) => d.contains(k)).length;
+      final withoutTotal = total - withTotal;
+      if (withoutTotal < 3) return;
+      final withoutSym = recIds.length - withSym;
+      final a = withSym / withTotal, b = withoutSym / withoutTotal;
+      final gap = a - b;
+      if (a >= 2 * b && gap >= 0.2 && gap > bestGap) {
+        bestGap = gap;
+        contrast = (nameOf[k] ?? k, withSym, withTotal, withoutSym, withoutTotal);
+      }
+    });
+    // 약을 지정해 적은 기록
+    final direct = <String, int>{};
+    for (final n in list.where((n) => !n.isGroup)) {
+      final short = drugKey(n.drug);
+      direct[short] = (direct[short] ?? 0) + 1;
+    }
+    final directList = direct.entries.map((e) => (e.key, e.value)).toList()
+      ..sort((a, b) => b.$2.compareTo(a.$2));
+    out.add(SymptomInsight(
+      symptom: sym,
+      notes: list.length,
+      records: recIds.length,
+      totalRecords: total,
+      topDrug: topDrug,
+      contrast: contrast,
+      direct: directList.take(3).toList(),
+    ));
+  });
+  out.sort((a, b) => b.notes.compareTo(a.notes));
+  return out;
 }
 
 /// 자주 먹은 약 계열에 따른 일반적인 생활 관리·영양제 참고.
