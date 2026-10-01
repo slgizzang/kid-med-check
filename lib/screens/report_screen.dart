@@ -22,6 +22,9 @@ class ReportScreen extends StatefulWidget {
 class _ReportScreenState extends State<ReportScreen> {
   MedReport? _report;
 
+  /// 최근 3년 안의 처방 중 청구 완료 표시가 없는 기록
+  List<MedRecord> _unclaimed = const [];
+
   /// 알레르기 약물과 같은 성분이 들어 있던 기록 (약, 날짜, 알레르기)
   List<(String, DateTime, String)> _allergyFound = const [];
   int _done = 0, _total = 0;
@@ -82,7 +85,13 @@ class _ReportScreenState extends State<ReportScreen> {
       }
       found.sort((a, b) => b.$2.compareTo(a.$2));
     }
+    final limit = DateTime.now().subtract(const Duration(days: 365 * 3));
+    final unclaimed = records
+        .where((r) => !r.otc && !r.claimed && r.createdAt.isAfter(limit))
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     setState(() {
+      _unclaimed = unclaimed;
       _allergyFound = found;
       _report = buildReport(records, notes, meta);
     });
@@ -157,6 +166,36 @@ class _ReportScreenState extends State<ReportScreen> {
                           ],
                         ]),
                       ),
+                    _Section(
+                      title: '실손보험 청구 확인',
+                      sub: '보험금은 보통 3년 안에 청구할 수 있어요',
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        if (_unclaimed.isEmpty)
+                          const KText('청구하지 않은 처방 기록이 없어요.',
+                              style: TextStyle(color: AppColors.ink))
+                        else ...[
+                          KText('청구 완료 표시가 없는 처방 ${_unclaimed.length}건',
+                              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
+                          const SizedBox(height: 4),
+                          for (final u in _unclaimed.take(6))
+                            Padding(
+                              padding: const EdgeInsets.only(top: 3),
+                              child: KText('${formatDate(u.createdAt)} · ${u.title}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: AppColors.ink)),
+                            ),
+                          if (_unclaimed.length > 6)
+                            KText('외 ${_unclaimed.length - 6}건',
+                                style: const TextStyle(color: AppColors.sub)),
+                          const SizedBox(height: 8),
+                          const KText(
+                            '각 복용 기록에서 "실손24로 실손보험 청구하기"를 누르고, 청구한 뒤에는 청구 완료로 표시해 주세요.',
+                            style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
+                          ),
+                        ],
+                      ]),
+                    ),
                     _Section(
                       title: '월별 복용 기록',
                       sub: '최근 12개월',

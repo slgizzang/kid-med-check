@@ -491,7 +491,16 @@ class _RecordScreenState extends State<RecordScreen> {
                   icon: const Icon(Icons.receipt_long_outlined, size: 20),
                   label: const KText('실손24로 실손보험 청구하기'),
                 ),
-                const SizedBox(height: 8),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _r.claimed,
+                  onChanged: (v) {
+                    setState(() => _r.claimed = v ?? false);
+                    _save();
+                  },
+                  title: const KText('이 처방은 실손보험 청구를 마쳤어요'),
+                ),
                 const KText(
                   '실손24에 참여한 병원·약국이면 별도 서류 없이 바로 청구할 수 있어요. '
                   '참여 여부는 실손24에서 병원·약국 이름으로 확인할 수 있어요.',
