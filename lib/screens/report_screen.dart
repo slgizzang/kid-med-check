@@ -190,8 +190,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                       style: const TextStyle(fontSize: 13, color: AppColors.sub)),
                                 const SizedBox(height: 6),
                                 const KText(
-                                  '자주 처방되는 약일수록 반응 기록과 겹치는 횟수도 많아질 수 있어요. '
-                                  '반복되는 반응은 다음 진료 때 이 화면을 보여주며 의사·약사와 상의하세요.',
+                                  '자주 처방되는 약일수록 반응 기록과 겹치는 횟수도 많아질 수 있어요.',
                                   style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
                                 ),
                                 Align(
@@ -214,7 +213,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       sub: '진단이나 처방이 아닌 일반 정보예요',
                       child: r.tips.isEmpty
                           ? const _Empty('아직 특별히 참고할 내용이 없어요.')
-                          : Column(children: [
+                          : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               for (final t in r.tips) _TipCard(t),
                               const SizedBox(height: 4),
                               const KText(
