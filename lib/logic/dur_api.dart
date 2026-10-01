@@ -411,6 +411,23 @@ class DurApi {
     return result;
   }
 
+  /// 기간이 지난 조회 결과를 휴대폰에서 지운다 (앱을 켤 때 한 번).
+  static Future<void> pruneCache() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      for (final k in p.getKeys().where((k) => k.startsWith(_cachePrefix)).toList()) {
+        try {
+          final j = jsonDecode(p.getString(k) ?? '') as Map;
+          final t = DateTime.fromMillisecondsSinceEpoch(j['t'] as int);
+          if (now.difference(t) > _cacheTtl) await p.remove(k);
+        } catch (_) {
+          await p.remove(k);
+        }
+      }
+    } catch (_) {}
+  }
+
   static Future<List<Map<String, dynamic>>?> _readDisk(String key) async {
     try {
       final p = await SharedPreferences.getInstance();

@@ -166,6 +166,7 @@ class _ReportScreenState extends State<ReportScreen> {
                           ],
                         ]),
                       ),
+                    if (kShowSilson24)
                     _Section(
                       title: '실손보험 청구 확인',
                       sub: '보험금은 보통 3년 안에 청구할 수 있어요',

@@ -499,7 +499,7 @@ class _RecordScreenState extends State<RecordScreen> {
               ),
               const SizedBox(height: 20),
               // 병원 처방 기록이면 실손24 청구 안내
-              if (!_r.otc) ...[
+              if (kShowSilson24 && !_r.otc) ...[
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                   onPressed: _openSilson24,

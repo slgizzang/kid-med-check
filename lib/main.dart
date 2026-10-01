@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'logic/dur_api.dart';
 import 'screens/home_screen.dart';
 import 'ui/theme.dart';
 
@@ -13,6 +14,8 @@ void main() {
     yield LicenseEntryWithLineBreaks(['Pretendard'], text);
   });
   runApp(const KidMedCheckApp());
+  // 오래된 식약처 조회 결과는 지워서 저장 공간이 계속 늘지 않게
+  DurApi.pruneCache();
 }
 
 class KidMedCheckApp extends StatelessWidget {
