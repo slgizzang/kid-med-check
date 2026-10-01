@@ -566,19 +566,19 @@ class _RecordCard extends StatelessWidget {
                   width: 46,
                   height: 46,
                   decoration: BoxDecoration(
-                    color: record.otc ? kOtcBg : AppColors.mint,
+                    color: record.otc ? kOtcBg : AppColors.brandTint,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                       record.otc ? Icons.storefront_outlined : Icons.medication_outlined,
-                      color: record.otc ? kOtcFg : AppColors.primary),
+                      color: record.otc ? kOtcFg : AppColors.brand),
                 ),
                 const SizedBox(height: 3),
                 Text(record.otc ? '일반' : '처방',
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: record.otc ? kOtcFg : AppColors.primary)),
+                        color: record.otc ? kOtcFg : AppColors.brand)),
               ]),
             const SizedBox(width: 14),
             Expanded(
@@ -689,8 +689,8 @@ class _OneLine extends StatelessWidget {
 }
 
 /// 약국 구입약(일반의약품) 색
-const kOtcFg = Color(0xFF3B6FB6);
-const kOtcBg = Color(0xFFE8F0FB);
+const kOtcFg = Color(0xFFD06A2E);
+const kOtcBg = Color(0xFFFCEEE4);
 
 class _KindOption extends StatelessWidget {
   const _KindOption({required this.otc, required this.title, required this.sub, required this.onTap});
@@ -718,11 +718,11 @@ class _KindOption extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: otc ? kOtcBg : AppColors.mint,
+                color: otc ? kOtcBg : AppColors.brandTint,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(otc ? Icons.storefront_outlined : Icons.medication_outlined,
-                  color: otc ? kOtcFg : AppColors.primary),
+                  color: otc ? kOtcFg : AppColors.brand),
             ),
             const SizedBox(width: 12),
             Expanded(

@@ -5,13 +5,18 @@ import 'package:flutter/rendering.dart';
 
 /// 앱 공통 색
 class AppColors {
-  /// 심볼 배경색 (깊은 초록)
+  /// 심볼·안전(문제 없음) 표시에만 쓰는 청록
   static const brand = Color(0xFF0E8F6E);
-  static const primary = Color(0xFF0E9A76);
-  static const primaryDark = Color(0xFF0A6F55);
-  static const mint = Color(0xFFE9F5F0);
+  static const brandTint = Color(0xFFE5F3EE);
+
+  /// 버튼·선택 등 화면 기본 색: 청록과 어울리는 짙은 슬레이트 네이비
+  static const primary = Color(0xFF2A3A4E);
+  static const primaryDark = Color(0xFF1C2838);
+
+  /// 은은한 강조 배경 (중립 회청색)
+  static const mint = Color(0xFFEEF1F5);
   static const capsule = Color(0xFFCFF2E6);
-  static const bg = Color(0xFFF5F6F8);
+  static const bg = Color(0xFFF6F7F9);
   static const ink = Color(0xFF191F28);
   static const sub = Color(0xFF6B7684);
   static const coral = Color(0xFFFF7A6B);
