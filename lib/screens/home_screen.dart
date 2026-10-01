@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../logic/models.dart';
 import '../logic/storage.dart';
+import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
 import '../ui/theme.dart';
 import 'child_edit_screen.dart';
 import 'import_screen.dart';
 import 'reaction_list_screen.dart';
+import 'report_screen.dart';
 import 'record_screen.dart';
 import 'settings_screen.dart';
 
@@ -310,42 +312,45 @@ class _HomeScreenState extends State<HomeScreen> {
       ];
     }
     final list = _myRecords;
-    final importButton = Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(46),
-          foregroundColor: AppColors.ink,
-          side: const BorderSide(color: AppColors.line),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    // 복용 기록 위의 도구: 리포트·불러오기·반응 모아보기
+    final tools = Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(children: [
+        Expanded(
+          child: _ToolTile(
+            icon: Icons.insights_outlined,
+            label: '복용 리포트',
+            highlight: true,
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => ReportScreen(person: _selected!))),
+          ),
         ),
-        onPressed: _openImport,
-        icon: const Icon(Icons.history, size: 20),
-        label: const KText('지난 1년 기록 불러오기'),
-      ),
-    );
-    final reactionsButton = Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(46),
-          foregroundColor: AppColors.ink,
-          side: const BorderSide(color: AppColors.line),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ToolTile(
+            icon: Icons.history,
+            label: '1년 기록\n불러오기',
+            onTap: _openImport,
+          ),
         ),
-        onPressed: () async {
-          await Navigator.push(context,
-              MaterialPageRoute(builder: (_) => ReactionListScreen(person: _selected!)));
-          await _load();
-        },
-        icon: const Icon(Icons.edit_note, size: 20),
-        label: KText('복용 후 반응 기록 모아보기 · ${_reactionCount[_selectedId] ?? 0}개'),
-      ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ToolTile(
+            icon: Icons.edit_note,
+            label: '반응 기록\n모아보기',
+            badge: _reactionCount[_selectedId] ?? 0,
+            onTap: () async {
+              await Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => ReactionListScreen(person: _selected!)));
+              await _load();
+            },
+          ),
+        ),
+      ]),
     );
     if (list.isEmpty) {
       return [
-        importButton,
-        reactionsButton,
+        tools,
         _EmptyBox(
           icon: Icons.add_circle_outline,
           text: '아직 복용 기록이 없어요.\n여기를 눌러 처방약이나 약국에서 산 약을 입력해보세요.',
@@ -355,8 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final allPicked = list.isNotEmpty && list.every((r) => _picked.contains(r.id));
     return [
-      if (!_selecting) importButton,
-      if (!_selecting) reactionsButton,
+      if (!_selecting) tools,
       if (_selecting)
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -729,6 +733,66 @@ class _KindOption extends StatelessWidget {
               ]),
             ),
             const Icon(Icons.chevron_right, color: AppColors.sub),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolTile extends StatelessWidget {
+  const _ToolTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.highlight = false,
+    this.badge = 0,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool highlight;
+  final int badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = highlight ? Colors.white : AppColors.ink;
+    return Material(
+      color: highlight ? AppColors.primary : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: highlight ? BorderSide.none : const BorderSide(color: AppColors.line),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: SizedBox(
+          height: 84,
+          child: Stack(children: [
+            Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, color: highlight ? Colors.white : AppColors.primary, size: 24),
+                const SizedBox(height: 4),
+                Text(label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 12.5, height: 1.25, fontWeight: FontWeight.w700, color: fg)),
+              ]),
+            ),
+            if (badge > 0)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                      color: kNoteBg, borderRadius: BorderRadius.circular(10)),
+                  child: Text('$badge',
+                      style: const TextStyle(
+                          fontSize: 11, color: kNoteFg, fontWeight: FontWeight.w800)),
+                ),
+              ),
           ]),
         ),
       ),

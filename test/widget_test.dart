@@ -13,6 +13,7 @@ import 'package:kid_med_check/logic/snapshot.dart';
 import 'package:kid_med_check/ui/theme.dart';
 import 'package:kid_med_check/logic/models.dart';
 import 'package:kid_med_check/logic/reaction.dart';
+import 'package:kid_med_check/logic/report.dart';
 import 'package:kid_med_check/logic/dur_text.dart';
 import 'package:kid_med_check/logic/hira_import.dart';
 import 'package:kid_med_check/logic/office_decrypt.dart';
@@ -627,5 +628,42 @@ void main() {
         '</ARTICLE></SECTION></DOC>';
     expect(DurApi.docText(xml), '습진, 피부염, 건선');
     expect(DurApi.docText(''), '');
+  });
+
+  test('복용 리포트: 계열·약·반응 패턴 집계와 생활 관리 참고', () {
+    MedRecord rec(String id, DateTime d, List<String> drugs) =>
+        MedRecord(id: id, childId: 'c', title: id, createdAt: d, drugs: drugs);
+    final records = [
+      rec('1', DateTime(2026, 3, 12), ['세토펜현탁액', '오구멘틴듀오시럽']),
+      rec('2', DateTime(2026, 5, 2), ['세토펜현탁액', '클래신건조시럽']),
+      rec('3', DateTime(2026, 9, 1), ['코대원에스시럽']),
+    ];
+    final notes = [
+      ReactionNote(id: 'a', childId: 'c', drug: '처방', date: DateTime(2026, 3, 13),
+          symptoms: ['설사'], items: [('세토펜현탁액', ''), ('오구멘틴듀오시럽', '')]),
+      ReactionNote(id: 'b', childId: 'c', drug: '세토펜현탁액', date: DateTime(2026, 5, 3),
+          symptoms: ['설사']),
+    ];
+    final meta = {
+      '세토펜현탁액': const DrugMeta(cls: '[01140]해열.진통.소염제'),
+      '오구멘틴듀오시럽': const DrugMeta(cls: '주로 그람양성, 음성균에 작용하는 것'),
+      '클래신건조시럽': const DrugMeta(cls: '기타의 항생물질제제'),
+    };
+    final r = buildReport(records, notes, meta, now: DateTime(2026, 10, 1));
+    expect(r.records, 3);
+    expect(r.drugKinds, 4);
+    expect(r.topDrugs.first.name, '세토펜현탁액');
+    expect(r.topDrugs.first.count, 2);
+    expect(r.topClasses.first.name, '해열·진통·소염제');
+    final p = r.patterns.first;
+    expect(p.drug, '세토펜현탁액');
+    expect(p.symptom, '설사');
+    expect(p.times, 2);
+    expect(p.taken, 2);
+    expect(p.withOthers, isTrue);
+    expect(r.tips.map((t) => t.title), contains('유산균(프로바이오틱스)'));
+    expect(r.unknownClass, ['코대원에스시럽']);
+    expect(r.monthly.length, 12);
+    expect(r.monthly.last.$1, DateTime(2026, 10));
   });
 }

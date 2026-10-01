@@ -13,7 +13,11 @@ class DrugSnap {
     this.needsPick = false,
     this.ingredient = '',
     this.reaction,
+    this.cls = '',
   });
+
+  /// 약 분류(계열). 예: "해열.진통.소염제"
+  final String cls;
 
   /// 기록에 적힌 이름 (목록 변경 감지용)
   final String query;
@@ -53,6 +57,7 @@ class DrugSnap {
         'mix': mixWith,
         'pick': needsPick,
         if (ingredient.isNotEmpty) 'ingr': ingredient,
+        if (cls.isNotEmpty) 'cls': cls,
         if (reaction != null) 'react': reaction,
       };
 
@@ -66,6 +71,7 @@ class DrugSnap {
         mixWith: (j['mix'] as List? ?? const []).map((e) => '$e').toList(),
         needsPick: j['pick'] == true,
         ingredient: '${j['ingr'] ?? ''}',
+        cls: '${j['cls'] ?? ''}',
         reaction: j['react'] as String?,
       );
 }

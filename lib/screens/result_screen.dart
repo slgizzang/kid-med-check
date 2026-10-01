@@ -338,6 +338,7 @@ class _ResultScreenState extends State<ResultScreen> {
             mixWith: c.interactions.map((x) => x.other).toList(),
             needsPick: c.status == CheckStatus.notFound,
             ingredient: c.best != null ? c.ingredientText : '',
+            cls: c.info?.className ?? '',
             reaction: _notesFor(c).isEmpty ? null : _notesFor(c).first.$1.summary,
           ),
       ],
