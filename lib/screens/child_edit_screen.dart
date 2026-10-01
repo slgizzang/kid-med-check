@@ -1,7 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../logic/allergy.dart';
+import '../logic/drug_name_extractor.dart';
+import '../logic/dur_api.dart';
 import '../logic/models.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
@@ -142,55 +143,118 @@ class _ChildEditScreenState extends State<ChildEditScreen> {
   void _addAllergy(String v) {
     final t = v.trim();
     if (t.isEmpty || _allergies.contains(t)) return;
-    setState(() => _allergies.add(t));
+    setState(() {
+      _allergies.add(t);
+      _found = null;
+    });
     _allergyInput.clear();
   }
 
-  /// 알레르기가 있는 약물: 자주 쓰는 계열을 누르거나 이름을 직접 입력
+  List<ProductHit>? _found;
+  bool _searching = false;
+
+  /// 약 이름이나 성분으로 검색해 성분을 알레르기 목록에 넣는다
+  Future<void> _searchAllergy() async {
+    final q = _allergyInput.text.trim();
+    if (q.length < 2) return;
+    setState(() => _searching = true);
+    try {
+      final api = DurApi(await AppStorage.apiKey());
+      final hits = await api.searchProducts(DrugNameExtractor.toSearchName(q));
+      _found = hits.where((h) => h.ingredient.isNotEmpty).take(8).toList();
+    } catch (_) {
+      _found = [];
+    }
+    if (mounted) setState(() => _searching = false);
+  }
+
+  void _pickProduct(ProductHit h) {
+    // 알레르기는 성분 단위로 기록한다 (같은 성분이 든 다른 약도 찾을 수 있게)
+    for (final ingr in h.ingredient.split(RegExp(r'[,/]'))) {
+      final t = ingr.trim();
+      if (t.isNotEmpty && !_allergies.contains(t)) _allergies.add(t);
+    }
+    setState(() {
+      _found = null;
+      _allergyInput.clear();
+    });
+  }
+
   Widget _allergyBox() {
+    final found = _found;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const KText('알레르기가 있는 약 (선택)',
             style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink)),
         const SizedBox(height: 4),
-        const KText('입력하면 약 안전 확인 때 같은 계열·성분이 들어 있는지 알려드려요.',
+        const KText('입력하면 약 안전 확인 때 같은 성분이 들어 있는지 알려드려요.',
             style: TextStyle(fontSize: 13, color: AppColors.sub)),
-        const SizedBox(height: 10),
-        Wrap(spacing: 6, runSpacing: 6, children: [
-          for (final a in _allergies)
-            InputChip(
-              label: Text(a),
-              selected: true,
-              showCheckmark: false,
-              selectedColor: const Color(0xFFFDECEC),
-              labelStyle: const TextStyle(
-                  color: Color(0xFFC62828), fontWeight: FontWeight.w700),
-              side: const BorderSide(color: Color(0xFFF5C2C2)),
-              onDeleted: () => setState(() => _allergies.remove(a)),
-            ),
-          for (final q in kAllergyQuickPicks.where((q) => !_allergies.contains(q)))
-            ActionChip(
-              label: Text('+ $q'),
-              labelStyle: const TextStyle(color: AppColors.sub),
-              onPressed: () => _addAllergy(q),
-            ),
-        ]),
+        if (_allergies.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final a in _allergies)
+              InputChip(
+                label: Text(a),
+                selected: true,
+                showCheckmark: false,
+                selectedColor: const Color(0xFFFDECEC),
+                labelStyle: const TextStyle(
+                    color: Color(0xFFC62828), fontWeight: FontWeight.w700),
+                side: const BorderSide(color: Color(0xFFF5C2C2)),
+                onDeleted: () => setState(() => _allergies.remove(a)),
+              ),
+          ]),
+        ],
         const SizedBox(height: 10),
         TextField(
           controller: _allergyInput,
-          textInputAction: TextInputAction.done,
-          onSubmitted: _addAllergy,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => _searchAllergy(),
           decoration: InputDecoration(
-            hintText: '목록에 없으면 약·성분 이름 입력 (예: 세프디니르)',
+            hintText: '약 이름이나 성분을 검색하세요',
             border: const OutlineInputBorder(),
             isDense: true,
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () => _addAllergy(_allergyInput.text),
-            ),
+            suffixIcon: _searching
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                        width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                : IconButton(icon: const Icon(Icons.search), onPressed: _searchAllergy),
           ),
         ),
+        if (found != null)
+          Container(
+            margin: const EdgeInsets.only(top: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.line),
+            ),
+            child: Column(children: [
+              // 입력한 말을 성분 이름 그대로 추가
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.add, color: AppColors.primary),
+                title: KText('"${_allergyInput.text.trim()}" 그대로 추가'),
+                onTap: () => _addAllergy(_allergyInput.text),
+              ),
+              for (final h in found)
+                ListTile(
+                  dense: true,
+                  title: KText(h.displayName,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: KText('성분: ${h.ingredient}'),
+                  onTap: () => _pickProduct(h),
+                ),
+              if (found.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: KText('검색된 약이 없어요.', style: TextStyle(color: AppColors.sub)),
+                ),
+            ]),
+          ),
       ],
     );
   }

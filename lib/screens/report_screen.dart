@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../logic/allergy.dart';
 import '../logic/dur_api.dart';
 import '../logic/models.dart';
 import '../logic/report.dart';
@@ -20,6 +21,9 @@ class ReportScreen extends StatefulWidget {
 
 class _ReportScreenState extends State<ReportScreen> {
   MedReport? _report;
+
+  /// 알레르기 약물과 같은 성분이 들어 있던 기록 (약, 날짜, 알레르기)
+  List<(String, DateTime, String)> _allergyFound = const [];
   int _done = 0, _total = 0;
 
   @override
@@ -66,7 +70,22 @@ class _ReportScreenState extends State<ReportScreen> {
       }
     }
     if (!mounted) return;
-    setState(() => _report = buildReport(records, notes, meta));
+    final found = <(String, DateTime, String)>[];
+    if (widget.person.allergies.isNotEmpty) {
+      for (final r in records) {
+        for (final q in r.drugs) {
+          final name = resolvedName(r, q);
+          final m = meta[drugKey(name)];
+          final hits = allergyHits(widget.person.allergies, name, m?.ingredient ?? '', m?.cls ?? '');
+          if (hits.isNotEmpty) found.add((drugKey(name), r.createdAt, hits.first.allergy));
+        }
+      }
+      found.sort((a, b) => b.$2.compareTo(a.$2));
+    }
+    setState(() {
+      _allergyFound = found;
+      _report = buildReport(records, notes, meta);
+    });
   }
 
   @override
@@ -104,6 +123,40 @@ class _ReportScreenState extends State<ReportScreen> {
                           style: const TextStyle(color: AppColors.sub)),
                     const SizedBox(height: 14),
                     _Stats(r),
+                    if (widget.person.allergies.isNotEmpty)
+                      _Section(
+                        title: '알레르기 약물',
+                        sub: '복용자 정보에 입력한 알레르기예요',
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Wrap(spacing: 6, runSpacing: 6, children: [
+                            for (final a in widget.person.allergies)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                    color: const Color(0xFFFDECEC),
+                                    borderRadius: BorderRadius.circular(12)),
+                                child: Text(a,
+                                    style: const TextStyle(
+                                        color: Color(0xFFC62828), fontWeight: FontWeight.w700)),
+                              ),
+                          ]),
+                          const SizedBox(height: 10),
+                          if (_allergyFound.isEmpty)
+                            const KText('지난 복용 기록에는 같은 성분이 든 약이 없어요.',
+                                style: TextStyle(color: AppColors.ink))
+                          else ...[
+                            KText('같은 성분이 든 약을 먹은 기록 ${_allergyFound.length}번',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800, color: Color(0xFFC62828))),
+                            for (final (d, at, a) in _allergyFound.take(5))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: KText('${formatDate(at)} · $d ($a)',
+                                    style: const TextStyle(color: AppColors.ink)),
+                              ),
+                          ],
+                        ]),
+                      ),
                     _Section(
                       title: '월별 복용 기록',
                       sub: '최근 12개월',
@@ -481,13 +534,14 @@ class _InsightCard extends StatelessWidget {
         ]),
         if (i.records > 0) _bar('전체 복용 중', i.records, i.totalRecords),
         if (i.topDrug != null) ...[
-          _label('이 반응이 있을 때 가장 자주 함께 있던 약'),
-          _bar(i.topDrug!.$1, i.topDrug!.$2, i.records),
-        ],
-        if (c != null) ...[
-          _label('${c.$1} 복용 여부에 따라'),
-          _bar('들어간 복용', c.$2, c.$3, color: const Color(0xFFC62828)),
-          _bar('안 들어간 복용', c.$4, c.$5, color: const Color(0xFF8A9691)),
+          _label('이 반응이 있을 때 가장 자주 함께 있던 약 · ${i.topDrug!.$1}'),
+          _bar('${i.symptom} 기록 중 이 약이 있던 비율', i.topDrug!.$2, i.records),
+          if (c != null) ...[
+            _bar('이 약을 먹은 복용 중 ${i.symptom} 기록', c.$2, c.$3,
+                color: const Color(0xFFC62828)),
+            _bar('이 약을 안 먹은 복용 중 ${i.symptom} 기록', c.$4, c.$5,
+                color: const Color(0xFF8A9691)),
+          ],
         ],
         if (i.direct.isNotEmpty) ...[
           _label('약을 정해 적은 기록'),

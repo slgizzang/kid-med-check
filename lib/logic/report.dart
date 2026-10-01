@@ -66,7 +66,7 @@ class SymptomInsight {
   /// 이 증상이 있던 복용에 가장 자주 들어 있던 약 (이름, 몇 번)
   final (String, int)? topDrug;
 
-  /// 약이 들어간 복용과 안 들어간 복용의 비율 차이가 뚜렷할 때만:
+  /// 위 약이 들어간 복용과 안 들어간 복용의 비율:
   /// (약, 들어간 복용 중 증상 수, 들어간 복용 수, 안 들어간 복용 중 증상 수, 안 들어간 복용 수)
   final (String, int, int, int, int)? contrast;
 
@@ -306,27 +306,31 @@ List<SymptomInsight> symptomInsights(List<MedRecord> records, List<ReactionNote>
         inSym[k] = (inSym[k] ?? 0) + 1;
       }
     }
+    // 이 반응이 있던 복용에 가장 자주 들어 있던 약 하나를 고르고 (같으면 차이가 큰 약),
+    // 그 약이 들어간 복용과 안 들어간 복용의 비율을 함께 보여준다 (같은 약으로 일관되게)
     (String, int)? topDrug;
-    if (inSym.isNotEmpty && recIds.length >= 2) {
-      final e = inSym.entries.reduce((a, b) => b.value > a.value ? b : a);
-      if (e.value >= 2) topDrug = (nameOf[e.key] ?? e.key, e.value);
-    }
-    // 들어간 복용 vs 안 들어간 복용 비율 비교 (차이가 뚜렷할 때만)
     (String, int, int, int, int)? contrast;
-    var bestGap = 0.0;
-    inSym.forEach((k, withSym) {
-      if (withSym < 2) return;
-      final withTotal = drugsOf.values.where((d) => d.contains(k)).length;
-      final withoutTotal = total - withTotal;
-      if (withoutTotal < 3) return;
-      final withoutSym = recIds.length - withSym;
-      final a = withSym / withTotal, b = withoutSym / withoutTotal;
-      final gap = a - b;
-      if (a >= 2 * b && gap >= 0.2 && gap > bestGap) {
-        bestGap = gap;
-        contrast = (nameOf[k] ?? k, withSym, withTotal, withoutSym, withoutTotal);
+    if (inSym.isNotEmpty && recIds.length >= 2) {
+      double gapOf(String k) {
+        final withTotal = drugsOf.values.where((d) => d.contains(k)).length;
+        final withoutTotal = total - withTotal;
+        if (withTotal == 0 || withoutTotal == 0) return -1;
+        return inSym[k]! / withTotal - (recIds.length - inSym[k]!) / withoutTotal;
       }
-    });
+
+      final maxCount = inSym.values.reduce((a, b) => a > b ? a : b);
+      final ties = inSym.keys.where((k) => inSym[k] == maxCount).toList()
+        ..sort((x, y) => gapOf(y).compareTo(gapOf(x)));
+      final k = ties.first;
+      if (maxCount >= 2) {
+        topDrug = (nameOf[k] ?? k, maxCount);
+        final withTotal = drugsOf.values.where((d) => d.contains(k)).length;
+        final withoutTotal = total - withTotal;
+        if (withoutTotal > 0) {
+          contrast = (nameOf[k] ?? k, maxCount, withTotal, recIds.length - maxCount, withoutTotal);
+        }
+      }
+    }
     // 약을 지정해 적은 기록
     final direct = <String, int>{};
     for (final n in list.where((n) => !n.isGroup)) {

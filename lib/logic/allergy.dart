@@ -53,8 +53,14 @@ List<String> expandAllergy(String allergy) {
       return e.value;
     }
   }
-  // 성분 이름을 직접 쓴 경우 그 성분이 속한 계열을 함께 대조하지는 않는다 (같은 성분만)
-  return [allergy];
+  // 성분 이름을 직접 쓴 경우 그 성분이 속한 계열을 함께 대조하지는 않는다 (같은 성분만).
+  // 염·수화물 표기는 떼고 대조한다 (예: 아목시실린수화물 → 아목시실린)
+  var base = allergy.replaceAll(RegExp(r'\s'), '');
+  final salt = RegExp(r'(이수화물|삼수화물|수화물|무수물|나트륨|칼륨|칼슘|염산염|황산염|말레산염|타르타르산염|브롬화수소산염)$');
+  while (salt.hasMatch(base) && base.length > 3) {
+    base = base.replaceFirst(salt, '');
+  }
+  return {allergy, base}.toList();
 }
 
 class AllergyHit {
