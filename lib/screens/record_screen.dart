@@ -502,9 +502,18 @@ class _RecordScreenState extends State<RecordScreen> {
                   title: const KText('이 처방은 실손보험 청구를 마쳤어요'),
                 ),
                 const KText(
-                  '실손24에 참여한 병원·약국이면 별도 서류 없이 바로 청구할 수 있어요. '
-                  '참여 여부는 실손24에서 병원·약국 이름으로 확인할 수 있어요.',
+                  '실손24에 참여한 병원·약국이면 별도 서류 없이 바로 청구할 수 있어요.',
                   style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => launchUrl(
+                        Uri.parse('https://www.silson24.or.kr/claim/web/serviceHospitalList'),
+                        mode: LaunchMode.externalApplication),
+                    icon: const Icon(Icons.search, size: 18),
+                    label: const KText('이 병원·약국이 실손24 참여 기관인지 찾아보기'),
+                  ),
                 ),
               ],
             ],
