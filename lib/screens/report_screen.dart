@@ -532,10 +532,19 @@ class _InsightCard extends StatelessWidget {
           ),
         ]),
         if (i.records > 0) _bar('전체 복용 중', i.records, i.totalRecords),
-        if (i.dims.isNotEmpty) ...[
-          _label('이 반응이 있을 때 가장 자주 함께 있던 것'),
-          for (final d in i.dims) _DimRow(d, i.symptom),
-        ],
+        if (i.records >= 2)
+          for (final kind in const ['약', '성분', '계열']) ...[
+            _label('이 반응이 있을 때 자주 먹은 $kind'),
+            if (i.dims.any((d) => d.kind == kind))
+              _DimRow(i.dims.firstWhere((d) => d.kind == kind), i.symptom)
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: KText(
+                    kind == '약' ? '2번 이상 겹친 약은 없어요.' : '2번 이상 겹친 $kind은 없어요.',
+                    style: const TextStyle(fontSize: 12, color: AppColors.sub)),
+              ),
+          ],
         if (i.direct.isNotEmpty) ...[
           _label('약을 정해 적은 기록'),
           const SizedBox(height: 6),
@@ -600,13 +609,6 @@ class _DimRow extends StatelessWidget {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(color: kNoteBg, borderRadius: BorderRadius.circular(6)),
-            child: Text(d.kind,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: kNoteFg)),
-          ),
-          const SizedBox(width: 8),
           Expanded(
             child: KText(d.name,
                 maxLines: 1,
