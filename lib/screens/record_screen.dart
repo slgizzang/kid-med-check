@@ -251,6 +251,21 @@ class _RecordScreenState extends State<RecordScreen> {
     if (picked != null && picked.isNotEmpty) _addNames(picked);
   }
 
+  /// 기록 제목에서 병원·약국 이름 ("9월 21일 써니이비인후과의원" → "써니이비인후과의원")
+  String get _place {
+    final t = _r.title
+        .replaceFirst(RegExp(r'^\s*\d{1,2}월\s*\d{1,2}일\s*'), '')
+        .replaceAll(RegExp(r'^(처방|약국 구입)$'), '')
+        .trim();
+    return RegExp(r'(의원|병원|약국|센터|클리닉|보건소)').hasMatch(t) ? t : '';
+  }
+
+  Future<void> _checkOnNaverMap() async {
+    final q = _place.isEmpty ? '실손24' : _place;
+    await launchUrl(Uri.parse('https://map.naver.com/p/search/${Uri.encodeComponent(q)}'),
+        mode: LaunchMode.externalApplication);
+  }
+
   /// 보험개발원 실손24 (참여 병원·약국이면 서류 없이 청구)
   Future<void> _openSilson24() async {
     await launchUrl(Uri.parse('https://www.silson24.or.kr'), mode: LaunchMode.externalApplication);
@@ -505,6 +520,17 @@ class _RecordScreenState extends State<RecordScreen> {
                   '실손24에 참여한 병원·약국이면 별도 서류 없이 바로 청구할 수 있어요.',
                   style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
                 ),
+                // 네이버 지도는 실손24 참여 병원·약국에 배너·필터를 표시한다 (2026.10.7~)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _checkOnNaverMap,
+                    icon: const Icon(Icons.map_outlined, size: 18),
+                    label: KText(_place.isEmpty
+                        ? '네이버 지도에서 실손24 참여 기관 찾기'
+                        : '네이버 지도에서 $_place 실손24 참여 확인'),
+                  ),
+                ),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
@@ -512,7 +538,7 @@ class _RecordScreenState extends State<RecordScreen> {
                         Uri.parse('https://www.silson24.or.kr/claim/web/serviceHospitalList'),
                         mode: LaunchMode.externalApplication),
                     icon: const Icon(Icons.search, size: 18),
-                    label: const KText('이 병원·약국이 실손24 참여 기관인지 찾아보기'),
+                    label: const KText('실손24 참여병원 목록에서 찾기'),
                   ),
                 ),
               ],
