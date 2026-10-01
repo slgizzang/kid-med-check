@@ -19,7 +19,7 @@ class AppColors {
   static const line = Color(0xFFE8EBEE);
 }
 
-const kAppName = '아이필';
+const kAppName = '아이필콕';
 const kAppTagline = '우리 아이 약, 안전한지 콕 확인';
 
 ThemeData buildTheme() {
