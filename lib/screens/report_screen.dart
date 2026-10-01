@@ -619,13 +619,7 @@ class _DimRow extends StatelessWidget {
               style: const TextStyle(fontSize: 12, color: kNoteFg, fontWeight: FontWeight.w700)),
         ]),
         const SizedBox(height: 8),
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: _mini('먹었을 때 $symptom', d.inSym, d.withTotal, const Color(0xFFC62828))),
-          const SizedBox(width: 12),
-          Expanded(
-              child: _mini('안 먹었을 때 $symptom', d.withoutSym, d.withoutTotal,
-                  const Color(0xFF8A9691))),
-        ]),
+        _mini('이것을 먹은 복용 중 $symptom 기록', d.inSym, d.withTotal, const Color(0xFFC62828)),
       ]),
     );
   }
