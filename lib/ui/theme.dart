@@ -5,16 +5,18 @@ import 'package:flutter/rendering.dart';
 
 /// 앱 공통 색
 class AppColors {
-  static const primary = Color(0xFF12A37F);
-  static const primaryDark = Color(0xFF0C7A5F);
-  static const mint = Color(0xFFE8F6F1);
+  /// 심볼 배경색 (깊은 초록)
+  static const brand = Color(0xFF0E8F6E);
+  static const primary = Color(0xFF0E9A76);
+  static const primaryDark = Color(0xFF0A6F55);
+  static const mint = Color(0xFFE9F5F0);
   static const capsule = Color(0xFFCFF2E6);
-  static const bg = Color(0xFFF7F8F7);
-  static const ink = Color(0xFF1F2A28);
-  static const sub = Color(0xFF6B7773);
+  static const bg = Color(0xFFF5F6F8);
+  static const ink = Color(0xFF191F28);
+  static const sub = Color(0xFF6B7684);
   static const coral = Color(0xFFFF7A6B);
   static const yellow = Color(0xFFFFC857);
-  static const line = Color(0xFFE6EBE9);
+  static const line = Color(0xFFE8EBEE);
 }
 
 const kAppName = '아이약콕';
@@ -28,6 +30,7 @@ ThemeData buildTheme() {
   );
   return ThemeData(
     useMaterial3: true,
+    fontFamily: 'Pretendard',
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.bg,
     appBarTheme: const AppBarTheme(
@@ -37,14 +40,18 @@ ThemeData buildTheme() {
       scrolledUnderElevation: 0,
       centerTitle: false,
       titleTextStyle: TextStyle(
-          fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.ink),
+          fontFamily: 'Pretendard',
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+          color: AppColors.ink),
     ),
     cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         side: const BorderSide(color: AppColors.line),
       ),
     ),
@@ -71,7 +78,7 @@ ThemeData buildTheme() {
   );
 }
 
-/// 앱 심볼: 웃는 캡슐 캐릭터 + 체크 배지 (아이약콕)
+/// 앱 심볼: 캡슐 약 + "콕" 눌러 확인하는 체크 (아이약콕). 런처 아이콘과 같은 모양.
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key, this.size = 48});
 
@@ -90,66 +97,57 @@ class AppLogo extends StatelessWidget {
 class _LogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final s = size.width;
-    final rect = Offset.zero & size;
-    canvas.drawRRect(RRect.fromRectAndRadius(rect, Radius.circular(s * 0.28)),
-        Paint()..color = AppColors.primary);
+    final k = size.width / 1024;
+    Offset p(double x, double y) => Offset(x * k, y * k);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(size.width * 0.23)),
+        Paint()..color = AppColors.brand);
 
-    // 캡슐 (살짝 기울임)
+    // 캡슐 (/ 방향으로 45도)
     canvas.save();
-    canvas.translate(s * 0.47, s * 0.48);
-    canvas.rotate(-math.pi / 6);
-    final w = s * 0.62, h = s * 0.32;
+    canvas.translate(430 * k, 600 * k);
+    canvas.rotate(-math.pi / 4);
+    final w = 540 * k, h = 230 * k;
     final capsule = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset.zero, width: w, height: h),
-        Radius.circular(h / 2));
+        Rect.fromCenter(center: Offset.zero, width: w, height: h), Radius.circular(h / 2));
     canvas.save();
     canvas.clipRect(Rect.fromLTRB(-w / 2, -h / 2, 0, h / 2));
     canvas.drawRRect(capsule, Paint()..color = Colors.white);
     canvas.restore();
     canvas.save();
     canvas.clipRect(Rect.fromLTRB(0, -h / 2, w / 2, h / 2));
-    canvas.drawRRect(capsule, Paint()..color = AppColors.capsule);
+    canvas.drawRRect(capsule, Paint()..color = const Color(0xFFBFEBDD));
+    canvas.restore();
     canvas.restore();
 
-    // 얼굴 (흰 쪽)
-    final face = Offset(-w / 4, 0);
-    final ink = Paint()..color = AppColors.ink;
-    canvas.drawCircle(face + Offset(-s * 0.05, -s * 0.025), s * 0.022, ink);
-    canvas.drawCircle(face + Offset(s * 0.05, -s * 0.025), s * 0.022, ink);
-    canvas.drawArc(
-      Rect.fromCircle(center: face + Offset(0, s * 0.0), radius: s * 0.045),
-      math.pi * 0.15,
-      math.pi * 0.7,
-      false,
-      Paint()
-        ..color = AppColors.ink
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = s * 0.018
-        ..strokeCap = StrokeCap.round,
-    );
-    // 볼터치
-    final blush = Paint()..color = AppColors.coral.withAlpha(110);
-    canvas.drawCircle(face + Offset(-s * 0.085, s * 0.02), s * 0.018, blush);
-    canvas.drawCircle(face + Offset(s * 0.085, s * 0.02), s * 0.018, blush);
-    canvas.restore();
-
-    // 체크 배지
-    final c = Offset(s * 0.74, s * 0.74);
-    canvas.drawCircle(c, s * 0.15, Paint()..color = AppColors.primary);
-    canvas.drawCircle(c, s * 0.125, Paint()..color = AppColors.yellow);
-    final check = Path()
-      ..moveTo(c.dx - s * 0.055, c.dy)
-      ..lineTo(c.dx - s * 0.012, c.dy + s * 0.043)
-      ..lineTo(c.dx + s * 0.062, c.dy - s * 0.045);
-    canvas.drawPath(
-        check,
+    // "콕" 파동
+    final t = p(716, 312);
+    for (final (r, a) in [(198.0, 105), (138.0, 195)]) {
+      canvas.drawArc(
+        Rect.fromCircle(center: t, radius: r * k),
+        232 * math.pi / 180,
+        166 * math.pi / 180,
+        false,
         Paint()
-          ..color = Colors.white
+          ..color = Colors.white.withAlpha(a)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = s * 0.035
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round);
+          ..strokeWidth = 24 * k,
+      );
+    }
+    // 확인 체크
+    canvas.drawCircle(t, 80 * k, Paint()..color = AppColors.yellow);
+    canvas.drawPath(
+      Path()
+        ..moveTo(t.dx - 36 * k, t.dy + 2 * k)
+        ..lineTo(t.dx - 9 * k, t.dy + 29 * k)
+        ..lineTo(t.dx + 38 * k, t.dy - 26 * k),
+      Paint()
+        ..color = AppColors.brand
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 22 * k
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
   }
 
   @override
