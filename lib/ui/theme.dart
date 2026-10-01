@@ -71,8 +71,16 @@ ThemeData buildTheme() {
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
+    // 노랑 글자는 흰 배경에서 잘 안 보여 글자 버튼·테두리 버튼은 짙은 색으로
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.primaryDark,
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.ink,
         minimumSize: const Size.fromHeight(50),
         side: const BorderSide(color: AppColors.line),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
