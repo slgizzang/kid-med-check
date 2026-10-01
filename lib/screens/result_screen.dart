@@ -80,7 +80,10 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   List<(ReactionNote, ReactionMatch)> _notesFor(DrugCheck c) =>
-      c.best == null ? const [] : reactionsFor(_notes, c.title, c.ingredientText);
+      c.best == null
+          ? const []
+          : reactionsFor(_notes, c.title, c.ingredientText,
+              recordId: widget.recordId, before: widget.asOf ?? DateTime.now());
 
   Future<void> _deleteReaction(ReactionNote n) async {
     final ok = await showDialog<bool>(

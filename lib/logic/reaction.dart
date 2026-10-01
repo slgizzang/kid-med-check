@@ -124,11 +124,19 @@ String reactionLine(ReactionNote n, ReactionMatch m) {
       : '$d 같은 성분의 ${n.drug} 복용 후 · ${n.summary}';
 }
 
-/// 이 약과 관련된 기록 (최근 것부터)
+/// 이 약과 관련된 기록 (최근 것부터).
+/// [recordId]·[before]를 주면 그 복용 기록 시점 기준으로 거른다:
+/// - 다른 기록에서 적은 것 중 [before] 날짜보다 뒤에 적은 반응은 빼고 (그때는 없던 기록이므로)
+/// - 이 기록에서 적은 반응은 [includeOwn]일 때만 넣는다.
 List<(ReactionNote, ReactionMatch)> reactionsFor(
-    List<ReactionNote> notes, String drug, String ingredient) {
+    List<ReactionNote> notes, String drug, String ingredient,
+    {String? recordId, DateTime? before, bool includeOwn = false}) {
+  DateTime day(DateTime d) => DateTime(d.year, d.month, d.day);
   final out = <(ReactionNote, ReactionMatch)>[];
   for (final n in notes) {
+    final own = recordId != null && recordId.isNotEmpty && n.recordId == recordId;
+    if (own && !includeOwn) continue;
+    if (!own && before != null && day(n.date).isAfter(day(before))) continue;
     final m = matchReaction(n, drug, ingredient);
     if (m != null) out.add((n, m));
   }

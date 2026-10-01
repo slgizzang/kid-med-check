@@ -285,10 +285,14 @@ class _RecordScreenState extends State<RecordScreen> {
 
   Widget? _noteLine(String name) {
     final (drug, ingr) = _resolved(name);
-    final hits = reactionsFor(_notes, drug, ingr);
+    // 이 기록에서 적은 반응을 먼저, 없으면 이 기록 날짜 이전에 적은 지난 반응
+    final hits = reactionsFor(_notes, drug, ingr,
+        recordId: _r.id, before: _r.createdAt, includeOwn: true);
     if (hits.isEmpty) return null;
-    final (n, m) = hits.first;
-    return KText('반응 기록 · ${reactionLine(n, m)}',
+    final own = hits.where((h) => h.$1.recordId == _r.id).toList();
+    final (n, m) = own.isNotEmpty ? own.first : hits.first;
+    final label = own.isNotEmpty ? '이번 반응' : '지난 반응';
+    return KText('$label · ${reactionLine(n, m)}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 12, color: kNoteFg, fontWeight: FontWeight.w600));

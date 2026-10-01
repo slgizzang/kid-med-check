@@ -666,4 +666,23 @@ void main() {
     expect(r.monthly.length, 12);
     expect(r.monthly.last.$1, DateTime(2026, 10));
   });
+
+  test('이후에 적은 반응은 이전 기록에 지난 반응으로 나오지 않는다', () {
+    final later = ReactionNote(
+        id: 'x', childId: 'c', recordId: 'r2', drug: '세토펜현탁액',
+        date: DateTime(2026, 9, 1), symptoms: ['설사']);
+    final notes = [later];
+    // 3월 기록에서 보면: 9월에 적은 반응은 빠진다
+    expect(reactionsFor(notes, '세토펜현탁액', '', recordId: 'r1', before: DateTime(2026, 3, 1)),
+        isEmpty);
+    // 10월 기록에서 보면: 지난 반응으로 나온다
+    expect(reactionsFor(notes, '세토펜현탁액', '', recordId: 'r3', before: DateTime(2026, 10, 1)).length,
+        1);
+    // 그 반응을 적은 기록 자신: 결과 화면에선 빼고, 목록에선 이번 반응으로
+    expect(reactionsFor(notes, '세토펜현탁액', '', recordId: 'r2', before: DateTime(2026, 9, 1)),
+        isEmpty);
+    expect(reactionsFor(notes, '세토펜현탁액', '',
+            recordId: 'r2', before: DateTime(2026, 9, 1), includeOwn: true).length,
+        1);
+  });
 }
