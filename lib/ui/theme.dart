@@ -38,7 +38,7 @@ const kAppName = '필세이프';
 const kShowSilson24 = true;
 
 /// 영문 슬로건 (pill ↔ feel)
-const kAppSlogan = 'My pill, I feel safe';
+const kAppSlogan = 'My pill safe, I feel safe';
 const kAppTagline = '약 조회부터 안전 확인, 실손 청구까지';
 
 ThemeData buildTheme() {
