@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../logic/drug_name_extractor.dart';
 import '../logic/models.dart';
+import '../logic/place_name.dart';
 import '../logic/reaction.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
@@ -293,14 +294,16 @@ class _RecordScreenState extends State<RecordScreen> {
       name = pharmacy ? _r.pharmacy : _place;
     }
     // 지도는 검색 결과까지만 열린다. 청구 버튼은 기관 상세 화면의 실손24 배너에 있으므로 먼저 안내.
-    final go = await _claimGuide(name, pharmacy: pharmacy);
+    final go = await _claimGuide(searchablePlaceName(name), pharmacy: pharmacy);
     if (go == null) return;
     if (go == false) {
       await _openSilson24();
       return;
     }
     final region = _region(pharmacy ? _r.pharmacyAddr : _r.hospitalAddr);
-    final enc = Uri.encodeComponent(region.isEmpty ? name : '$region $name');
+    // 공식 이름의 법인 부분은 떼고 찾는다 (재단법인아산사회복지재단서울아산병원 → 서울아산병원)
+    final q = searchablePlaceName(name);
+    final enc = Uri.encodeComponent(region.isEmpty ? q : '$region $q');
     var ok = false;
     try {
       ok = await launchUrl(

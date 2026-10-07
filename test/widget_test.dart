@@ -18,6 +18,7 @@ import 'package:kid_med_check/logic/allergy.dart';
 import 'package:kid_med_check/logic/report.dart';
 import 'package:kid_med_check/logic/dur_text.dart';
 import 'package:kid_med_check/logic/hira_import.dart';
+import 'package:kid_med_check/logic/place_name.dart';
 import 'package:kid_med_check/logic/office_decrypt.dart';
 
 void main() {
@@ -446,6 +447,15 @@ void main() {
     expect(DrugNameExtractor.isFormOnly('패치'), isTrue);
     expect(DrugNameExtractor.isFormOnly('현탁액'), isTrue);
     expect(DrugNameExtractor.isFormOnly('레스날린패치'), isFalse);
+  });
+
+  test('병원 공식 이름에서 법인 부분 떼기 (네이버 지도 검색용)', () {
+    expect(searchablePlaceName('재단법인아산사회복지재단서울아산병원'), '서울아산병원');
+    expect(searchablePlaceName('사회복지법인삼성생명공익재단삼성서울병원'), '삼성서울병원');
+    expect(searchablePlaceName('학교법인가톨릭학원가톨릭대학교서울성모병원'), '가톨릭대학교서울성모병원');
+    expect(searchablePlaceName('의료법인성광의료재단차병원'), '차병원');
+    expect(searchablePlaceName('써니이비인후과의원'), '써니이비인후과의원');
+    expect(searchablePlaceName('온누리약국'), '온누리약국');
   });
 
   test('처방 기록 저장 형식', () {
