@@ -609,6 +609,23 @@ void main() {
       expect(r.visits.first.drugs, ['세토펜현탁액', '맥시부펜시럽']);
     });
 
+    test('처방 병원과 조제 약국을 따로 읽는다 (실손 병원비·약값 청구용)', () {
+      final plain = File('test/fixtures/hira_shared.xlsx').readAsBytesSync();
+      final v = HiraImport.open(plain).visits.first;
+      expect(v.hospital, '튼튼의원');
+      expect(v.pharmacy, '행복약국');
+
+      final rows = [
+        ['조제일자', '처방기관', '조제기관', '제품명'],
+        ['2026-10-01', '바른소아청소년과의원', '온누리약국', '세토펜현탁액'],
+        ['', '', '', '코푸시럽'],
+      ];
+      final w = HiraImport.parseRows(rows).single;
+      expect(w.hospital, '바른소아청소년과의원');
+      expect(w.pharmacy, '온누리약국');
+      expect(w.drugs, ['세토펜현탁액', '코푸시럽']);
+    });
+
     test('날짜 형식', () {
       expect(HiraImport.parseDate('2026.3.12'), DateTime(2026, 3, 12));
       expect(HiraImport.parseDate('20260312'), DateTime(2026, 3, 12));

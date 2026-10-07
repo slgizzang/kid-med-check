@@ -13,11 +13,20 @@ const kHiraUrl = 'https://www.hira.or.kr/rb/dur/form.do?pgmid=HIRAA050300000100'
 
 /// 한 번의 처방(같은 날짜·같은 병원)
 class ImportedVisit {
-  ImportedVisit({required this.date, required this.place, required this.drugs});
+  ImportedVisit(
+      {required this.date,
+      required this.place,
+      required this.drugs,
+      this.hospital = '',
+      this.pharmacy = ''});
 
   final DateTime date;
   final String place;
   final List<String> drugs;
+
+  /// 처방한 병·의원, 조제한 약국 (실손보험 병원비·약값 청구용). 파일에 없으면 빈 문자열.
+  String hospital;
+  String pharmacy;
 
   /// 다시 불러와도 같은 기록을 또 만들지 않기 위한 키
   String get key =>
@@ -86,7 +95,8 @@ class HiraImport {
   static const _nameKeys = ['제품명', '약품명', '의약품명', '품명', '약 이름', '약이름'];
   static const _dateKeys = ['조제일', '처방일', '진료일', '투약일자', '일자', '날짜'];
   static const _clinicKeys = ['병·의원', '병의원', '병원', '의원', '처방기관', '요양기관', '기관'];
-  static const _pharmKeys = ['약국'];
+  /// 심평원 투약이력은 약국을 '조제기관'으로 표시한다
+  static const _pharmKeys = ['약국', '조제기관'];
 
   static int _findCol(List<String> header, List<String> keys, {Set<int> skip = const {}}) {
     for (final k in keys) {
@@ -140,6 +150,8 @@ class HiraImport {
       if (name.length < 2) continue;
       final v = ImportedVisit(date: date, place: place, drugs: []);
       final visit = byKey.putIfAbsent(v.key, () => v);
+      if (visit.hospital.isEmpty && clinicCol >= 0) visit.hospital = cell(clinicCol);
+      if (visit.pharmacy.isEmpty && pharmCol >= 0) visit.pharmacy = cell(pharmCol);
       if (!visit.drugs.contains(name)) visit.drugs.add(name);
     }
     return byKey.values.toList()..sort((a, b) => b.date.compareTo(a.date));

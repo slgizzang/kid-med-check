@@ -9,6 +9,7 @@ import '../logic/reaction.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
 import '../ui/dashboard.dart';
+import '../ui/place_sheet.dart';
 import '../ui/reaction_sheet.dart';
 import 'confirm_screen.dart';
 import 'result_screen.dart';
@@ -251,50 +252,48 @@ class _RecordScreenState extends State<RecordScreen> {
     if (picked != null && picked.isNotEmpty) _addNames(picked);
   }
 
-  /// 병원 이름: 직접 입력한 것, 없으면 기록 제목에서 ("9월 21일 써니이비인후과의원" → "써니이비인후과의원")
+  /// 병원 이름: 고른 것, 없으면 기록 제목에서 ("9월 21일 써니이비인후과의원" → "써니이비인후과의원")
   String get _place {
     if (_r.hospital.trim().isNotEmpty) return _r.hospital.trim();
     final t = _r.title
         .replaceFirst(RegExp(r'^\s*\d{1,2}월\s*\d{1,2}일\s*'), '')
         .replaceAll(RegExp(r'^(처방|약국 구입)$'), '')
         .trim();
-    return RegExp(r'(의원|병원|약국|센터|클리닉|보건소)').hasMatch(t) ? t : '';
+    return RegExp(r'(의원|병원|센터|클리닉|보건소)').hasMatch(t) ? t : '';
   }
 
-  /// 병원 이름 입력·수정
-  Future<String?> _askHospital() async {
-    final ctl = TextEditingController(text: _place);
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const KText('진료받은 병원'),
-        content: TextField(
-          controller: ctl,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: '예: 써니이비인후과의원'),
-          onSubmitted: (v) => Navigator.pop(ctx, v),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const KText('취소')),
-          TextButton(onPressed: () => Navigator.pop(ctx, ctl.text), child: const KText('저장')),
-        ],
-      ),
-    );
-    if (name == null) return null;
-    setState(() => _r.hospital = name.trim());
+  /// 병원·약국 검색해서 고르기
+  Future<bool> _pickPlace({required bool pharmacy}) async {
+    final hit = await showPlaceSheet(context,
+        pharmacy: pharmacy, initial: pharmacy ? _r.pharmacy : _place);
+    if (hit == null || hit.name.trim().isEmpty) return false;
+    setState(() {
+      if (pharmacy) {
+        _r.pharmacy = hit.name.trim();
+        _r.pharmacyAddr = hit.addr;
+      } else {
+        _r.hospital = hit.name.trim();
+        _r.hospitalAddr = hit.addr;
+      }
+    });
     _save();
-    return _r.hospital;
+    return true;
   }
 
-  /// 네이버 지도에서 병원을 연다. 실손24 연계 병원이면 상세 화면의 배너·"청구 바로가기"로
-  /// 네이버 안에서 청구를 끝낼 수 있다 (2026.10.7~). 앱이 없으면 웹 지도로.
-  Future<void> _claimOnNaverMap() async {
-    var q = _place;
-    if (q.isEmpty) {
-      q = await _askHospital() ?? '';
-      if (q.isEmpty) return;
+  /// 주소 앞부분(시·구)만: "서울특별시 강남구 테헤란로 1" → "서울특별시 강남구"
+  static String _region(String addr) =>
+      addr.trim().split(RegExp(r'\s+')).take(2).join(' ');
+
+  /// 네이버 지도에서 병원(또는 약국)을 연다. 실손24 연계 기관이면 상세 화면의 배너·"청구 바로가기"로
+  /// 네이버 안에서 청구를 끝낼 수 있다 (2026.10.7~). 지도 앱이 없으면 웹 지도로.
+  Future<void> _claimOnNaverMap({required bool pharmacy}) async {
+    var name = pharmacy ? _r.pharmacy : _place;
+    if (name.isEmpty) {
+      if (!await _pickPlace(pharmacy: pharmacy)) return;
+      name = pharmacy ? _r.pharmacy : _place;
     }
-    final enc = Uri.encodeComponent(q);
+    final region = _region(pharmacy ? _r.pharmacyAddr : _r.hospitalAddr);
+    final enc = Uri.encodeComponent(region.isEmpty ? name : '$region $name');
     var ok = false;
     try {
       ok = await launchUrl(
@@ -312,12 +311,11 @@ class _RecordScreenState extends State<RecordScreen> {
     await launchUrl(Uri.parse('https://www.silson24.or.kr'), mode: LaunchMode.externalApplication);
   }
 
-  /// 실손보험 청구 카드
+  /// 실손보험 청구 카드: 병원비(병원)와 약값(약국)을 각각 청구
   Widget _claimCard() {
-    final place = _place;
     const small = TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5);
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -325,68 +323,51 @@ class _RecordScreenState extends State<RecordScreen> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.receipt_long_outlined, color: AppColors.brand, size: 22),
+          const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 22),
           const SizedBox(width: 8),
           const Expanded(
             child: KText('실손보험 청구',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.ink)),
           ),
-          if (_r.claimed)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                  color: AppColors.brandTint, borderRadius: BorderRadius.circular(8)),
-              child: const Text('청구 완료',
-                  style: TextStyle(
-                      fontSize: 12, color: AppColors.brand, fontWeight: FontWeight.w700)),
-            ),
+          if (_r.fullyClaimed) const _DoneChip('모두 청구 완료'),
         ]),
-        const SizedBox(height: 10),
-        // 병원 이름 (지도에서 찾을 이름)
-        InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: _askHospital,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-                color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [
-              const Icon(Icons.local_hospital_outlined, size: 18, color: AppColors.sub),
-              const SizedBox(width: 8),
-              Expanded(
-                child: KText(place.isEmpty ? '진료받은 병원 이름 입력' : place,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: place.isEmpty ? AppColors.sub : AppColors.ink,
-                        fontWeight: place.isEmpty ? FontWeight.w500 : FontWeight.w700)),
-              ),
-              KText(place.isEmpty ? '입력' : '변경',
-                  style: const TextStyle(
-                      fontSize: 13, color: AppColors.primaryDark, fontWeight: FontWeight.w700)),
-            ]),
-          ),
+        const SizedBox(height: 4),
+        const KText('네이버 지도에서 실손24로 바로 청구해요.', style: small),
+        const SizedBox(height: 12),
+        _ClaimPart(
+          pharmacy: false,
+          name: _place,
+          addr: _r.hospitalAddr,
+          done: _r.claimed,
+          onPick: () => _pickPlace(pharmacy: false),
+          onClaim: () => _claimOnNaverMap(pharmacy: false),
+          onDone: (v) {
+            setState(() => _r.claimed = v);
+            _save();
+          },
         ),
         const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: FilledButton.icon(
-            onPressed: _claimOnNaverMap,
-            icon: const Icon(Icons.map_outlined),
-            label: const KText('네이버 지도에서 바로 청구하기',
-                maxLines: 1, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-          ),
+        _ClaimPart(
+          pharmacy: true,
+          name: _r.pharmacy,
+          addr: _r.pharmacyAddr,
+          done: _r.claimedPharm,
+          onPick: () => _pickPlace(pharmacy: true),
+          onClaim: () => _claimOnNaverMap(pharmacy: true),
+          onDone: (v) {
+            setState(() => _r.claimedPharm = v);
+            _save();
+          },
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         const KText(
-          '지도에서 병원 화면을 열고 실손24 배너의 "청구 바로가기"를 누르면 네이버 안에서 청구가 끝나요. '
-          '마이데이터에 동의하면 병원·진료일·보험사·계좌를 따로 입력하지 않아도 돼요.',
+          '지도에서 병원·약국 화면을 열고 실손24 배너의 "청구 바로가기"를 누르면 네이버 안에서 청구가 끝나요. '
+          '마이데이터에 동의하면 진료일·보험사·계좌를 따로 입력하지 않아도 돼요.',
           style: small,
         ),
         const SizedBox(height: 4),
         const KText(
-          '배너가 없으면 아직 실손24에 연계되지 않은 병원이에요. 이때는 서류를 받아 보험사 앱으로 청구해야 해요.',
+          '배너가 없으면 아직 실손24에 연계되지 않은 곳이에요. 이때는 서류를 받아 보험사 앱으로 청구해야 해요.',
           style: small,
         ),
         Wrap(spacing: 4, children: [
@@ -398,20 +379,9 @@ class _RecordScreenState extends State<RecordScreen> {
             onPressed: () => launchUrl(
                 Uri.parse('https://www.silson24.or.kr/claim/web/serviceHospitalList'),
                 mode: LaunchMode.externalApplication),
-            child: const KText('참여병원 목록', maxLines: 1),
+            child: const KText('참여기관 목록', maxLines: 1),
           ),
         ]),
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          controlAffinity: ListTileControlAffinity.leading,
-          value: _r.claimed,
-          onChanged: (v) {
-            setState(() => _r.claimed = v ?? false);
-            _save();
-          },
-          title: const KText('이 처방은 청구를 마쳤어요'),
-        ),
       ]),
     );
   }
@@ -722,6 +692,133 @@ class _AddTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DoneChip extends StatelessWidget {
+  const _DoneChip(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+            color: AppColors.primarySoft, borderRadius: BorderRadius.circular(8)),
+        child: Text(text,
+            style: const TextStyle(
+                fontSize: 12, color: AppColors.primaryDark, fontWeight: FontWeight.w700)),
+      );
+}
+
+/// 청구 한 건 (병원비 또는 약값): 기관 이름 + 청구 버튼 + 완료 표시
+class _ClaimPart extends StatelessWidget {
+  const _ClaimPart({
+    required this.pharmacy,
+    required this.name,
+    required this.addr,
+    required this.done,
+    required this.onPick,
+    required this.onClaim,
+    required this.onDone,
+  });
+
+  final bool pharmacy;
+  final String name;
+  final String addr;
+  final bool done;
+  final VoidCallback onPick;
+  final VoidCallback onClaim;
+  final ValueChanged<bool> onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final (tBg, tFg) = pharmacy ? kPastelSky : kPastelTeal;
+    final label = pharmacy ? '약값' : '병원비';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(14)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onPick,
+          child: Row(children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration:
+                  BoxDecoration(color: tBg, borderRadius: BorderRadius.circular(11)),
+              child: Icon(
+                  pharmacy ? Icons.local_pharmacy_outlined : Icons.local_hospital_outlined,
+                  color: tFg,
+                  size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('$label · ${pharmacy ? '약국' : '병원'}',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.sub, fontWeight: FontWeight.w600)),
+                KText(name.isEmpty ? (pharmacy ? '약국 검색해서 입력' : '병원 검색해서 입력') : name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 15,
+                        color: name.isEmpty ? AppColors.sub : AppColors.ink,
+                        fontWeight: name.isEmpty ? FontWeight.w500 : FontWeight.w700)),
+                if (addr.isNotEmpty)
+                  KText(addr,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.sub)),
+              ]),
+            ),
+            KText(name.isEmpty ? '검색' : '변경',
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.primaryDark, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: SizedBox(
+              height: 46,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(46),
+                  backgroundColor: done ? Colors.white : AppColors.primary,
+                  foregroundColor: done ? AppColors.primaryDark : AppColors.onPrimary,
+                  side: done ? const BorderSide(color: AppColors.line) : null,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: onClaim,
+                child: KText(done ? '$label 다시 열기' : '$label 청구하기',
+                    maxLines: 1,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => onDone(!done),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(done ? Icons.check_circle : Icons.radio_button_unchecked,
+                    size: 22, color: done ? AppColors.primary : AppColors.sub),
+                const SizedBox(width: 4),
+                Text('완료',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: done ? AppColors.primaryDark : AppColors.sub)),
+              ]),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 8),
+      ]),
     );
   }
 }

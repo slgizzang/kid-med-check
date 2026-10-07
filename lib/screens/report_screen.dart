@@ -87,7 +87,7 @@ class _ReportScreenState extends State<ReportScreen> {
     }
     final limit = DateTime.now().subtract(const Duration(days: 365 * 3));
     final unclaimed = records
-        .where((r) => !r.otc && !r.claimed && r.createdAt.isAfter(limit))
+        .where((r) => !r.otc && !r.fullyClaimed && r.createdAt.isAfter(limit))
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     setState(() {
@@ -191,7 +191,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                 style: const TextStyle(color: AppColors.sub)),
                           const SizedBox(height: 8),
                           const KText(
-                            '각 복용 기록에서 "네이버 지도에서 바로 청구하기"를 누르고, 청구한 뒤에는 청구 완료로 표시해 주세요.',
+                            '각 복용 기록의 실손보험 청구에서 병원비·약값을 청구하고, 청구한 뒤에는 완료로 표시해 주세요.',
                             style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
                           ),
                         ],

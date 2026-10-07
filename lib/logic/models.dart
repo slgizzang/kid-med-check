@@ -72,6 +72,10 @@ class MedRecord {
     this.otc = false,
     this.claimed = false,
     this.hospital = '',
+    this.hospitalAddr = '',
+    this.pharmacy = '',
+    this.pharmacyAddr = '',
+    this.claimedPharm = false,
     List<RecordPhoto>? photos,
   })  : drugs = drugs ?? [],
         photos = photos ?? [];
@@ -82,11 +86,24 @@ class MedRecord {
   /// 약국에서 직접 산 약(일반의약품)이면 true, 병원 처방이면 false
   bool otc;
 
-  /// 실손보험 청구를 마쳤다고 표시했는지
+  /// 병원비(진료비) 실손보험 청구를 마쳤다고 표시했는지
   bool claimed;
+
+  /// 약값(약국 조제비) 실손보험 청구를 마쳤다고 표시했는지
+  bool claimedPharm;
 
   /// 진료받은 병원 이름 (실손보험 청구 때 네이버 지도에서 찾기용). 모르면 빈 문자열.
   String hospital;
+
+  /// 병원 주소 (네이버 지도 검색을 정확하게)
+  String hospitalAddr;
+
+  /// 약을 지은 약국 이름·주소
+  String pharmacy;
+  String pharmacyAddr;
+
+  /// 병원비·약값 청구를 모두 마쳤는지 (약국을 모르면 병원비만 본다)
+  bool get fullyClaimed => claimed && (claimedPharm || pharmacy.isEmpty);
 
   /// 심평원 투약이력에서 불러온 기록인지
   bool get imported => importKey != null;
@@ -117,6 +134,10 @@ class MedRecord {
         if (otc) 'otc': true,
         if (claimed) 'claimed': true,
         if (hospital.isNotEmpty) 'hospital': hospital,
+        if (hospitalAddr.isNotEmpty) 'hospitalAddr': hospitalAddr,
+        if (pharmacy.isNotEmpty) 'pharmacy': pharmacy,
+        if (pharmacyAddr.isNotEmpty) 'pharmacyAddr': pharmacyAddr,
+        if (claimedPharm) 'claimedPharm': true,
         if (photos.isNotEmpty) 'photos': photos.map((p) => p.toJson()).toList(),
       };
 
@@ -133,6 +154,10 @@ class MedRecord {
         otc: j['otc'] == true,
         claimed: j['claimed'] == true,
         hospital: '${j['hospital'] ?? ''}',
+        hospitalAddr: '${j['hospitalAddr'] ?? ''}',
+        pharmacy: '${j['pharmacy'] ?? ''}',
+        pharmacyAddr: '${j['pharmacyAddr'] ?? ''}',
+        claimedPharm: j['claimedPharm'] == true,
         photos: (j['photos'] as List? ?? const [])
             .map((e) => RecordPhoto.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList(),

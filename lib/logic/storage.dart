@@ -120,6 +120,12 @@ class AppStorage {
     var added = 0, skipped = 0;
     for (final v in visits) {
       if (have.contains(v.key)) {
+        // 예전에 불러온 기록에 병원·약국 이름이 없으면 채워 둔다
+        for (final r in list) {
+          if (r.childId != childId || r.importKey != v.key) continue;
+          if (r.hospital.isEmpty) r.hospital = v.hospital;
+          if (r.pharmacy.isEmpty) r.pharmacy = v.pharmacy;
+        }
         skipped++;
         continue;
       }
@@ -130,6 +136,8 @@ class AppStorage {
         createdAt: v.date,
         drugs: List.of(v.drugs),
         importKey: v.key,
+        hospital: v.hospital,
+        pharmacy: v.pharmacy,
       ));
       have.add(v.key);
       added++;

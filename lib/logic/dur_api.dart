@@ -42,6 +42,21 @@ class DurApi {
     return k;
   }
 
+  /// 심평원 병원정보서비스: 병·의원 이름으로 찾기
+  static const _hospPath = '/B551182/hospInfoServicev2/getHospBasisList';
+
+  /// 심평원 약국정보서비스: 약국 이름으로 찾기
+  static const _pharmPath = '/B551182/pharmacyInfoService/getParmacyBasisList';
+
+  /// 병원(pharmacy=false) 또는 약국(pharmacy=true)을 이름으로 찾는다.
+  Future<List<PlaceHit>> searchPlaces(String name, {required bool pharmacy}) async {
+    final q = name.trim();
+    if (q.length < 2) return const [];
+    final items = await _fetchItems(
+        pharmacy ? _pharmPath : _hospPath, {'yadmNm': q, '_type': 'json'}, 30);
+    return items.map(PlaceHit.fromJson).where((p) => p.name.isNotEmpty).toList();
+  }
+
   Future<List<TabooRow>> searchAgeTaboo(String itemName) async {
     final items = await _fetchItems(_path, {'itemName': itemName}, 100);
     return items.map(TabooRow.fromJson).toList();
@@ -549,6 +564,23 @@ class DurApi {
       return '등록되지 않은 IP로 호출했어요.';
     }
     return '조회 실패: ${_short(msg)} ${code ?? ''}'.trim();
+  }
+}
+
+/// 병원·약국 검색 결과 한 곳
+class PlaceHit {
+  const PlaceHit({required this.name, this.addr = '', this.kind = '', this.tel = ''});
+
+  final String name;
+  final String addr;
+
+  /// 종별 (예: 의원, 병원, 약국)
+  final String kind;
+  final String tel;
+
+  factory PlaceHit.fromJson(Map<String, dynamic> j) {
+    String s(String k) => '${j[k] ?? ''}'.trim();
+    return PlaceHit(name: s('yadmNm'), addr: s('addr'), kind: s('clCdNm'), tel: s('telno'));
   }
 }
 
