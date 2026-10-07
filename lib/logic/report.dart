@@ -14,11 +14,16 @@ class DrugMeta {
 }
 
 class CountItem {
-  CountItem(this.name, this.count, {this.examples = const [], this.last});
+  CountItem(this.name, this.count,
+      {this.examples = const [], this.last, this.cls = '', this.ingredient = ''});
   final String name;
   final int count;
   final List<String> examples;
   final DateTime? last;
+
+  /// 약일 때: 지난 확인에서 알아둔 분류·성분 (팝업 설명용)
+  final String cls;
+  final String ingredient;
 }
 
 /// "OO가 들어간 복용 N번 중 M번 '설사' 기록"
@@ -240,8 +245,12 @@ MedReport buildReport(
       classCount,
       (k, v) => CountItem(k, v,
           examples: (classExamples[k] ?? const <String>{}).take(3).toList()));
-  final topDrugs = top(drugCount,
-      (k, v) => CountItem(drugName[k] ?? k, v, last: drugLast[k]));
+  final topDrugs = top(
+      drugCount,
+      (k, v) => CountItem(drugName[k] ?? k, v,
+          last: drugLast[k],
+          cls: prettyClass(meta[k]?.cls ?? ''),
+          ingredient: meta[k]?.ingredient ?? ''));
 
   // 최근 12개월 월별 복용 기록 수
   final monthly = <(DateTime, int)>[];

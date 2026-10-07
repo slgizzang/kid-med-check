@@ -94,6 +94,29 @@ class DurApi {
     return null;
   }
 
+  /// 약 하나의 짧은 소개용 정보: 분류·전문/일반·성분·쉬운 효능(e약은요)·허가된 효능(설명서).
+  /// 여러 출처를 차례로 채운다. 실패한 출처는 건너뛴다.
+  Future<DrugSummary> drugSummary(String name) async {
+    var cls = '', etcOtc = '', ingredient = '', easy = '', permit = '';
+    final info = await searchDrugInfo(name);
+    if (info != null) {
+      cls = info.className;
+      etcOtc = info.etcOtc;
+      ingredient = info.ingredient;
+      easy = info.efficacy;
+    }
+    if (easy.isEmpty) {
+      final d = await permitDetail(ProductHit(fullName: name));
+      if (d != null) {
+        permit = '${d['efcyQesitm'] ?? ''}';
+        if (ingredient.isEmpty) ingredient = '${d['material'] ?? ''}';
+        if (etcOtc.isEmpty) etcOtc = '${d['etcOtc'] ?? ''}';
+      }
+    }
+    return DrugSummary(
+        cls: cls, etcOtc: etcOtc, ingredient: ingredient, easy: easy, permit: permit);
+  }
+
   /// 이름 일부로 제품 목록을 찾는다 (DUR 품목정보 + e약은요). 실패해도 빈 목록.
   Future<List<ProductHit>> searchProducts(String q) async {
     // 세 출처를 동시에 조회 (순서대로 기다리면 3배 느림)
@@ -583,6 +606,34 @@ class DurApi {
     }
     return '조회 실패: ${_short(msg)} ${code ?? ''}'.trim();
   }
+}
+
+class DrugSummary {
+  const DrugSummary(
+      {this.cls = '', this.etcOtc = '', this.ingredient = '', this.easy = '', this.permit = ''});
+  final String cls;
+  final String etcOtc;
+  final String ingredient;
+
+  /// e약은요의 쉬운 효능 문장
+  final String easy;
+
+  /// 허가 설명서의 효능·효과 원문
+  final String permit;
+}
+
+/// 글을 [max]자 안쪽에서 문장(또는 항목) 경계로 자른다. 번호(1. 2.)는 떼고 이어 쓴다.
+String shortText(String t, {int max = 120}) {
+  var s = t
+      .replaceAll(RegExp(r'(^|\s)(\d{1,2}|[가나다라마바사아자차카타파하]|[①-⑳])[.)]\s*'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (s.length <= max) return s;
+  final cut = s.substring(0, max);
+  final end = RegExp(r'.*[.다요]\s').firstMatch(cut);
+  if (end != null && end.end > max ~/ 3) return cut.substring(0, end.end).trim();
+  final sp = cut.lastIndexOf(RegExp(r'[\s,]'));
+  return '${cut.substring(0, sp > 0 ? sp : max).trim()}…';
 }
 
 /// 병원·약국 검색 결과 한 곳

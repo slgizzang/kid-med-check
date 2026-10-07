@@ -20,6 +20,7 @@ import 'package:kid_med_check/logic/dur_text.dart';
 import 'package:kid_med_check/logic/hira_import.dart';
 import 'package:kid_med_check/logic/place_name.dart';
 import 'package:kid_med_check/logic/class_info.dart';
+import 'package:kid_med_check/logic/ingredient_info.dart';
 import 'package:kid_med_check/logic/office_decrypt.dart';
 
 void main() {
@@ -491,6 +492,22 @@ void main() {
     expect(classDescription('해열·진통·소염제'), contains('열을 내리고'));
     expect(classDescription('주로 그람양성·음성균에 작용하는 것'), contains('항생제'));
     expect(classDescription('알 수 없는 분류'), isNull);
+    // 식약처 분류 전반: '기타의 …' 같은 이름도 설명이 나와야 한다
+    for (final c in ['기타의 호흡기관용약', '기타의 알레르기용약', '진해거담제', '정장제', '항히스타민제',
+        '기타의 비뇨생식기관 및 항문용약', '기타의 소화기관용약', '진통·진양·수렴·소염제', '안과용제',
+        '기타의 화학요법제', '해열·진통·소염제', '소화성궤양용제', '부신호르몬제']) {
+      expect(classDescription(c), isNotNull, reason: c);
+    }
+    expect(classDescription('진통·진양·수렴·소염제'), contains('피부'));
+    expect(classDescription('기타의 호흡기관용약'), contains('슈도에페드린'));
+    expect(ingredientDescription('슈도에페드린염산염'), contains('코막힘'));
+    expect(ingredientDescription('몬테루카스트나트륨'), contains('천식'));
+    expect(ingredientDescription('클래리트로마이신제피과립'), contains('항생제'));
+    expect(ingredientDescription('세파클러수화물'), contains('항생제'));
+    expect(ingredientDescription('라세카도트릴'), contains('설사'));
+    expect(ingredientDescription('알 수 없는 성분'), isNull);
+    expect(shortText('1. 다음 균에 의한 감염증 2. 기관지염'), '다음 균에 의한 감염증 기관지염');
+    expect(shortText('가' * 200).length, lessThanOrEqualTo(122));
   });
 
   test('처방 기록 저장 형식', () {

@@ -5,6 +5,8 @@ import '../logic/allergy.dart';
 import '../logic/drug_name_extractor.dart';
 import '../logic/dur_api.dart';
 import '../logic/dur_text.dart';
+import '../logic/class_info.dart';
+import '../logic/ingredient_info.dart';
 import '../logic/models.dart';
 import '../logic/reaction.dart';
 import '../logic/snapshot.dart';
@@ -973,9 +975,11 @@ class _InfoView extends StatelessWidget {
         );
       }
       if (!check.infoLoading) {
+        // 설명 자료가 없어도 성분을 알면 성분으로 쉬운 설명
+        final byIngr = ingredientDescription(check.best?.ingredient ?? '');
         return Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: KText('이 이름으로는 약 설명을 찾지 못했어요.',
+          child: KText(byIngr ?? '식약처 자료에 이 약의 설명이 없어요. 약사에게 물어보세요.',
               style: theme.textTheme.bodySmall),
         );
       }
@@ -995,10 +999,12 @@ class _InfoView extends StatelessWidget {
     final phrase = efficacyPhrase(info.efficacy);
     if (phrase.isNotEmpty) {
       efficacy = phrase;
-    } else if (info.className.isNotEmpty) {
-      efficacy = info.className;
     } else {
-      efficacy = '정보 없음';
+      // 쉬운 효능 문장이 없으면: 성분 사전 → 분류 설명 → 분류 이름
+      efficacy = ingredientDescription(ingredient) ??
+          (info.className.isNotEmpty
+              ? (classDescription(info.className) ?? info.className)
+              : '식약처 자료에 설명이 없어요');
     }
 
     Widget row(String k, String v, {bool bold = false}) => Padding(

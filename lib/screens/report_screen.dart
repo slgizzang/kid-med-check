@@ -10,6 +10,7 @@ import '../ui/theme.dart';
 import 'reaction_list_screen.dart';
 import 'record_screen.dart';
 import '../logic/class_info.dart';
+import '../logic/ingredient_info.dart';
 
 /// 복용 리포트: 지난 기록을 모아 많이 먹은 약 계열, 반응 기록 패턴, 생활 관리 참고를 보여준다.
 class ReportScreen extends StatefulWidget {
@@ -758,7 +759,8 @@ void _showClassInfo(BuildContext context, CountItem it) {
     context,
     it.name,
     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      KText(desc ?? '식약처 약효 분류 이름이에요. 자세한 내용은 약사에게 물어보세요.', flow: true, style: _infoStyle),
+      KText(desc ?? '식약처가 약의 쓰임새에 따라 나눈 분류예요. 자주 먹은 약 목록에서 약을 누르면 약별 설명을 볼 수 있어요.',
+          flow: true, style: _infoStyle),
       if (it.examples.isNotEmpty) ...[
         const SizedBox(height: 12),
         KText('이 계열로 먹은 약: ${it.examples.take(6).join(', ')}', flow: true, style: _infoSub),
@@ -773,44 +775,47 @@ void _showDrugInfo(BuildContext context, CountItem d) {
   _infoSheet(
     context,
     d.name,
-    FutureBuilder<DrugInfo?>(
-      future: AppStorage.apiKey().then((k) => DurApi(k).searchDrugInfo(d.name)),
+    FutureBuilder<DrugSummary>(
+      future: AppStorage.apiKey().then((k) => DurApi(k).drugSummary(d.name)),
       builder: (ctx, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: LinearProgressIndicator(minHeight: 2),
-          );
-        }
-        final info = snap.data;
-        String firstSentences(String t, int n) {
-          final parts = t.trim().split(RegExp(r'(?<=[.다요])\s+'));
-          return parts.take(n).join(' ');
-        }
-        final eff = info == null ? '' : firstSentences(info.efficacy, 2);
-        final cls = info == null ? '' : prettyClass(info.className);
+        final loading = snap.connectionState != ConnectionState.done;
+        final sm = snap.data ?? const DrugSummary();
+        final cls = sm.cls.isNotEmpty ? prettyClass(sm.cls) : d.cls;
+        final ingr = sm.ingredient.isNotEmpty ? sm.ingredient : d.ingredient;
+        // 쉬운 설명: e약은요 → 성분 사전 → 분류 설명 순
+        final main = sm.easy.isNotEmpty
+            ? shortText(sm.easy)
+            : (ingredientDescription(ingr) ??
+                (cls.isNotEmpty ? classDescription(cls) : null) ??
+                '');
+        final permit = sm.permit.isNotEmpty ? shortText(sm.permit, max: 140) : '';
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (cls.isNotEmpty || (info?.etcOtc ?? '').isNotEmpty)
-            KText([cls, info?.etcOtc ?? ''].where((x) => x.isNotEmpty).join(' · '),
+          if (cls.isNotEmpty || sm.etcOtc.isNotEmpty)
+            KText([cls, sm.etcOtc].where((x) => x.isNotEmpty).join(' · '),
                 style: const TextStyle(
                     fontSize: 13, color: AppColors.primaryDark, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          KText(
-              eff.isNotEmpty
-                  ? eff
-                  : (cls.isNotEmpty
-                      ? (classDescription(cls) ?? '$cls 계열의 약이에요.')
-                      : '설명을 찾지 못했어요.'),
-              flow: true,
-              style: _infoStyle),
-          if ((info?.ingredient ?? '').isNotEmpty) ...[
+          if (main.isNotEmpty)
+            KText(main, flow: true, style: _infoStyle)
+          else if (loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: LinearProgressIndicator(minHeight: 2),
+            )
+          else if (permit.isEmpty)
+            const KText('식약처 자료에 쉬운 설명이 없는 약이에요. 약사에게 물어보세요.',
+                flow: true, style: _infoStyle),
+          if (permit.isNotEmpty) ...[
             const SizedBox(height: 10),
-            KText('성분: ${info!.ingredient}', flow: true, style: _infoSub),
+            KText('허가된 효능: $permit', flow: true, style: _infoSub),
+          ],
+          if (ingr.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            KText('성분: $ingr', flow: true, style: _infoSub),
           ],
           const SizedBox(height: 4),
           KText(
-              '복용 기록 ${d.count}번' +
-                  (d.last != null ? ' · 마지막 ${formatDate(d.last!)}' : ''),
+              '복용 기록 ${d.count}번${d.last != null ? ' · 마지막 ${formatDate(d.last!)}' : ''}',
               style: _infoSub),
         ]);
       },
