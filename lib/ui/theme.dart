@@ -144,7 +144,7 @@ class AppLogo extends StatelessWidget {
 
 class _LogoPainter extends CustomPainter {
   // 1024 기준 크기 (런처 아이콘 생성과 같은 값)
-  static const _l = 700.0, _h = 290.0, _g = 150.0, _d = 85.0, _w = 72.0;
+  static const _l = 700.0, _h = 290.0, _g = 45.0, _d = 40.0, _w = 72.0;
 
   @override
   void paint(Canvas canvas, Size size) {
