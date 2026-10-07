@@ -126,6 +126,11 @@ class Silson24 {
     }
   }
 
+  /// 진단용: 실손24 검색 결과 그대로
+  Future<List<Map<String, dynamic>>> rawSearch(String q,
+          {required bool pharmacy, (double, double)? center}) =>
+      _search(q, pharmacy: pharmacy, center: center);
+
   Future<List<Map<String, dynamic>>> _search(String q,
       {required bool pharmacy, (double, double)? center}) async {
     final body = <String, dynamic>{

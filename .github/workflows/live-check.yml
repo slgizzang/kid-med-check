@@ -1,0 +1,28 @@
+name: live-check
+on:
+  workflow_dispatch:
+permissions:
+  issues: write
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate project
+        run: flutter create --platforms=android --org com.kidmedcheck --project-name kid_med_check . >/dev/null
+      - run: flutter pub get
+      - name: Live test
+        env:
+          DUR_API_KEY: ${{ secrets.DUR_API_KEY }}
+        run: flutter test test_live/silson_live_test.dart -r expanded > live.txt 2>&1 || true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          grep -E "OK |FAIL|     |SUMMARY|Error|error" live.txt | head -c 60000 > body.txt
+          gh issue create --title "live-check ${{ github.run_number }}" --body-file body.txt
