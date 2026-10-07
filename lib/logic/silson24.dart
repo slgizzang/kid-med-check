@@ -5,6 +5,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,13 +14,20 @@ import 'place_name.dart';
 
 enum SilsonState { enabled, notEnabled, unknown }
 
-class SilsonCheck {
-  const SilsonCheck(this.state, {this.name = '', this.addr = ''});
-  final SilsonState state;
+/// 판정하지 못한 이유
+enum SilsonMiss { none, noResponse, notFound, ambiguous }
 
-  /// 실손24에 등록된 기관 이름·주소 (찾았을 때)
+class SilsonCheck {
+  const SilsonCheck(this.state,
+      {this.name = '', this.addr = '', this.lat, this.lng, this.miss = SilsonMiss.none});
+  final SilsonState state;
+  final SilsonMiss miss;
+
+  /// 실손24에 등록된 기관 이름·주소·위치 (찾았을 때)
   final String name;
   final String addr;
+  final double? lat;
+  final double? lng;
 }
 
 class Silson24 {
@@ -37,10 +45,15 @@ class Silson24 {
   static String _n(String s) => s.replaceAll(RegExp(r'[\s()·.,\-]'), '');
 
   /// [name] 기관이 실손24로 서류 없이 청구 가능한지. [addr]를 알면 같은 이름이 여럿일 때 가려낸다.
-  Future<SilsonCheck> check(String name, {required bool pharmacy, String addr = ''}) async {
+  /// [near]: 주소를 모를 때 같은 이름 중 가까운 곳을 고를 기준점 (병원 위치 또는 내 위치).
+  Future<SilsonCheck> check(String name,
+      {required bool pharmacy, String addr = '', (double, double)? near}) async {
     final q = searchablePlaceName(name);
-    if (q.length < 2) return const SilsonCheck(SilsonState.unknown);
-    final key = '${pharmacy ? 'p' : 'h'}|${_n(q)}|${_n(addr)}';
+    if (q.length < 2) return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.notFound);
+    final nearKey = near == null || addr.isNotEmpty
+        ? ''
+        : '${near.$1.toStringAsFixed(2)},${near.$2.toStringAsFixed(2)}';
+    final key = '${pharmacy ? 'p' : 'h'}|${_n(q)}|${_n(addr)}|$nearKey';
     if (_useCache) {
       final m = _mem[key];
       if (m != null) return m;
@@ -51,9 +64,9 @@ class Silson24 {
     try {
       items = await _search(q, pharmacy: pharmacy);
     } catch (_) {
-      return const SilsonCheck(SilsonState.unknown);
+      return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.noResponse);
     }
-    final r = pick(items, q, addr);
+    final r = pick(items, q, addr, near: near);
     if (_useCache && r.state != SilsonState.unknown) {
       _mem[key] = r;
       await _write(key, r);
@@ -84,12 +97,41 @@ class Silson24 {
     return [for (final e in list) if (e is Map) Map<String, dynamic>.from(e)];
   }
 
+  /// 이름 비교용: 공백·기호를 떼고, 끝의 종별(의원·병원·약국 등)도 뗀 값
+  static String _base(String s) =>
+      _n(s).replaceFirst(RegExp(r'(의원|병원|약국|치과의원|한의원|의료원|센터|클리닉)$'), '');
+
+  static double _dist(double lat1, double lon1, double lat2, double lon2) {
+    const r = 6371000.0;
+    double rad(double d) => d * math.pi / 180;
+    final dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(rad(lat1)) * math.cos(rad(lat2)) * math.sin(dLon / 2) * math.sin(dLon / 2);
+    return 2 * r * math.asin(math.sqrt(a));
+  }
+
+  static double? _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}');
+
   /// 검색 결과에서 이 기관을 고른다.
-  /// 이름이 정확히 같은 곳 → 주소로 가리기 → 그래도 여럿이면 모두 같은 상태일 때만 판정.
-  static SilsonCheck pick(List<Map<String, dynamic>> items, String query, String addr) {
-    final qn = _n(query);
-    var cands = items.where((e) => _n('${e['insttNm'] ?? ''}') == qn).toList();
-    if (cands.isEmpty) return const SilsonCheck(SilsonState.unknown);
+  /// 1) 이름: 정확히 같은 곳 → 없으면 종별(의원·약국 등)만 다른 곳 → 없으면 이름이 포함된 곳
+  /// 2) 여럿이면: 주소가 겹치는 곳 → 기준점([near])에서 확실히 가장 가까운 곳
+  /// 3) 그래도 여럿이면 모두 같은 상태일 때만 판정
+  static SilsonCheck pick(List<Map<String, dynamic>> items, String query, String addr,
+      {(double, double)? near}) {
+    String nm(Map<String, dynamic> e) => '${e['insttNm'] ?? ''}';
+    final qn = _n(query), qb = _base(query);
+    var cands = items.where((e) => _n(nm(e)) == qn).toList();
+    if (cands.isEmpty && qb.length >= 2) {
+      cands = items.where((e) => _base(nm(e)) == qb).toList();
+    }
+    if (cands.isEmpty && qb.length >= 3) {
+      cands = items.where((e) {
+        final b = _base(nm(e));
+        return b.contains(qb) && b.length - qb.length <= 3;
+      }).toList();
+    }
+    if (cands.isEmpty) return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.notFound);
+
     if (cands.length > 1 && addr.trim().isNotEmpty) {
       // 시·구·도로명까지 겹치는 곳
       final words = addr.split(RegExp(r'\s+')).where((w) => w.length >= 2).take(4).toList();
@@ -101,13 +143,28 @@ class Silson24 {
       final best = score(cands.first);
       if (best >= 2) cands = cands.where((e) => score(e) == best).toList();
     }
+    if (cands.length > 1 && near != null) {
+      // 기준점에서 가장 가까운 곳이 5km 안이고, 두 번째보다 확실히(2배 이상) 가까우면 그곳
+      double d(Map<String, dynamic> e) {
+        final la = _num(e['lat']), lo = _num(e['lng']);
+        return la == null || lo == null ? double.infinity : _dist(near.$1, near.$2, la, lo);
+      }
+      cands.sort((a, b) => d(a).compareTo(d(b)));
+      final d0 = d(cands.first), d1 = d(cands[1]);
+      if (d0 < 5000 && (d1 == double.infinity || d1 >= d0 * 2)) cands = [cands.first];
+    }
     final states = cands.map((e) => e['serviceEnabled'] == true).toSet();
-    if (states.length != 1) return const SilsonCheck(SilsonState.unknown);
+    if (states.length != 1) {
+      return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.ambiguous);
+    }
     final e = cands.first;
+    final one = cands.length == 1;
     return SilsonCheck(
       states.first ? SilsonState.enabled : SilsonState.notEnabled,
-      name: '${e['insttNm'] ?? ''}',
-      addr: '${e['rnAddr'] ?? ''}',
+      name: nm(e),
+      addr: one ? '${e['rnAddr'] ?? ''}' : '',
+      lat: one ? _num(e['lat']) : null,
+      lng: one ? _num(e['lng']) : null,
     );
   }
 
@@ -120,7 +177,10 @@ class Silson24 {
       final t = DateTime.fromMillisecondsSinceEpoch(j['t'] as int);
       if (DateTime.now().difference(t) > _ttl) return null;
       return SilsonCheck(SilsonState.values.byName('${j['s']}'),
-          name: '${j['n'] ?? ''}', addr: '${j['a'] ?? ''}');
+          name: '${j['n'] ?? ''}',
+          addr: '${j['a'] ?? ''}',
+          lat: (j['la'] as num?)?.toDouble(),
+          lng: (j['lo'] as num?)?.toDouble());
     } catch (_) {
       return null;
     }
@@ -136,6 +196,8 @@ class Silson24 {
             's': c.state.name,
             'n': c.name,
             'a': c.addr,
+            if (c.lat != null) 'la': c.lat,
+            if (c.lng != null) 'lo': c.lng,
           }));
     } catch (_) {}
   }

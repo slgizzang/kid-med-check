@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../logic/dur_api.dart';
+import '../logic/location.dart';
 import '../logic/storage.dart';
 import 'theme.dart';
 
@@ -30,31 +30,6 @@ class _PlaceSheet extends StatefulWidget {
   State<_PlaceSheet> createState() => _PlaceSheetState();
 }
 
-/// 이번 실행 중 한 번 얻은 대략적 위치 (위도, 경도)
-(double, double)? _lastPos;
-
-/// 대략적 위치. 권한이 없거나 꺼져 있으면 null (이름 검색만 함).
-Future<(double, double)?> _roughPosition() async {
-  if (_lastPos != null) return _lastPos;
-  try {
-    if (!await Geolocator.isLocationServiceEnabled()) return null;
-    var perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
-    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
-      return null;
-    }
-    final last = await Geolocator.getLastKnownPosition();
-    final p = last ??
-        await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-                accuracy: LocationAccuracy.low, timeLimit: Duration(seconds: 8)));
-    _lastPos = (p.latitude, p.longitude);
-    return _lastPos;
-  } catch (_) {
-    return null;
-  }
-}
-
 class _PlaceSheetState extends State<_PlaceSheet> {
   (double, double)? _pos;
   bool _locating = true;
@@ -75,7 +50,7 @@ class _PlaceSheetState extends State<_PlaceSheet> {
 
   /// 위치를 먼저 얻고(가까운 순 정렬), 입력된 이름이 있으면 그 이름으로, 없으면 주변을 찾는다.
   Future<void> _init() async {
-    final pos = await _roughPosition();
+    final pos = await roughPosition();
     if (!mounted) return;
     setState(() {
       _pos = pos;
