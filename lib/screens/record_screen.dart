@@ -717,7 +717,7 @@ class _AddTile extends StatelessWidget {
               KText(label,
                   style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: AppColors.ink)),
+                      color: primary ? AppColors.onPrimary : AppColors.ink)),
             ],
           ),
         ),

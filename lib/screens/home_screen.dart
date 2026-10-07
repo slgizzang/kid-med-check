@@ -405,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _ToolTile(
             icon: Icons.insights_outlined,
             label: '복용 리포트',
-            highlight: true,
+            tint: kPastelTeal,
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => ReportScreen(person: _selected!))),
           ),
@@ -415,6 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _ToolTile(
             icon: Icons.history,
             label: '1년 기록\n불러오기',
+            tint: kPastelSky,
             onTap: _openImport,
           ),
         ),
@@ -423,6 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _ToolTile(
             icon: Icons.edit_note,
             label: '반응 기록\n모아보기',
+            tint: kPastelLavender,
             badge: _reactionCount[_selectedId] ?? 0,
             onTap: () async {
               await Navigator.push(context,
@@ -496,7 +498,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: const Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, color: AppColors.primaryDark, size: 20),
+            Icon(Icons.info_outline, color: AppColors.sub, size: 20),
             SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -531,6 +533,7 @@ class _ChildCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final (pBg, pFg) = pastelFor(child.id);
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
@@ -540,22 +543,38 @@ class _ChildCard extends StatelessWidget {
         width: 150,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primarySoft : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: selected ? AppColors.primarySoft : AppColors.line),
+          border: Border.all(
+              color: selected ? AppColors.primary : AppColors.line,
+              width: selected ? 2 : 1),
         ),
         child: Row(children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: selected ? Colors.white : AppColors.mint,
-            child: KText(
-              child.name.isEmpty ? '?' : child.name.characters.first,
-              style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  color: AppColors.primaryDark),
+          Stack(clipBehavior: Clip.none, children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: pBg,
+              child: KText(
+                child.name.isEmpty ? '?' : child.name.characters.first,
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: pFg),
+              ),
             ),
-          ),
+            if (selected)
+              Positioned(
+                right: -3,
+                bottom: -3,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: const Icon(Icons.check, size: 11, color: Colors.white),
+                ),
+              ),
+          ]),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -573,7 +592,7 @@ class _ChildCard extends StatelessWidget {
                 KText(child.ageLabel,
                     style: TextStyle(
                         fontSize: 13,
-                        color: selected ? const Color(0xCC191F28) : AppColors.sub)),
+                        color: AppColors.sub)),
               ],
             ),
           ),
@@ -603,7 +622,7 @@ class _AddChildCard extends StatelessWidget {
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.person_add_alt_1_outlined, color: AppColors.primaryDark),
+            Icon(Icons.person_add_alt_1_outlined, color: AppColors.sub),
             SizedBox(height: 4),
             KText('복용자 추가', style: TextStyle(fontSize: 13, color: AppColors.sub)),
           ],
@@ -737,11 +756,11 @@ class _EmptyBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: onTap != null ? AppColors.primary : AppColors.line),
+        border: Border.all(color: AppColors.line),
       ),
       child: Column(children: [
         Icon(icon, size: 40,
-            color: onTap != null ? AppColors.primaryDark : const Color(0xFFB7C9C3)),
+            color: onTap != null ? AppColors.primary : const Color(0xFFB0B8C1)),
         const SizedBox(height: 10),
         KText(text,
             textAlign: TextAlign.center,
@@ -758,7 +777,7 @@ class _EmptyBox extends StatelessWidget {
   }
 }
 
-const _noticeStyle = TextStyle(color: AppColors.primaryDark, height: 1.45);
+const _noticeStyle = TextStyle(color: Color(0xFF4E5968), height: 1.45);
 
 /// 한 줄에 다 들어가게 (화면이 좁으면 글자를 살짝 줄임)
 class _OneLine extends StatelessWidget {
@@ -830,24 +849,26 @@ class _ToolTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.highlight = false,
+    this.tint = kPastelTeal,
     this.badge = 0,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool highlight;
+
+  /// 아이콘 칩 색 (배경, 아이콘)
+  final (Color, Color) tint;
   final int badge;
 
   @override
   Widget build(BuildContext context) {
-    final fg = highlight ? AppColors.onPrimary : AppColors.ink;
+    const fg = AppColors.ink;
     return Material(
-      color: highlight ? AppColors.primarySoft : Colors.white,
+      color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: highlight ? BorderSide.none : const BorderSide(color: AppColors.line),
+        side: const BorderSide(color: AppColors.line),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -857,8 +878,14 @@ class _ToolTile extends StatelessWidget {
           child: Stack(children: [
             Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(icon, color: highlight ? AppColors.onPrimary : AppColors.primaryDark, size: 24),
-                const SizedBox(height: 4),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                      color: tint.$1, borderRadius: BorderRadius.circular(11)),
+                  child: Icon(icon, color: tint.$2, size: 20),
+                ),
+                const SizedBox(height: 6),
                 Text(label,
                     textAlign: TextAlign.center,
                     style: TextStyle(

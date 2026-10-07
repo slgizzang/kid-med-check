@@ -9,18 +9,19 @@ class AppColors {
   static const brand = Color(0xFF0E8F6E);
   static const brandTint = Color(0xFFE5F3EE);
 
-  /// 버튼·선택 등 화면 기본 색: 청록과 어울리는 따뜻한 머스터드 옐로 (위 글자는 [onPrimary])
-  static const primary = Color(0xFFF5B82E);
-  static const onPrimary = Color(0xFF191F28);
+  /// 버튼·선택 등 화면 기본 색: 심볼 청록을 조금 깊게 (흰 글자가 또렷하게)
+  /// 넓은 면은 흰색·밝은 회색으로 두고, 이 색은 버튼·선택 테두리처럼 작은 곳에만 쓴다.
+  static const primary = Color(0xFF0B7D62);
+  static const onPrimary = Colors.white;
 
-  /// 선택된 카드처럼 넓은 면에 쓰는 연한 노랑
-  static const primarySoft = Color(0xFFFFE8A6);
+  /// 아주 연한 청록 (작은 배지·칩 배경)
+  static const primarySoft = Color(0xFFE8F4EF);
 
-  /// 노랑 위·연한 배경 위 글자·아이콘용 짙은 황토색
-  static const primaryDark = Color(0xFF8A5F00);
+  /// 글자 버튼·링크용 짙은 청록
+  static const primaryDark = Color(0xFF08654F);
 
-  /// 은은한 강조 배경 (연한 크림)
-  static const mint = Color(0xFFFFF5DC);
+  /// 안내 상자 배경 (중립 회색)
+  static const mint = Color(0xFFF2F4F6);
   static const capsule = Color(0xFFCFF2E6);
   static const bg = Color(0xFFF6F7F9);
   static const ink = Color(0xFF191F28);
@@ -81,7 +82,6 @@ ThemeData buildTheme() {
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
-    // 노랑 글자는 흰 배경에서 잘 안 보여 글자 버튼·테두리 버튼은 짙은 색으로
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: AppColors.primaryDark,
@@ -103,6 +103,27 @@ ThemeData buildTheme() {
     ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
   );
+}
+
+/// 사람마다 다른 파스텔 색 (아바타·아이콘 칩). (배경, 글자)
+const kPastels = <(Color, Color)>[
+  (Color(0xFFFFEDE2), Color(0xFFC2561C)), // 살구
+  (Color(0xFFE6EFFF), Color(0xFF2F5FBF)), // 하늘
+  (Color(0xFFEFEAFD), Color(0xFF6448C2)), // 라벤더
+  (Color(0xFFE3F4EE), Color(0xFF0B7D62)), // 민트
+  (Color(0xFFFDE8F0), Color(0xFFB4386A)), // 로즈
+];
+
+const kPastelTeal = (Color(0xFFE3F4EE), Color(0xFF0B7D62));
+const kPastelSky = (Color(0xFFE6EFFF), Color(0xFF2F5FBF));
+const kPastelLavender = (Color(0xFFEFEAFD), Color(0xFF6448C2));
+
+(Color, Color) pastelFor(String key) {
+  var h = 0;
+  for (final c in key.codeUnits) {
+    h = (h * 31 + c) & 0x7fffffff;
+  }
+  return kPastels[h % kPastels.length];
 }
 
 /// 앱 심볼: 두 고리가 이어진 캡슐 — "약 정보를 잇는다". 런처 아이콘과 같은 모양.
