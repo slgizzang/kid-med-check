@@ -71,7 +71,18 @@ jobs:
       - name: Build release APK
         env:
           DUR_API_KEY: ${{ secrets.DUR_API_KEY }}
-        run: flutter build apk --release --build-number=${{ github.run_number }} --dart-define=DUR_API_KEY="$DUR_API_KEY"
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build apk --release --build-number=${{ github.run_number }} --dart-define=DUR_API_KEY="$DUR_API_KEY" 2>&1 | tee build.log
+
+      - name: Report build failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo '```'; grep -E "error|Error|FAILURE|What went wrong|e: " -A3 build.log | head -n 120; echo '---'; tail -n 40 build.log; echo '```'; } > bfail.md
+          gh issue create --repo "${{ github.repository }}" --title "빌드 ${{ github.run_number }} 빌드 실패" --body-file bfail.md
 
       - name: Build app bundle (Play 스토어용 AAB)
         if: env.SIGNED == '1'
