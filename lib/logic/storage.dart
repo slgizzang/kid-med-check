@@ -1,3 +1,6 @@
+import 'dur_api.dart';
+import 'location.dart';
+import 'place_resolver.dart' as place;
 import 'dart:convert';
 import 'dart:io';
 
@@ -108,6 +111,17 @@ class AppStorage {
         File(p.path).deleteSync();
       } catch (_) {}
     }
+  }
+
+  /// 병원·약국 위치가 없는 기록에 심평원 정보로 위치·주소·코드를 채워 저장한다.
+  /// [childId]를 주면 그 복용자 기록만. 바뀐 기록 수를 돌려준다.
+  static Future<int> fillPlaces({String? childId, void Function(int, int)? onProgress}) async {
+    final list = await records();
+    final mine = childId == null ? list : list.where((r) => r.childId == childId).toList();
+    final n = await place.fillPlaces(DurApi(await apiKey()), mine,
+        me: await roughPosition(ask: false), onProgress: onProgress);
+    if (n > 0) await _saveRecords(list);
+    return n;
   }
 
   /// 불러온 처방을 기록으로 저장. 이미 불러온 것은 건너뛴다. (새로 만든 수, 건너뛴 수)

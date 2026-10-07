@@ -54,6 +54,18 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _scroll.addListener(_onScroll);
     _load();
+    _backfillPlaces();
+  }
+
+  /// 예전에 불러온 기록 중 병원·약국 위치가 없는 것을 뒤에서 한 번 채운다 (앱 실행마다 한 번)
+  static bool _backfilled = false;
+  Future<void> _backfillPlaces() async {
+    if (_backfilled) return;
+    _backfilled = true;
+    try {
+      final n = await AppStorage.fillPlaces();
+      if (n > 0 && mounted) await _load();
+    } catch (_) {}
   }
 
   Future<void> _load() async {

@@ -6,6 +6,7 @@ library;
 import 'dart:math' as math;
 
 import 'dur_api.dart';
+import 'models.dart';
 
 double meters((double, double) a, (double, double) b) {
   const r = 6371000.0;
@@ -92,4 +93,89 @@ class PlacePair {
   const PlacePair(this.hospital, this.pharmacy);
   final PlaceHit? hospital;
   final PlaceHit? pharmacy;
+}
+
+/// 기록의 병원 이름 (직접 고른 이름, 없으면 기록 제목 "9월 21일 써니이비인후과의원"에서)
+String hospitalNameOf(MedRecord r) {
+  if (r.hospital.trim().isNotEmpty) return r.hospital.trim();
+  final t = r.title
+      .replaceFirst(RegExp(r'^\s*\d{1,2}월\s*\d{1,2}일\s*'), '')
+      .replaceAll(RegExp(r'^(처방|약국 구입)$'), '')
+      .trim();
+  return RegExp(r'(의원|병원|센터|클리닉|보건소)').hasMatch(t) ? t : '';
+}
+
+/// 여러 기록의 병원·약국 위치·주소·코드를 한꺼번에 채운다 (아직 위치가 없는 것만).
+/// - 같은 이름은 한 번만 심평원에 묻는다.
+/// - 한 기록에서 정해진 병원 위치는 같은 병원의 다른 기록에서 약국을 고를 때도 쓴다.
+/// 바뀐 기록 수를 돌려준다.
+Future<int> fillPlaces(DurApi api, List<MedRecord> records,
+    {(double, double)? me, void Function(int done, int total)? onProgress}) async {
+  final todo = records
+      .where((r) => !r.otc &&
+          ((hospitalNameOf(r).length >= 2 && r.hospitalPos == null) ||
+              (r.pharmacy.length >= 2 && r.pharmacyPos == null)))
+      .toList();
+  if (todo.isEmpty) return 0;
+
+  // 1) 이름별 후보 (같은 이름은 한 번만)
+  final hNames = {for (final r in todo) if (r.hospitalPos == null) hospitalNameOf(r)}..remove('');
+  final pNames = {for (final r in todo) if (r.pharmacyPos == null) r.pharmacy}..remove('');
+  final jobs = [for (final n in hNames) (n, false), for (final n in pNames) (n, true)];
+  final cand = <(String, bool), List<PlaceHit>>{};
+  var done = 0;
+  for (var i = 0; i < jobs.length; i += 4) {
+    final batch = jobs.skip(i).take(4).toList();
+    final got = await Future.wait(batch.map((j) => sameName(api, j.$1, pharmacy: j.$2)));
+    for (var k = 0; k < batch.length; k++) {
+      cand[batch[k]] = got[k];
+    }
+    done += batch.length;
+    onProgress?.call(done, jobs.length);
+  }
+
+  // 2) 병원 위치: 이미 아는 기록 → 짝으로 정해지는 기록 순서로 모은다
+  final hospAt = <String, PlaceHit>{};
+  final hospPos = <String, (double, double)>{
+    for (final r in records)
+      if (r.hospitalPos != null && hospitalNameOf(r).isNotEmpty) hospitalNameOf(r): r.hospitalPos!,
+  };
+  // 두 번 돌면, 첫 바퀴에 정해진 병원 위치로 두 번째 바퀴에서 약국을 더 고를 수 있다
+  var changed = <MedRecord>{};
+  for (var pass = 0; pass < 2; pass++) {
+    for (final r in todo) {
+      final hn = hospitalNameOf(r);
+      final known = r.hospitalPos ?? hospPos[hn];
+      final pair = resolvePair(
+        hosps: known == null ? (cand[(hn, false)] ?? const []) : const [],
+        pharms: r.pharmacyPos == null ? (cand[(r.pharmacy, true)] ?? const []) : const [],
+        hospKnown: known,
+        pharmKnown: r.pharmacyPos,
+        me: me,
+      );
+      final h = pair.hospital ?? hospAt[hn];
+      if (r.hospitalPos == null) {
+        if (h != null && posOf(h) != null) {
+          if (r.hospital.isEmpty) r.hospital = hn;
+          if (r.hospitalAddr.isEmpty) r.hospitalAddr = h.addr;
+          r.hospitalCode = h.code;
+          r.hospitalPos = posOf(h);
+          hospAt[hn] = h;
+          hospPos[hn] = r.hospitalPos!;
+          changed.add(r);
+        } else if (known != null) {
+          r.hospitalPos = known;
+          changed.add(r);
+        }
+      }
+      final ph = pair.pharmacy;
+      if (r.pharmacyPos == null && ph != null && posOf(ph) != null) {
+        if (r.pharmacyAddr.isEmpty) r.pharmacyAddr = ph.addr;
+        r.pharmacyCode = ph.code;
+        r.pharmacyPos = posOf(ph);
+        changed.add(r);
+      }
+    }
+  }
+  return changed.length;
 }

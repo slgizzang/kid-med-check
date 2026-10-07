@@ -23,6 +23,7 @@ class ImportScreen extends StatefulWidget {
 
 class _ImportScreenState extends State<ImportScreen> {
   bool _busy = false;
+  String _busyText = '파일을 여는 중…';
   List<ImportedVisit>? _visits;
   String? _openedWith;
   String? _error;
@@ -44,6 +45,7 @@ class _ImportScreenState extends State<ImportScreen> {
   Future<void> _open(Uint8List bytes, {String? password}) async {
     setState(() {
       _busy = true;
+      _busyText = '파일을 여는 중…';
       _error = null;
     });
     try {
@@ -112,6 +114,16 @@ class _ImportScreenState extends State<ImportScreen> {
     final v = _visits;
     if (v == null || v.isEmpty) return;
     final (added, skipped) = await AppStorage.importVisits(widget.person.id, v);
+    // 불러온 병원·약국의 위치·주소를 심평원 정보로 바로 채운다 (실손24 연계 확인에 필요)
+    if (mounted) setState(() { _busy = true; _busyText = '병원·약국 위치를 찾는 중…'; });
+    try {
+      await AppStorage.fillPlaces(
+          childId: widget.person.id,
+          onProgress: (d, t) {
+            if (mounted) setState(() => _busyText = '병원·약국 위치를 찾는 중… $d/$t');
+          });
+    } catch (_) {}
+    if (mounted) setState(() => _busy = false);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: KText(skipped > 0
@@ -207,13 +219,13 @@ class _ImportScreenState extends State<ImportScreen> {
           Container(
             color: Colors.black26,
             alignment: Alignment.center,
-            child: const Card(
+            child: Card(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  CircularProgressIndicator(),
-                  SizedBox(width: 18),
-                  KText('파일을 여는 중…'),
+                  const CircularProgressIndicator(),
+                  const SizedBox(width: 18),
+                  KText(_busyText, maxLines: 1),
                 ]),
               ),
             ),
