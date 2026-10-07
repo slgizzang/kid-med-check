@@ -644,7 +644,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 ? '안전 확인 결과 자세히 보기'
                 : widget.child.ageInMonths(_r.createdAt) >= 19 * 12
                     ? '약 ${_r.drugs.length}개 안전 확인'
-                    : '우리 아이 약 ${_r.drugs.length}개 안전 확인'),
+                    : '약 ${_r.drugs.length}개 안전 확인'),
           ),
         ),
       ),

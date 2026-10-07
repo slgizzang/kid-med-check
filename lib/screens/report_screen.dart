@@ -257,7 +257,7 @@ class _ReportScreenState extends State<ReportScreen> {
                               for (final t in r.tips) _TipCard(t),
                               const SizedBox(height: 4),
                               const KText(
-                                '영양제·건강기능식품은 아이 나이와 먹는 약에 따라 맞지 않을 수 있어요. '
+                                '영양제·건강기능식품은 나이와 먹는 약에 따라 맞지 않을 수 있어요. '
                                 '먹이기 전에 꼭 약사·의사와 상의하세요.',
                                 style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
                               ),

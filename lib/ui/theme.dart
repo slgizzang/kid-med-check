@@ -31,15 +31,15 @@ class AppColors {
   static const line = Color(0xFFE8EBEE);
 }
 
-const kAppName = '아이필';
+const kAppName = '필세이프';
 
 /// 실손24 청구 안내 (네이버 지도·토스 연계가 열리면 true로 다시 켠다).
 /// 관련 화면: 복용 기록의 '실손24로 청구하기' 버튼·청구 완료 체크, 리포트의 '실손보험 청구 확인'.
 const kShowSilson24 = true;
 
-/// 영문 슬로건 (아이필 = I pill)
-const kAppSlogan = 'I pill safe';
-const kAppTagline = '우리 아이 약, 안전한지 콕 확인';
+/// 영문 슬로건 (pill ↔ feel)
+const kAppSlogan = 'My pill, I feel safe';
+const kAppTagline = '약 조회부터 안전 확인, 실손 청구까지';
 
 ThemeData buildTheme() {
   final scheme = ColorScheme.fromSeed(
@@ -178,6 +178,21 @@ class _LogoPainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round,
     );
     canvas.restore();
+
+    // 왼쪽 위 작은 십자 (병원·의료 표시). 런처 아이콘과 같은 위치·크기.
+    const cx = 272.0, cy = 282.0, arm = 74.0, th = 50.0;
+    final cross = Paint()..color = Colors.white;
+    final rr = Radius.circular(th / 2 * 0.6 * k);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTRB((cx - arm) * k, (cy - th / 2) * k, (cx + arm) * k, (cy + th / 2) * k),
+            rr),
+        cross);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTRB((cx - th / 2) * k, (cy - arm) * k, (cx + th / 2) * k, (cy + arm) * k),
+            rr),
+        cross);
   }
 
   @override

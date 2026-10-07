@@ -137,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 8),
           const KText(
             '• 사진은 휴대폰 안에서만 글자 인식에 쓰이고, 서버로 보내지 않아요.\n'
-            '• 식약처에는 약 이름만 조회해요. 아이 이름·생일은 휴대폰에만 저장돼요.\n'
+            '• 식약처에는 약 이름만 조회해요. 복용자 이름·생일은 휴대폰에만 저장돼요.\n'
             '• 이 앱은 참고용이며 의사·약사의 판단을 대신하지 않아요.',
           ),
         ],

@@ -75,7 +75,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: 아이 약 안심체크 (빌드 ${{ github.run_number }})
+          name: 필세이프 (빌드 ${{ github.run_number }})
           body_path: release_body.md
           files: kid-med-check-${{ github.run_number }}.apk
           make_latest: true
