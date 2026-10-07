@@ -18,10 +18,14 @@ import 'result_screen.dart';
 /// 처방 기록 하나. 약을 찍거나 입력해서 모아두고, 언제든 다시 열어 확인한다.
 /// 모든 변경은 바로 저장되므로 뒤로 가도 사라지지 않는다.
 class RecordScreen extends StatefulWidget {
-  const RecordScreen({super.key, required this.child, required this.record});
+  const RecordScreen(
+      {super.key, required this.child, required this.record, this.focusClaim = false});
 
   final ChildProfile child;
   final MedRecord record;
+
+  /// 열자마자 실손보험 청구 카드로 스크롤 (리포트의 미청구 목록에서 들어올 때)
+  final bool focusClaim;
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -62,6 +66,15 @@ class _RecordScreenState extends State<RecordScreen> {
   void initState() {
     super.initState();
     _loadNotes();
+    if (widget.focusClaim) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final c = _claimKey.currentContext;
+        if (c != null) {
+          Scrollable.ensureVisible(c,
+              duration: const Duration(milliseconds: 350), alignment: 0.1);
+        }
+      });
+    }
   }
 
   Future<void> _loadNotes() async {
@@ -378,6 +391,8 @@ class _RecordScreenState extends State<RecordScreen> {
     await launchUrl(Uri.parse('https://www.silson24.or.kr'), mode: LaunchMode.externalApplication);
   }
 
+  final _claimKey = GlobalKey();
+
   /// 실손보험 청구 카드: 병원비(병원)와 약값(약국)을 각각 청구
   Widget _claimCard() {
     const small = TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5);
@@ -681,7 +696,7 @@ class _RecordScreenState extends State<RecordScreen> {
               ),
               const SizedBox(height: 20),
               // 병원 처방 기록이면 실손보험 청구: 네이버 지도의 실손24 연계로 바로 청구
-              if (kShowSilson24 && !_r.otc) _claimCard(),
+              if (kShowSilson24 && !_r.otc) KeyedSubtree(key: _claimKey, child: _claimCard()),
             ],
           ),
           if (_busy)

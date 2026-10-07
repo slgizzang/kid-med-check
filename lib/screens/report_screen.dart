@@ -8,6 +8,7 @@ import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
 import '../ui/theme.dart';
 import 'reaction_list_screen.dart';
+import 'record_screen.dart';
 
 /// 복용 리포트: 지난 기록을 모아 많이 먹은 약 계열, 반응 기록 패턴, 생활 관리 참고를 보여준다.
 class ReportScreen extends StatefulWidget {
@@ -28,6 +29,9 @@ class _ReportScreenState extends State<ReportScreen> {
   /// 알레르기 약물과 같은 성분이 들어 있던 기록 (약, 날짜, 알레르기)
   List<(String, DateTime, String)> _allergyFound = const [];
   int _done = 0, _total = 0;
+
+  /// 미청구 목록을 모두 펼쳤는지
+  bool _showAllUnclaimed = false;
 
   @override
   void initState() {
@@ -166,37 +170,6 @@ class _ReportScreenState extends State<ReportScreen> {
                           ],
                         ]),
                       ),
-                    if (kShowSilson24)
-                    _Section(
-                      title: '실손보험 청구 확인',
-                      sub: '보험금은 보통 3년 안에 청구할 수 있어요',
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        if (_unclaimed.isEmpty)
-                          const KText('청구하지 않은 처방 기록이 없어요.',
-                              style: TextStyle(color: AppColors.ink))
-                        else ...[
-                          KText('청구 완료 표시가 없는 처방 ${_unclaimed.length}건',
-                              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
-                          const SizedBox(height: 4),
-                          for (final u in _unclaimed.take(6))
-                            Padding(
-                              padding: const EdgeInsets.only(top: 3),
-                              child: KText('${formatDate(u.createdAt)} · ${u.title}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: AppColors.ink)),
-                            ),
-                          if (_unclaimed.length > 6)
-                            KText('외 ${_unclaimed.length - 6}건',
-                                style: const TextStyle(color: AppColors.sub)),
-                          const SizedBox(height: 8),
-                          const KText(
-                            '각 복용 기록의 실손보험 청구에서 병원비·약값을 청구하고, 청구한 뒤에는 완료로 표시해 주세요.',
-                            style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
-                          ),
-                        ],
-                      ]),
-                    ),
                     _Section(
                       title: '월별 복용 기록',
                       sub: '최근 12개월',
@@ -263,6 +236,8 @@ class _ReportScreenState extends State<ReportScreen> {
                               ),
                             ]),
                     ),
+                    // 실손보험 청구는 맨 아래
+                    if (kShowSilson24) _claimSection(),
                     if (r.unknownClass.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
@@ -273,6 +248,83 @@ class _ReportScreenState extends State<ReportScreen> {
                       ),
                   ],
                 ),
+    );
+  }
+
+  /// 미청구 기록을 열어 실손보험 청구 카드로 바로 이동. 돌아오면 목록을 다시 계산한다.
+  Future<void> _openClaim(MedRecord r) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => RecordScreen(child: widget.person, record: r, focusClaim: true)),
+    );
+    if (!mounted) return;
+    final records =
+        (await AppStorage.records()).where((x) => x.childId == widget.person.id).toList();
+    final limit = DateTime.now().subtract(const Duration(days: 365 * 3));
+    setState(() {
+      _unclaimed = records
+          .where((x) => !x.otc && !x.fullyClaimed && x.createdAt.isAfter(limit))
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    });
+  }
+
+  Widget _claimSection() {
+    final list = _showAllUnclaimed ? _unclaimed : _unclaimed.take(6).toList();
+    final more = _unclaimed.length - 6;
+    return _Section(
+      title: '실손보험 청구 확인',
+      sub: '보험금은 보통 3년 안에 청구할 수 있어요',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (_unclaimed.isEmpty)
+          const KText('청구하지 않은 처방 기록이 없어요.', style: TextStyle(color: AppColors.ink))
+        else ...[
+          KText('청구 완료 표시가 없는 처방 ${_unclaimed.length}건',
+              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
+          const SizedBox(height: 6),
+          for (final u in list)
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => _openClaim(u),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      KText('${formatDate(u.createdAt)} · ${u.title}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600)),
+                      KText(
+                          [
+                            if (!u.claimed) '병원비',
+                            if (u.pharmacy.isNotEmpty && !u.claimedPharm) '약값',
+                          ].join('·') +
+                              ' 미청구',
+                          style: const TextStyle(fontSize: 12, color: AppColors.sub)),
+                    ]),
+                  ),
+                  const KText('청구', style: TextStyle(
+                      fontSize: 13, color: AppColors.primaryDark, fontWeight: FontWeight.w700)),
+                  const Icon(Icons.chevron_right, color: AppColors.sub, size: 20),
+                ]),
+              ),
+            ),
+          if (more > 0)
+            TextButton.icon(
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+              onPressed: () => setState(() => _showAllUnclaimed = !_showAllUnclaimed),
+              icon: Icon(_showAllUnclaimed ? Icons.expand_less : Icons.expand_more, size: 20),
+              label: KText(_showAllUnclaimed ? '접기' : '외 $more건 더 보기', maxLines: 1),
+            ),
+          const SizedBox(height: 4),
+          const KText(
+            '기록을 누르면 그 기록의 실손보험 청구로 바로 가요. 청구한 뒤에는 완료로 표시해 주세요.',
+            style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
+          ),
+        ],
+      ]),
     );
   }
 }
