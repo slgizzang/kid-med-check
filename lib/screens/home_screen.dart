@@ -31,9 +31,28 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hasKey = true;
   bool _loading = true;
 
+  /// 목록이 길 때 맨 위로 바로 올라가는 버튼
+  final _scroll = ScrollController();
+  bool _showTop = false;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final show = _scroll.hasClients && _scroll.offset > 600;
+    if (show != _showTop) setState(() => _showTop = show);
+  }
+
+  void _toTop() => _scroll.animateTo(0,
+      duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic);
+
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScroll);
     _load();
   }
 
@@ -212,6 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : CustomScrollView(
+              controller: _scroll,
               slivers: [
                 SliverToBoxAdapter(child: _header()),
                 SliverPadding(
@@ -247,9 +267,29 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
       bottomNavigationBar: _selecting ? _togetherBar() : null,
-      floatingActionButton: _loading || _selected == null || _myRecords.isEmpty || _selecting
-          ? null
-          : FloatingActionButton.extended(
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // 많이 내려왔을 때만 보이는 '맨 위로'
+          AnimatedScale(
+            scale: _showTop ? 1 : 0,
+            duration: const Duration(milliseconds: 180),
+            child: FloatingActionButton.small(
+              heroTag: 'toTop',
+              tooltip: '맨 위로',
+              onPressed: _toTop,
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.ink,
+              elevation: 2,
+              shape: const CircleBorder(side: BorderSide(color: AppColors.line)),
+              child: const Icon(Icons.arrow_upward_rounded),
+            ),
+          ),
+          if (!(_loading || _selected == null || _myRecords.isEmpty || _selecting)) ...[
+            const SizedBox(height: 10),
+            FloatingActionButton.extended(
+              heroTag: 'newRecord',
               onPressed: _newRecord,
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.onPrimary,
@@ -259,6 +299,9 @@ class _HomeScreenState extends State<HomeScreen> {
               label: KText('새 복용 기록',
                   style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
+          ],
+        ],
+      ),
     );
   }
 
