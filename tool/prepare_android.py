@@ -86,14 +86,17 @@ if kts.exists():
         g += '''
 val pillsafeKeyFile = rootProject.file("key.properties")
 if (pillsafeKeyFile.exists()) {
-    val kp = java.util.Properties().apply { pillsafeKeyFile.inputStream().use { load(it) } }
+    // key=value 줄을 읽는다 (java.util.Properties 는 이 스크립트에서 이름이 겹쳐 쓰지 않음)
+    val kp = pillsafeKeyFile.readLines()
+        .filter { it.contains("=") }
+        .associate { it.substringBefore("=").trim() to it.substringAfter("=").trim() }
     android {
         signingConfigs {
             create("upload") {
-                storeFile = file(kp.getProperty("storeFile"))
-                storePassword = kp.getProperty("storePassword")
-                keyAlias = kp.getProperty("keyAlias")
-                keyPassword = kp.getProperty("keyPassword")
+                storeFile = file(kp.getValue("storeFile"))
+                storePassword = kp.getValue("storePassword")
+                keyAlias = kp.getValue("keyAlias")
+                keyPassword = kp.getValue("keyPassword")
             }
         }
         buildTypes {
