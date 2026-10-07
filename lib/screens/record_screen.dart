@@ -847,16 +847,19 @@ class _ClaimPart extends StatelessWidget {
           Expanded(
             child: SizedBox(
               height: 46,
-              child: FilledButton(
+              // 청구를 마쳤으면 버튼 대신 완료 상태를 보여준다 (되돌리려면 오른쪽 '완료'를 다시 누름)
+              child: FilledButton.icon(
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(46),
-                  backgroundColor: done ? Colors.white : AppColors.primary,
-                  foregroundColor: done ? AppColors.primaryDark : AppColors.onPrimary,
-                  side: done ? const BorderSide(color: AppColors.line) : null,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
+                  disabledBackgroundColor: AppColors.primarySoft,
+                  disabledForegroundColor: AppColors.primaryDark,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: onClaim,
-                child: KText(done ? '$label 다시 열기' : '$label 청구하기',
+                onPressed: done ? null : onClaim,
+                icon: Icon(done ? Icons.check : Icons.receipt_long_outlined, size: 18),
+                label: KText(done ? '$label 청구 완료' : '$label 청구하기',
                     maxLines: 1,
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               ),
