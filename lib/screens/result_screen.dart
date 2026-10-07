@@ -831,8 +831,7 @@ class _CheckCard extends StatelessWidget {
         final f = c.labelFinding;
         if (f == null) return null;
         // 설명서상 사용 연령보다 어리면 금지 문구든 권장 연령이든 항상 같은 안내를 붙인다
-        const note = '다만 DUR 연령금기약은 아니에요. 사용 연령보다 어려도 의사가 판단해 처방할 수 있어요. '
-            '걱정되면 약사에게 용량을 한 번 더 확인하세요.';
+        const note = '다만 DUR 연령금기약은 아니에요. 사용 연령보다 어려도 의사가 판단해 처방할 수 있어요.';
         return f.prohibited
             ? '설명서에 "${f.evidence}"라고 되어 있고, ${past ? '당시 나이($a)가 해당했어요' : '현재 나이($a)가 해당해요'}. $note'
             : '설명서에는 "${f.evidence}"에게 쓰는 약으로 되어 있어요. ${past ? '당시 나이($a)는 이보다 어렸어요' : '현재 나이($a)는 이보다 어려요'}. $note';
