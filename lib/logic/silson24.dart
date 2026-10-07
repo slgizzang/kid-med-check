@@ -118,7 +118,7 @@ class Silson24 {
   static double? _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}');
 
   /// 검색 결과에서 이 기관을 고른다.
-  /// 1) 이름: 정확히 같은 곳 → 없으면 종별(의원·약국 등)만 다른 곳 → 없으면 이름이 포함된 곳
+  /// 1) 이름: 정확히 같은 곳 → 없으면 종별(의원·약국 등)만 다른 곳 ("1층온누리약국"처럼 다른 말이 붙은 곳은 다른 기관으로 봄)
   /// 2) 여럿이면: 주소가 겹치는 곳 → 기준점([near])에서 확실히 가장 가까운 곳
   /// 3) 그래도 여럿이면 모두 같은 상태일 때만 판정
   /// 도로명 주소 비교용 열쇠: "서울특별시 송파구 올림픽로43길 88, 서울아산병원 (풍납동)" → "서울특별시송파구올림픽로43길88"
@@ -162,12 +162,6 @@ class Silson24 {
     var cands = items.where((e) => _n(nm(e)) == qn).toList();
     if (cands.isEmpty && qb.length >= 2) {
       cands = items.where((e) => _base(nm(e)) == qb).toList();
-    }
-    if (cands.isEmpty && qb.length >= 3) {
-      cands = items.where((e) {
-        final b = _base(nm(e));
-        return b.contains(qb) && b.length - qb.length <= 3;
-      }).toList();
     }
     if (cands.isEmpty) return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.notFound);
 
