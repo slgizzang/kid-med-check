@@ -684,7 +684,7 @@ class _DimRow extends StatelessWidget {
               child: Text(label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: AppColors.sub)),
+                  style: const TextStyle(fontSize: 12, color: AppColors.ink, fontWeight: FontWeight.w600)),
             ),
             Text(_pct(a, b),
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
@@ -699,8 +699,6 @@ class _DimRow extends StatelessWidget {
               color: color,
             ),
           ),
-          const SizedBox(height: 2),
-          Text('$b번 중 $a번', style: const TextStyle(fontSize: 10, color: AppColors.sub)),
         ],
       );
 
@@ -718,11 +716,11 @@ class _DimRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
           ),
-          Text('$symptom ${d.symTotal}번 중 ${d.inSym}번',
-              style: const TextStyle(fontSize: 12, color: kNoteFg, fontWeight: FontWeight.w700)),
         ]),
-        const SizedBox(height: 8),
-        _mini('이것을 먹은 복용 중 $symptom 기록', d.inSym, d.withTotal, const Color(0xFFC62828)),
+        const SizedBox(height: 6),
+        // 한 가지 숫자만: 이것을 먹은 복용 중 이 반응이 있었던 비율
+        _mini('먹은 ${d.withTotal}번 중 ${d.inSym}번 $symptom', d.inSym, d.withTotal,
+            const Color(0xFFC62828)),
       ]),
     );
   }
