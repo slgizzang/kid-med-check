@@ -7,7 +7,7 @@ permissions:
 jobs:
   live:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -24,5 +24,5 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          grep -E "OK |FAIL|     |SUMMARY|Error|error" live.txt | head -c 60000 > body.txt
+          grep -E "FAIL|     |SUMMARY|Error|error" live.txt | head -c 60000 > body.txt
           gh issue create --title "live-check ${{ github.run_number }}" --body-file body.txt

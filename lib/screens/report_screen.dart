@@ -533,8 +533,6 @@ class _DrugLine extends StatelessWidget {
           ),
           Text('${d.count}번',
               style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
-          const SizedBox(width: 2),
-          const Icon(Icons.chevron_right, size: 18, color: AppColors.sub),
         ]),
       ),
       );

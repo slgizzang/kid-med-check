@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../logic/drug_name_extractor.dart';
 import '../logic/models.dart';
+import '../logic/place_resolver.dart';
 import '../logic/silson24.dart';
 import '../logic/dur_api.dart';
 import '../logic/location.dart';
@@ -312,40 +313,42 @@ class _RecordScreenState extends State<RecordScreen> {
 
   /// 병원 → 약국 순서로 확인 (약국은 병원 근처를 기준으로 고르므로)
   Future<void> _checkBoth() async {
-    await _checkSilson(pharmacy: false);
-    await _checkSilson(pharmacy: true);
+    setState(() => _silsonLoading.addAll({false, true}));
+    await _resolvePair();
+    await Future.wait([_checkSilson(pharmacy: false), _checkSilson(pharmacy: true)]);
   }
 
-  /// 심평원 병원·약국 정보로 코드·주소·위치를 채운다 (심평원 파일에서 불러온 기록은 이름만 있음).
-  /// 같은 이름이 여럿이면 기준점에서 확실히 가장 가까운 곳만 고른다.
-  Future<void> _resolvePlace({required bool pharmacy, (double, double)? near}) async {
-    final name = pharmacy ? _r.pharmacy : _place;
-    if (name.length < 2) return;
+  /// 이름만 있는 병원·약국의 위치·주소·코드를 심평원 정보로 채운다.
+  /// 같은 이름이 여럿이면 "서로 가장 가까운 병원·약국 짝"을 고른다 (처방 병원 옆 약국).
+  Future<void> _resolvePair() async {
+    final needH = _place.length >= 2 && _r.hospitalPos == null;
+    final needP = _r.pharmacy.length >= 2 && _r.pharmacyPos == null;
+    if (!needH && !needP) return;
     try {
-      final hits = await DurApi(await AppStorage.apiKey())
-          .searchPlaces(name, pharmacy: pharmacy, lat: near?.$1, lon: near?.$2);
-      String n(String x) => x.replaceAll(RegExp(r'\s'), '');
-      final same = hits.where((h) => n(h.name) == n(name)).toList();
-      PlaceHit? pick;
-      if (same.length == 1) {
-        pick = same.first;
-      } else if (same.length > 1 && near != null) {
-        same.sort((a, b) => (a.meters ?? 1e12).compareTo(b.meters ?? 1e12));
-        final d0 = same[0].meters, d1 = same[1].meters;
-        if (d0 != null && d0 < 5000 && (d1 == null || d1 >= d0 * 2)) pick = same.first;
-      }
-      if (pick == null || !mounted) return;
-      final hit = pick;
+      final api = DurApi(await AppStorage.apiKey());
+      final got = await Future.wait([
+        needH ? sameName(api, _place, pharmacy: false) : Future.value(<PlaceHit>[]),
+        needP ? sameName(api, _r.pharmacy, pharmacy: true) : Future.value(<PlaceHit>[]),
+      ]);
+      final pair = resolvePair(
+        hosps: got[0],
+        pharms: got[1],
+        hospKnown: _r.hospitalPos,
+        pharmKnown: _r.pharmacyPos,
+        me: await roughPosition(ask: false),
+      );
+      if (!mounted) return;
       setState(() {
-        final pos = hit.lat != null && hit.lng != null ? (hit.lat!, hit.lng!) : null;
-        if (pharmacy) {
-          if (_r.pharmacyAddr.isEmpty) _r.pharmacyAddr = hit.addr;
-          _r.pharmacyCode = hit.code;
-          _r.pharmacyPos ??= pos;
-        } else {
-          if (_r.hospitalAddr.isEmpty) _r.hospitalAddr = hit.addr;
-          _r.hospitalCode = hit.code;
-          _r.hospitalPos ??= pos;
+        final h = pair.hospital, ph = pair.pharmacy;
+        if (needH && h != null) {
+          if (_r.hospitalAddr.isEmpty) _r.hospitalAddr = h.addr;
+          _r.hospitalCode = h.code;
+          _r.hospitalPos = posOf(h);
+        }
+        if (needP && ph != null) {
+          if (_r.pharmacyAddr.isEmpty) _r.pharmacyAddr = ph.addr;
+          _r.pharmacyCode = ph.code;
+          _r.pharmacyPos = posOf(ph);
         }
       });
       _save();
@@ -360,11 +363,9 @@ class _RecordScreenState extends State<RecordScreen> {
       return;
     }
     setState(() => _silsonLoading.add(pharmacy));
-    // 약국은 병원 근처, 병원은 (권한이 이미 있으면) 내 위치를 기준점으로
-    final near = pharmacy ? (_r.hospitalPos ?? await roughPosition(ask: false)) : await roughPosition(ask: false);
-    if ((pharmacy ? _r.pharmacyPos : _r.hospitalPos) == null) {
-      await _resolvePlace(pharmacy: pharmacy, near: near);
-    }
+    // 위치를 모르면: 약국은 병원 근처, 병원은 (권한이 이미 있으면) 내 위치를 기준점으로
+    final me = await roughPosition(ask: false);
+    final near = pharmacy ? (_r.hospitalPos ?? me) : me;
     final c = await Silson24().check(name,
         pharmacy: pharmacy,
         addr: pharmacy ? _r.pharmacyAddr : _r.hospitalAddr,

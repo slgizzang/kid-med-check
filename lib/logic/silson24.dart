@@ -92,12 +92,17 @@ class Silson24 {
     SilsonCheck r;
     try {
       // 1차: 정리한 이름으로, 못 찾으면 2차: 종별(의원·약국 등)을 뗀 이름으로 (실손24는 부분 검색)
-      r = pick(await _search(q, pharmacy: pharmacy, center: center), q, addr,
+      // 실손24는 띄어쓰기가 다르면 못 찾으므로 붙여서 찾는다 ("365 하나약국" → "365하나약국")
+      r = pick(await _search(_n(q), pharmacy: pharmacy, center: center), q, addr,
           code: code, at: at, near: near);
       final b = _base(q);
       if (r.miss == SilsonMiss.notFound && b.length >= 2 && b != _n(q)) {
         r = pick(await _search(b, pharmacy: pharmacy, center: center), q, addr,
             code: code, at: at, near: near);
+      }
+      // 이름이 실손24에 다르게 올라가 있으면: 그 자리 주변을 이름 없이 찾아 주소·위치로 맞춘다
+      if (r.miss == SilsonMiss.notFound && at != null) {
+        r = pickByPlace(await _search('', pharmacy: pharmacy, center: at), q, addr, at);
       }
     } catch (_) {
       return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.noResponse);
@@ -189,6 +194,46 @@ class Silson24 {
       .first
       .replaceAll(RegExp(r'\s'), '')
       .trim();
+
+  /// 이름 없이 주변을 찾은 결과에서: 도로명 주소가 같은 곳 → 없으면 바로 그 자리(30m 안)의 곳.
+  /// 같은 건물에 여럿이면 이름이 조금이라도 겹치는 곳을 고르고, 그래도 여럿이면 판정하지 않는다.
+  static SilsonCheck pickByPlace(
+      List<Map<String, dynamic>> items, String query, String addr, (double, double) at) {
+    SilsonCheck of(Map<String, dynamic> e) => SilsonCheck(
+          e['serviceEnabled'] == true ? SilsonState.enabled : SilsonState.notEnabled,
+          name: '${e['insttNm'] ?? ''}',
+          addr: '${e['rnAddr'] ?? ''}',
+          lat: _num(e['lat']),
+          lng: _num(e['lng']),
+        );
+    double d(Map<String, dynamic> e) {
+      final la = _num(e['lat']), lo = _num(e['lng']);
+      return la == null || lo == null ? double.infinity : _dist(at.$1, at.$2, la, lo);
+    }
+    final ak = addrKey(addr);
+    var cands = ak.length >= 8
+        ? items.where((e) => addrKey('${e['rnAddr'] ?? ''}') == ak).toList()
+        : <Map<String, dynamic>>[];
+    if (cands.isEmpty) cands = items.where((e) => d(e) < 30).toList();
+    if (cands.length > 1) {
+      // 이름 글자가 2자 이상 연속으로 겹치는 곳
+      final qb = _base(query);
+      bool overlap(String x) {
+        final b = _base(x);
+        for (var i = 0; i + 2 <= qb.length; i++) {
+          if (b.contains(qb.substring(i, i + 2))) return true;
+        }
+        return false;
+      }
+      final named = cands.where((e) => overlap('${e['insttNm'] ?? ''}')).toList();
+      if (named.isNotEmpty) cands = named;
+    }
+    if (cands.length == 1) return of(cands.first);
+    final states = cands.map((e) => e['serviceEnabled'] == true).toSet();
+    if (cands.isNotEmpty && states.length == 1) return of(cands.first);
+    return SilsonCheck(SilsonState.unknown,
+        miss: cands.isEmpty ? SilsonMiss.notFound : SilsonMiss.ambiguous);
+  }
 
   static SilsonCheck pick(List<Map<String, dynamic>> items, String query, String addr,
       {String code = '', (double, double)? at, (double, double)? near}) {

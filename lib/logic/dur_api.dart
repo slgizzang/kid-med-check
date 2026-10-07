@@ -52,7 +52,7 @@ class DurApi {
   /// 병원(pharmacy=false) 또는 약국(pharmacy=true)을 이름으로 찾는다.
   /// 위치([lat],[lon])를 주면 가까운 순으로 정렬하고, 이름이 비어 있으면 주변 [radius]m 안을 찾는다.
   Future<List<PlaceHit>> searchPlaces(String name,
-      {required bool pharmacy, double? lat, double? lon, int radius = 2000}) async {
+      {required bool pharmacy, double? lat, double? lon, int radius = 2000, int rows = 50}) async {
     final q = name.trim();
     final near = lat != null && lon != null;
     if (q.length < 2 && !near) return const [];
@@ -64,7 +64,7 @@ class DurApi {
       filters['yPos'] = lat.toStringAsFixed(3);
       filters['radius'] = '$radius';
     }
-    final items = await _fetchItems(pharmacy ? _pharmPath : _hospPath, filters, 50);
+    final items = await _fetchItems(pharmacy ? _pharmPath : _hospPath, filters, rows);
     final hits = items
         .map((j) => PlaceHit.fromJson(j, fromLat: lat, fromLon: lon))
         .where((p) => p.name.isNotEmpty)
