@@ -1,5 +1,4 @@
 import 'dur_api.dart';
-import 'location.dart';
 import 'place_resolver.dart' as place;
 import 'dart:convert';
 import 'dart:io';
@@ -118,10 +117,37 @@ class AppStorage {
   static Future<int> fillPlaces({String? childId, void Function(int, int)? onProgress}) async {
     final list = await records();
     final mine = childId == null ? list : list.where((r) => r.childId == childId).toList();
-    final n = await place.fillPlaces(DurApi(await apiKey()), mine,
-        me: await roughPosition(ask: false), onProgress: onProgress);
+    final n = await place.fillPlaces(DurApi(await apiKey()), mine, onProgress: onProgress);
     if (n > 0) await _saveRecords(list);
     return n;
+  }
+
+  /// 사용자가 고른 병원·약국을 같은 이름의 다른 기록에도 적용 (아직 위치가 정해지지 않은 것만).
+  /// 같은 사람의 기록에서 같은 이름은 같은 곳으로 본다.
+  static Future<int> applyPlace(String childId, String name,
+      {required bool pharmacy, required PlaceHit hit}) async {
+    String n(String x) => x.replaceAll(RegExp(r'\s'), '');
+    final list = await records();
+    var count = 0;
+    for (final r in list.where((r) => r.childId == childId)) {
+      final rn = pharmacy ? r.pharmacy : place.hospitalNameOf(r);
+      final pos = pharmacy ? r.pharmacyPos : r.hospitalPos;
+      if (pos != null || n(rn) != n(name)) continue;
+      final p = hit.lat != null && hit.lng != null ? (hit.lat!, hit.lng!) : null;
+      if (pharmacy) {
+        r.pharmacyAddr = hit.addr;
+        r.pharmacyCode = hit.code;
+        r.pharmacyPos = p;
+      } else {
+        if (r.hospital.isEmpty) r.hospital = rn;
+        r.hospitalAddr = hit.addr;
+        r.hospitalCode = hit.code;
+        r.hospitalPos = p;
+      }
+      count++;
+    }
+    if (count > 0) await _saveRecords(list);
+    return count;
   }
 
   /// 불러온 처방을 기록으로 저장. 이미 불러온 것은 건너뛴다. (새로 만든 수, 건너뛴 수)

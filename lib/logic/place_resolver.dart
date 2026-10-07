@@ -43,50 +43,26 @@ PlaceHit? nearestClear(List<PlaceHit> cands, (double, double) p) {
   return d1 >= d0 * 2 ? s[0] : null;
 }
 
-/// 병원·약국 짝 찾기. 이미 위치를 아는 쪽은 [hospKnown]/[pharmKnown]로 넘긴다.
-/// 돌려주는 값: (병원, 약국) — 정할 수 없으면 null.
+/// 병원·약국 정하기 — 추측하지 않는다.
+/// 심평원 자료에서 이름이 정확히 같은 기관이 딱 한 곳일 때만 그곳으로 정한다.
+/// 같은 이름이 여러 곳이면 정하지 않고(null) 사용자가 주소를 보고 고르게 한다.
+/// ([hospKnown]/[pharmKnown]/[me]는 예전 호출과 맞추기 위해 남겨 두지만 판정에 쓰지 않는다.)
 PlacePair resolvePair({
   required List<PlaceHit> hosps,
   required List<PlaceHit> pharms,
   (double, double)? hospKnown,
   (double, double)? pharmKnown,
   (double, double)? me,
-}) {
-  PlaceHit? h, p;
-  // 1) 한쪽 위치를 이미 알면 다른 쪽은 그 근처
-  if (hospKnown != null) p = nearestClear(pharms, hospKnown);
-  if (pharmKnown != null) h = nearestClear(hosps, pharmKnown);
-  // 2) 둘 다 모르면: 서로 가장 가까운 짝 (1km 안, 다음 짝보다 확실히 가까움)
-  if (h == null && p == null && hospKnown == null && pharmKnown == null &&
-      hosps.isNotEmpty && pharms.isNotEmpty) {
-    final pairs = <(PlaceHit, PlaceHit, double)>[
-      for (final a in hosps)
-        for (final b in pharms) (a, b, meters(posOf(a)!, posOf(b)!)),
-    ]..sort((x, y) => x.$3.compareTo(y.$3));
-    final best = pairs.first;
-    final next = pairs.length > 1 ? pairs[1] : null;
-    final clear = next == null ||
-        // 두 번째 짝이 같은 병원(또는 약국)을 공유하면 그 쪽은 확정
-        next.$3 >= best.$3 * 2 ||
-        next.$3 - best.$3 > 500;
-    if (best.$3 < 1000 && clear) {
-      h = best.$1;
-      p = best.$2;
-    } else if (best.$3 < 1000 && next != null && identical(next.$1, best.$1)) {
-      h = best.$1; // 병원은 확정, 약국은 아래에서 다시
-    }
-  }
-  // 3) 하나뿐이면 그곳, 아니면 내 위치 기준
-  h ??= hospKnown == null
-      ? (hosps.length == 1 ? hosps.first : (me != null ? nearestClear(hosps, me) : null))
-      : null;
-  final hp = h != null ? posOf(h) : hospKnown;
-  p ??= pharmKnown == null
-      ? (pharms.length == 1
-          ? pharms.first
-          : (hp != null ? nearestClear(pharms, hp) : (me != null ? nearestClear(pharms, me) : null)))
-      : null;
-  return PlacePair(h, p);
+}) =>
+    PlacePair(
+      hospKnown == null && hosps.length == 1 ? hosps.first : null,
+      pharmKnown == null && pharms.length == 1 ? pharms.first : null,
+    );
+
+/// 같은 이름 후보를 짝 기관(처방 병원 ↔ 조제 약국)에서 가까운 순으로 — 고르는 화면에서 참고용
+List<PlaceHit> sortByPartner(List<PlaceHit> cands, (double, double)? partner) {
+  if (partner == null) return cands;
+  return [...cands]..sort((a, b) => meters(partner, posOf(a)!).compareTo(meters(partner, posOf(b)!)));
 }
 
 class PlacePair {

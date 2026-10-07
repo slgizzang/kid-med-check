@@ -8,7 +8,6 @@ import '../logic/models.dart';
 import '../logic/place_resolver.dart';
 import '../logic/silson24.dart';
 import '../logic/dur_api.dart';
-import '../logic/location.dart';
 import '../logic/reaction.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
@@ -282,8 +281,8 @@ class _RecordScreenState extends State<RecordScreen> {
 
   /// 병원·약국 검색해서 고르기
   Future<bool> _pickPlace({required bool pharmacy}) async {
-    final hit = await showPlaceSheet(context,
-        pharmacy: pharmacy, initial: pharmacy ? _r.pharmacy : _place);
+    final before = pharmacy ? _r.pharmacy : _place;
+    final hit = await showPlaceSheet(context, pharmacy: pharmacy, initial: before);
     if (hit == null || hit.name.trim().isEmpty) return false;
     setState(() {
       if (pharmacy) {
@@ -298,7 +297,11 @@ class _RecordScreenState extends State<RecordScreen> {
         _r.hospitalPos = hit.lat != null && hit.lng != null ? (hit.lat!, hit.lng!) : null;
       }
     });
-    _save();
+    await AppStorage.saveRecord(_r);
+    // 같은 이름의 다른 기록(아직 어느 곳인지 모르는 것)에도 이 선택을 적용
+    if (hit.lat != null && before.isNotEmpty) {
+      await AppStorage.applyPlace(widget.child.id, before, pharmacy: pharmacy, hit: hit);
+    }
     if (pharmacy) {
       _checkSilson(pharmacy: true);
     } else {
@@ -335,7 +338,6 @@ class _RecordScreenState extends State<RecordScreen> {
         pharms: got[1],
         hospKnown: _r.hospitalPos,
         pharmKnown: _r.pharmacyPos,
-        me: await roughPosition(ask: false),
       );
       if (!mounted) return;
       setState(() {
@@ -363,15 +365,12 @@ class _RecordScreenState extends State<RecordScreen> {
       return;
     }
     setState(() => _silsonLoading.add(pharmacy));
-    // 위치를 모르면: 약국은 병원 근처, 병원은 (권한이 이미 있으면) 내 위치를 기준점으로
-    final me = await roughPosition(ask: false);
-    final near = pharmacy ? (_r.hospitalPos ?? me) : me;
     final c = await Silson24().check(name,
         pharmacy: pharmacy,
         addr: pharmacy ? _r.pharmacyAddr : _r.hospitalAddr,
         code: pharmacy ? _r.pharmacyCode : _r.hospitalCode,
-        at: pharmacy ? _r.pharmacyPos : _r.hospitalPos,
-        near: pharmacy ? (_r.hospitalPos ?? near) : near);
+        // 위치는 심평원 자료로 정확히 정해진 경우에만 넘긴다 (내 위치로 추측하지 않음)
+        at: pharmacy ? _r.pharmacyPos : _r.hospitalPos);
     if (!mounted) return;
     setState(() {
       _silsonLoading.remove(pharmacy);
@@ -974,7 +973,7 @@ class _SilsonBadge extends StatelessWidget {
                 switch (silson?.miss) {
                   SilsonMiss.noResponse => '실손24 응답 없음 · 잠시 후 다시 확인',
                   SilsonMiss.notFound => '실손24에서 찾지 못함 · 실손24에서 직접 확인',
-                  SilsonMiss.ambiguous => '같은 이름이 여러 곳 · 실손24에서 직접 확인',
+                  SilsonMiss.ambiguous => '같은 이름이 여러 곳 · 눌러서 정확한 곳 고르기',
                   _ => '실손24 연계 여부 확인 중',
                 },
                 const Color(0xFFF1F3F5),
