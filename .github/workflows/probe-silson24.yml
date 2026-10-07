@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install playwright==1.47.0 && python -m playwright install --with-deps chromium
-      - run: python tool/probe_silson24.py > probe.txt 2>&1 || true
+      - run: python tool/probe_silson24_api.py > probe.txt 2>&1 || true
       - name: 결과를 이슈로 남김
         env:
           GH_TOKEN: ${{ github.token }}
