@@ -1,0 +1,17 @@
+name: probe-silson24
+
+# 실손24 참여기관 검색 화면이 어떤 요청으로 결과를 받는지 확인용 (수동 실행)
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install playwright==1.47.0 && python -m playwright install --with-deps chromium
+      - run: python tool/probe_silson24.py
