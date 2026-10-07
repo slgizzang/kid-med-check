@@ -734,7 +734,8 @@ Future<void> _infoSheet(BuildContext context, String title, Widget body) =>
       showDragHandle: true,
       backgroundColor: Colors.white,
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: Container(
+          width: double.infinity,
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Column(
               mainAxisSize: MainAxisSize.min,

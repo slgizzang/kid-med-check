@@ -19,6 +19,7 @@ import 'package:kid_med_check/logic/report.dart';
 import 'package:kid_med_check/logic/dur_text.dart';
 import 'package:kid_med_check/logic/hira_import.dart';
 import 'package:kid_med_check/logic/place_name.dart';
+import 'package:kid_med_check/logic/silson24.dart';
 import 'package:kid_med_check/logic/class_info.dart';
 import 'package:kid_med_check/logic/ingredient_info.dart';
 import 'package:kid_med_check/logic/office_decrypt.dart';
@@ -477,6 +478,37 @@ void main() {
     expect(hits.first.name, '가까운온누리약국');
     expect(hits.first.distanceLabel.endsWith('m'), isTrue);
     expect(hits.last.distanceLabel, contains('km'));
+  });
+
+  test('실손24 연계 여부: 이름·주소로 기관을 골라 판정', () async {
+    Map<String, dynamic> h(String n, String a, bool svc) =>
+        {'insttNm': n, 'rnAddr': a, 'serviceEnabled': svc};
+    // 이름이 하나면 그대로
+    expect(Silson24.pick([h('서울아산병원', '서울 송파구', true)], '서울아산병원', '').state,
+        SilsonState.enabled);
+    // 같은 이름이 여럿이고 상태가 다르면 주소로 가린다
+    final many = [
+      h('온누리약국', '서울특별시 강남구 테헤란로 1', true),
+      h('온누리약국', '부산광역시 해운대구 해운대로 2', false),
+    ];
+    expect(Silson24.pick(many, '온누리약국', '부산광역시 해운대구 해운대로 2').state,
+        SilsonState.notEnabled);
+    expect(Silson24.pick(many, '온누리약국', '').state, SilsonState.unknown);
+    // 이름이 정확히 같은 곳이 없으면 판정하지 않는다
+    expect(Silson24.pick([h('1층온누리약국', '', true)], '온누리약국', '').state, SilsonState.unknown);
+
+    // 요청: 법인 이름을 떼고, 병원/약국 구분을 보낸다
+    final client = MockClient((req) async {
+      final body = jsonDecode(req.body) as Map;
+      expect(body['keyword'], '서울아산병원');
+      expect(body['hospitalType'], 'hospital');
+      return http.Response(
+          jsonEncode({'result': [h('서울아산병원', '서울특별시 송파구 올림픽로43길 88', true)]}), 200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+    });
+    final c = await Silson24(client: client)
+        .check('재단법인아산사회복지재단서울아산병원', pharmacy: false);
+    expect(c.state, SilsonState.enabled);
   });
 
   test('병원 공식 이름에서 법인 부분 떼기 (네이버 지도 검색용)', () {

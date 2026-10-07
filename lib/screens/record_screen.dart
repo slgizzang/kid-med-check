@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../logic/drug_name_extractor.dart';
 import '../logic/models.dart';
-import '../logic/place_name.dart';
+import '../logic/silson24.dart';
 import '../logic/reaction.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
@@ -66,6 +66,10 @@ class _RecordScreenState extends State<RecordScreen> {
   void initState() {
     super.initState();
     _loadNotes();
+    if (kShowSilson24 && !_r.otc) {
+      _checkSilson(pharmacy: false);
+      _checkSilson(pharmacy: true);
+    }
     if (widget.focusClaim) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final c = _claimKey.currentContext;
@@ -291,99 +295,39 @@ class _RecordScreenState extends State<RecordScreen> {
       }
     });
     _save();
+    _checkSilson(pharmacy: pharmacy);
     return true;
   }
 
-  /// 주소 앞부분(시·구)만: "서울특별시 강남구 테헤란로 1" → "서울특별시 강남구"
-  static String _region(String addr) =>
-      addr.trim().split(RegExp(r'\s+')).take(2).join(' ');
+  /// 실손24 연계 여부 (false = 병원, true = 약국). null이면 아직 확인 안 함.
+  final Map<bool, SilsonCheck?> _silson = {false: null, true: null};
+  final Set<bool> _silsonLoading = {};
 
-  /// 네이버 지도에서 병원(또는 약국)을 연다. 실손24 연계 기관이면 상세 화면의 배너·"청구 바로가기"로
-  /// 네이버 안에서 청구를 끝낼 수 있다 (2026.10.7~). 지도 앱이 없으면 웹 지도로.
-  Future<void> _claimOnNaverMap({required bool pharmacy}) async {
-    var name = pharmacy ? _r.pharmacy : _place;
+  /// 병원·약국이 실손24로 서류 없이 청구 가능한지 확인 (이름이 있을 때만)
+  Future<void> _checkSilson({required bool pharmacy}) async {
+    final name = pharmacy ? _r.pharmacy : _place;
     if (name.isEmpty) {
-      if (!await _pickPlace(pharmacy: pharmacy)) return;
-      name = pharmacy ? _r.pharmacy : _place;
-    }
-    // 지도는 검색 결과까지만 열린다. 청구 버튼은 기관 상세 화면의 실손24 배너에 있으므로 먼저 안내.
-    final go = await _claimGuide(searchablePlaceName(name), pharmacy: pharmacy);
-    if (go == null) return;
-    if (go == false) {
-      await _openSilson24();
+      setState(() => _silson[pharmacy] = null);
       return;
     }
-    final region = _region(pharmacy ? _r.pharmacyAddr : _r.hospitalAddr);
-    // 공식 이름의 법인 부분은 떼고 찾는다 (재단법인아산사회복지재단서울아산병원 → 서울아산병원)
-    final q = searchablePlaceName(name);
-    final enc = Uri.encodeComponent(region.isEmpty ? q : '$region $q');
-    var ok = false;
-    try {
-      ok = await launchUrl(
-          Uri.parse('nmap://search?query=$enc&appname=com.kidmedcheck.kid_med_check'),
-          mode: LaunchMode.externalApplication);
-    } catch (_) {}
-    if (!ok) {
-      await launchUrl(Uri.parse('https://map.naver.com/p/search/$enc'),
-          mode: LaunchMode.externalApplication);
-    }
+    setState(() => _silsonLoading.add(pharmacy));
+    final c = await Silson24()
+        .check(name, pharmacy: pharmacy, addr: pharmacy ? _r.pharmacyAddr : _r.hospitalAddr);
+    if (!mounted) return;
+    setState(() {
+      _silsonLoading.remove(pharmacy);
+      _silson[pharmacy] = c;
+    });
   }
 
-  /// 청구 방법 안내. true = 네이버 지도, false = 실손24에서 직접, null = 닫기
-  Future<bool?> _claimGuide(String name, {required bool pharmacy}) {
-    Widget step(int n, String text) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 24,
-              height: 24,
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
-              child: Text('$n',
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: KText(text,
-                  style: const TextStyle(fontSize: 15, color: AppColors.ink, height: 1.45)),
-            ),
-          ]),
-        );
-    return showModalBottomSheet<bool>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            KText('${pharmacy ? '약값' : '병원비'} 청구 방법',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
-            const SizedBox(height: 14),
-            step(1, '네이버 지도 검색 결과에서 "$name"을 눌러 상세 화면을 열어요.'),
-            step(2, '상세 화면의 실손24 배너에서 "실손보험 청구 바로가기"를 눌러요.'),
-            step(3, '네이버페이 보험금 청구 화면에서 진료 내역을 고르고 청구해요.'),
-            const KText(
-              '배너가 안 보이면 아직 실손24에 연계되지 않은 곳이거나 네이버 지도 앱이 최신 버전이 아니에요. '
-              '이때는 아래 "실손24에서 직접 청구"로 하면 돼요.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.sub, height: 1.5),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () => Navigator.pop(ctx, true),
-              icon: const Icon(Icons.map_outlined),
-              label: const KText('네이버 지도 열기'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const KText('실손24에서 직접 청구'),
-            ),
-          ]),
-        ),
-      ),
-    );
+  /// 실손24로 청구: 기관 이름이 없으면 먼저 고르고, 실손24를 연다.
+  Future<void> _claimOnSilson24({required bool pharmacy}) async {
+    if ((pharmacy ? _r.pharmacy : _place).isEmpty) {
+      if (!await _pickPlace(pharmacy: pharmacy)) return;
+      await _checkSilson(pharmacy: pharmacy);
+      if (_silson[pharmacy]?.state == SilsonState.notEnabled) return;
+    }
+    await _openSilson24();
   }
 
   /// 보험개발원 실손24 (참여 병원·약국이면 서류 없이 청구)
@@ -414,15 +358,17 @@ class _RecordScreenState extends State<RecordScreen> {
           if (_r.fullyClaimed) const _DoneChip('모두 청구 완료'),
         ]),
         const SizedBox(height: 4),
-        const KText('네이버 지도에서 실손24로 바로 청구해요.', style: small),
+        const KText('실손24에 연계된 병원·약국이면 서류 없이 바로 청구할 수 있어요.', flow: true, style: small),
         const SizedBox(height: 12),
         _ClaimPart(
           pharmacy: false,
           name: _place,
           addr: _r.hospitalAddr,
           done: _r.claimed,
+          silson: _silson[false],
+          checking: _silsonLoading.contains(false),
           onPick: () => _pickPlace(pharmacy: false),
-          onClaim: () => _claimOnNaverMap(pharmacy: false),
+          onClaim: () => _claimOnSilson24(pharmacy: false),
           onDone: (v) {
             setState(() => _r.claimed = v);
             _save();
@@ -434,8 +380,10 @@ class _RecordScreenState extends State<RecordScreen> {
           name: _r.pharmacy,
           addr: _r.pharmacyAddr,
           done: _r.claimedPharm,
+          silson: _silson[true],
+          checking: _silsonLoading.contains(true),
           onPick: () => _pickPlace(pharmacy: true),
-          onClaim: () => _claimOnNaverMap(pharmacy: true),
+          onClaim: () => _claimOnSilson24(pharmacy: true),
           onDone: (v) {
             setState(() => _r.claimedPharm = v);
             _save();
@@ -443,13 +391,9 @@ class _RecordScreenState extends State<RecordScreen> {
         ),
         const SizedBox(height: 12),
         const KText(
-          '지도에서 병원·약국 화면을 열고 실손24 배너의 "청구 바로가기"를 누르면 네이버 안에서 청구가 끝나요. '
-          '마이데이터에 동의하면 진료일·보험사·계좌를 따로 입력하지 않아도 돼요.',
-          style: small,
-        ),
-        const SizedBox(height: 4),
-        const KText(
-          '배너가 없으면 아직 실손24에 연계되지 않은 곳이에요. 이때는 서류를 받아 보험사 앱으로 청구해야 해요.',
+          '실손24에서 로그인한 뒤 "나의 실손청구"에서 병원·약국과 진료 내역을 고르면 보험사로 바로 전송돼요. '
+          '연계되지 않은 곳은 영수증·처방전 같은 서류를 받아 보험사 앱으로 청구해야 해요.',
+          flow: true,
           style: small,
         ),
         Wrap(spacing: 4, children: [
@@ -804,12 +748,18 @@ class _ClaimPart extends StatelessWidget {
     required this.onPick,
     required this.onClaim,
     required this.onDone,
+    this.silson,
+    this.checking = false,
   });
 
   final bool pharmacy;
   final String name;
   final String addr;
   final bool done;
+
+  /// 실손24 연계 여부 (null = 확인 전)
+  final SilsonCheck? silson;
+  final bool checking;
   final VoidCallback onPick;
   final VoidCallback onClaim;
   final ValueChanged<bool> onDone;
@@ -818,6 +768,7 @@ class _ClaimPart extends StatelessWidget {
   Widget build(BuildContext context) {
     final (tBg, tFg) = pharmacy ? kPastelSky : kPastelTeal;
     final label = pharmacy ? '약값' : '병원비';
+    final notEnabled = name.isNotEmpty && silson?.state == SilsonState.notEnabled;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
       decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(14)),
@@ -854,6 +805,10 @@ class _ClaimPart extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 11.5, color: AppColors.sub)),
+                if (name.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  _SilsonBadge(silson: silson, checking: checking),
+                ],
               ]),
             ),
             KText(name.isEmpty ? '검색' : '변경',
@@ -876,9 +831,21 @@ class _ClaimPart extends StatelessWidget {
                   disabledForegroundColor: AppColors.primaryDark,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: done ? null : onClaim,
-                icon: Icon(done ? Icons.check : Icons.receipt_long_outlined, size: 18),
-                label: KText(done ? '$label 청구 완료' : '$label 청구하기',
+                // 실손24 미연계로 확인된 곳은 서류 없이 청구할 수 없으므로 버튼을 끈다
+                onPressed: done || notEnabled ? null : onClaim,
+                icon: Icon(
+                    done
+                        ? Icons.check
+                        : notEnabled
+                            ? Icons.block
+                            : Icons.receipt_long_outlined,
+                    size: 18),
+                label: KText(
+                    done
+                        ? '$label 청구 완료'
+                        : notEnabled
+                            ? '실손24 미연계'
+                            : '실손24로 $label 청구',
                     maxLines: 1,
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               ),
@@ -903,7 +870,43 @@ class _ClaimPart extends StatelessWidget {
             ),
           ),
         ]),
+        if (notEnabled && !done)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: KText('이곳은 서류(영수증·처방전 등)를 받아 보험사 앱으로 청구해야 해요.',
+                flow: true, style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.45)),
+          ),
         const SizedBox(height: 8),
+      ]),
+    );
+  }
+}
+
+/// 실손24 연계 여부 표시
+class _SilsonBadge extends StatelessWidget {
+  const _SilsonBadge({required this.silson, required this.checking});
+  final SilsonCheck? silson;
+  final bool checking;
+
+  @override
+  Widget build(BuildContext context) {
+    final (String text, Color bg, Color fg, IconData icon) = checking
+        ? ('실손24 연계 확인 중…', AppColors.line, AppColors.sub, Icons.hourglass_empty)
+        : switch (silson?.state) {
+            SilsonState.enabled => ('실손24 연계 · 서류 없이 청구', AppColors.primarySoft,
+                AppColors.primaryDark, Icons.check_circle),
+            SilsonState.notEnabled => ('실손24 미연계', const Color(0xFFF1F3F5),
+                const Color(0xFF6B7684), Icons.remove_circle_outline),
+            _ => ('실손24 연계 여부 확인 못 함', const Color(0xFFF1F3F5),
+                const Color(0xFF6B7684), Icons.help_outline),
+          };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 13, color: fg),
+        const SizedBox(width: 4),
+        Text(text, style: TextStyle(fontSize: 11.5, color: fg, fontWeight: FontWeight.w700)),
       ]),
     );
   }

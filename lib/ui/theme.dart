@@ -102,6 +102,11 @@ ThemeData buildTheme() {
       side: const BorderSide(color: AppColors.line),
     ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    // 아래에서 올라오는 창은 내용이 짧아도 항상 화면 폭 가득 (팝업마다 모양이 달라지지 않게)
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: Colors.white,
+      constraints: BoxConstraints(minWidth: double.infinity),
+    ),
   );
 }
 
