@@ -522,6 +522,36 @@ void main() {
     expect(Silson24.pick([h('온누리약국', '', true), h('온누리약국', '', false)], '온누리약국', '').miss,
         SilsonMiss.ambiguous);
 
+    // 실손24 화면이 보낸 실제 암호문을 같은 방식으로 풀 수 있어야 한다 (형식 일치 확인)
+    final k = base64Decode('VN3twCmSREfFDb6a+zZLxg==');
+    expect(Silson24.decrypt('FF7ZPMWNgZyA8tIwD8GGavP8mbEVI3E7lRItP6FRUgbhWqJ/N7M=', k), '37.5666103');
+    expect(Silson24.decrypt(Silson24.encrypt('126.9783882', k), k), '126.9783882');
+    // 위치를 알면: 같은 이름 중 바로 그 자리(300m 안)의 곳
+    final byPos = Silson24.pick([
+      {'insttNm': '유명약국', 'rnAddr': 'x', 'serviceEnabled': false, 'lat': 35.1, 'lng': 129.0},
+      {'insttNm': '유명약국', 'rnAddr': 'y', 'serviceEnabled': true, 'lat': 37.5001, 'lng': 127.0301},
+    ], '유명약국', '', at: (37.5, 127.03));
+    expect(byPos.state, SilsonState.enabled);
+    expect(byPos.addr, 'y');
+
+    // 위치를 주면 키를 받아 좌표를 암호화해 함께 보낸다
+    final posClient = MockClient((req) async {
+      if (req.url.path.endsWith('genGcmAesKey')) {
+        return http.Response(jsonEncode({'result': {'encUuid': 'u1', 'key': 'VN3twCmSREfFDb6a+zZLxg=='}}), 200);
+      }
+      final body = jsonDecode(req.body) as Map;
+      expect(body['encUuid'], 'u1');
+      expect(Silson24.decrypt(body['encLat'] as String, k), '37.5000000');
+      return http.Response(
+          jsonEncode({'result': [
+            {'insttNm': '유명약국', 'rnAddr': 'y', 'serviceEnabled': true, 'lat': 37.5001, 'lng': 127.0301},
+          ]}),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+    });
+    expect((await Silson24(client: posClient).check('유명약국', pharmacy: true, at: (37.5, 127.03))).state,
+        SilsonState.enabled);
+
     // 요청: 법인 이름을 떼고, 병원/약국 구분을 보낸다
     final client = MockClient((req) async {
       final body = jsonDecode(req.body) as Map;

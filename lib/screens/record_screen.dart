@@ -289,11 +289,12 @@ class _RecordScreenState extends State<RecordScreen> {
         _r.pharmacy = hit.name.trim();
         _r.pharmacyAddr = hit.addr;
         _r.pharmacyCode = hit.code;
+        _r.pharmacyPos = hit.lat != null && hit.lng != null ? (hit.lat!, hit.lng!) : null;
       } else {
         _r.hospital = hit.name.trim();
         _r.hospitalAddr = hit.addr;
         _r.hospitalCode = hit.code;
-        _hospPos = hit.lat != null && hit.lng != null ? (hit.lat!, hit.lng!) : null;
+        _r.hospitalPos = hit.lat != null && hit.lng != null ? (hit.lat!, hit.lng!) : null;
       }
     });
     _save();
@@ -308,9 +309,6 @@ class _RecordScreenState extends State<RecordScreen> {
   /// 실손24 연계 여부 (false = 병원, true = 약국). null이면 아직 확인 안 함.
   final Map<bool, SilsonCheck?> _silson = {false: null, true: null};
   final Set<bool> _silsonLoading = {};
-
-  /// 병원 위치 (같은 이름 약국 중 병원 근처를 고를 때 씀)
-  (double, double)? _hospPos;
 
   /// 병원 → 약국 순서로 확인 (약국은 병원 근처를 기준으로 고르므로)
   Future<void> _checkBoth() async {
@@ -339,13 +337,15 @@ class _RecordScreenState extends State<RecordScreen> {
       if (pick == null || !mounted) return;
       final hit = pick;
       setState(() {
+        final pos = hit.lat != null && hit.lng != null ? (hit.lat!, hit.lng!) : null;
         if (pharmacy) {
           if (_r.pharmacyAddr.isEmpty) _r.pharmacyAddr = hit.addr;
           _r.pharmacyCode = hit.code;
+          _r.pharmacyPos ??= pos;
         } else {
           if (_r.hospitalAddr.isEmpty) _r.hospitalAddr = hit.addr;
           _r.hospitalCode = hit.code;
-          if (hit.lat != null && hit.lng != null) _hospPos = (hit.lat!, hit.lng!);
+          _r.hospitalPos ??= pos;
         }
       });
       _save();
@@ -361,21 +361,27 @@ class _RecordScreenState extends State<RecordScreen> {
     }
     setState(() => _silsonLoading.add(pharmacy));
     // 약국은 병원 근처, 병원은 (권한이 이미 있으면) 내 위치를 기준점으로
-    final near = pharmacy ? (_hospPos ?? await roughPosition(ask: false)) : await roughPosition(ask: false);
-    if ((pharmacy ? _r.pharmacyCode : _r.hospitalCode).isEmpty) {
+    final near = pharmacy ? (_r.hospitalPos ?? await roughPosition(ask: false)) : await roughPosition(ask: false);
+    if ((pharmacy ? _r.pharmacyPos : _r.hospitalPos) == null) {
       await _resolvePlace(pharmacy: pharmacy, near: near);
     }
     final c = await Silson24().check(name,
         pharmacy: pharmacy,
         addr: pharmacy ? _r.pharmacyAddr : _r.hospitalAddr,
         code: pharmacy ? _r.pharmacyCode : _r.hospitalCode,
-        near: pharmacy ? (_hospPos ?? near) : near);
+        at: pharmacy ? _r.pharmacyPos : _r.hospitalPos,
+        near: pharmacy ? (_r.hospitalPos ?? near) : near);
     if (!mounted) return;
     setState(() {
       _silsonLoading.remove(pharmacy);
       _silson[pharmacy] = c;
-      if (!pharmacy && _hospPos == null && c.lat != null && c.lng != null) {
-        _hospPos = (c.lat!, c.lng!);
+      // 실손24에서 확실히 찾은 곳의 위치를 기억해 두면 다음부터는 바로 그곳으로 맞춘다
+      if (c.state != SilsonState.unknown && c.lat != null && c.lng != null) {
+        if (pharmacy) {
+          _r.pharmacyPos ??= (c.lat!, c.lng!);
+        } else {
+          _r.hospitalPos ??= (c.lat!, c.lng!);
+        }
       }
       // 실손24에서 확실히 찾았는데 주소가 비어 있으면 채워 둔다
       if (c.addr.isNotEmpty) {

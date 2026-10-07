@@ -77,6 +77,8 @@ class MedRecord {
     this.pharmacyAddr = '',
     this.hospitalCode = '',
     this.pharmacyCode = '',
+    this.hospitalPos,
+    this.pharmacyPos,
     this.claimedPharm = false,
     List<RecordPhoto>? photos,
   })  : drugs = drugs ?? [],
@@ -107,6 +109,16 @@ class MedRecord {
   /// 심평원 요양기관 코드(암호화 ykiho). 실손24 기관과 정확히 맞출 때 쓴다.
   String hospitalCode;
   String pharmacyCode;
+
+  /// 병원·약국 위치 (위도, 경도). 실손24에서 같은 이름 중 바로 그곳을 고를 때 쓴다.
+  (double, double)? hospitalPos;
+  (double, double)? pharmacyPos;
+
+  static List<double>? _posJson((double, double)? p) => p == null ? null : [p.$1, p.$2];
+  static (double, double)? _posOf(dynamic v) =>
+      v is List && v.length == 2 && v[0] is num && v[1] is num
+          ? ((v[0] as num).toDouble(), (v[1] as num).toDouble())
+          : null;
 
   /// 병원비·약값 청구를 모두 마쳤는지 (약국을 모르면 병원비만 본다)
   bool get fullyClaimed => claimed && (claimedPharm || pharmacy.isEmpty);
@@ -145,6 +157,8 @@ class MedRecord {
         if (pharmacyAddr.isNotEmpty) 'pharmacyAddr': pharmacyAddr,
         if (hospitalCode.isNotEmpty) 'hospitalCode': hospitalCode,
         if (pharmacyCode.isNotEmpty) 'pharmacyCode': pharmacyCode,
+        if (hospitalPos != null) 'hospitalPos': _posJson(hospitalPos),
+        if (pharmacyPos != null) 'pharmacyPos': _posJson(pharmacyPos),
         if (claimedPharm) 'claimedPharm': true,
         if (photos.isNotEmpty) 'photos': photos.map((p) => p.toJson()).toList(),
       };
@@ -167,6 +181,8 @@ class MedRecord {
         pharmacyAddr: '${j['pharmacyAddr'] ?? ''}',
         hospitalCode: '${j['hospitalCode'] ?? ''}',
         pharmacyCode: '${j['pharmacyCode'] ?? ''}',
+        hospitalPos: _posOf(j['hospitalPos']),
+        pharmacyPos: _posOf(j['pharmacyPos']),
         claimedPharm: j['claimedPharm'] == true,
         photos: (j['photos'] as List? ?? const [])
             .map((e) => RecordPhoto.fromJson(Map<String, dynamic>.from(e as Map)))

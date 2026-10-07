@@ -1,13 +1,16 @@
 /// 실손24(보험개발원) 참여기관 여부 확인.
-/// 실손24 누리집의 '참여병원' 검색이 쓰는 요청과 같은 것을 이름으로 한 번 보낸다.
+/// 실손24 누리집의 '참여병원' 검색이 쓰는 요청과 같은 것을 이름 + 위치로 한 번 보낸다
+/// (위치는 그 화면처럼 실손24가 내준 키로 AES-GCM 암호화해서 보냄).
 /// 공식 공개 API가 아니므로 바뀌거나 막힐 수 있다 → 실패하면 '확인 불가'로 두고 앱은 그대로 동작한다.
 /// 같은 기관은 7일 동안 다시 묻지 않는다 (휴대폰에 저장).
 library;
 
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:pointycastle/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'place_name.dart';
@@ -38,6 +41,25 @@ class Silson24 {
 
   static const _url =
       'https://www.silson24.or.kr/cmm/api/v2/claim/getSearchHospitalsLocation';
+  static const _keyUrl = 'https://www.silson24.or.kr/cmm/api/v1/base/genGcmAesKey';
+
+  /// 실손24 화면과 같은 방식: base64(12바이트 nonce + AES-GCM 암호문·태그)
+  static String encrypt(String plain, Uint8List key, {Uint8List? iv}) {
+    final nonce = iv ??
+        Uint8List.fromList(List.generate(12, (_) => math.Random.secure().nextInt(256)));
+    final c = GCMBlockCipher(AESEngine())
+      ..init(true, AEADParameters(KeyParameter(key), 128, nonce, Uint8List(0)));
+    final out = c.process(Uint8List.fromList(utf8.encode(plain)));
+    return base64Encode([...nonce, ...out]);
+  }
+
+  static String decrypt(String enc, Uint8List key) {
+    final raw = base64Decode(enc);
+    final c = GCMBlockCipher(AESEngine())
+      ..init(false,
+          AEADParameters(KeyParameter(key), 128, raw.sublist(0, 12), Uint8List(0)));
+    return utf8.decode(c.process(raw.sublist(12)));
+  }
   static const _ttl = Duration(days: 7);
   static const _prefix = 'silson24:';
   static final _mem = <String, SilsonCheck>{};
@@ -47,13 +69,19 @@ class Silson24 {
   /// [name] 기관이 실손24로 서류 없이 청구 가능한지. [addr]를 알면 같은 이름이 여럿일 때 가려낸다.
   /// [near]: 주소를 모를 때 같은 이름 중 가까운 곳을 고를 기준점 (병원 위치 또는 내 위치).
   /// [code]: 심평원 요양기관 코드(있으면 가장 정확). [addr]: 도로명 주소(코드 다음으로 정확).
+  /// [at]: 이 기관의 위치(알면). 실손24를 이 위치 기준 거리순으로 찾아, 같은 이름 중 바로 그 자리의 곳을 고른다.
   Future<SilsonCheck> check(String name,
-      {required bool pharmacy, String addr = '', String code = '', (double, double)? near}) async {
+      {required bool pharmacy,
+      String addr = '',
+      String code = '',
+      (double, double)? at,
+      (double, double)? near}) async {
     final q = searchablePlaceName(name);
     if (q.length < 2) return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.notFound);
-    final nearKey = near == null || addr.isNotEmpty
+    final center = at ?? near;
+    final nearKey = center == null
         ? ''
-        : '${near.$1.toStringAsFixed(2)},${near.$2.toStringAsFixed(2)}';
+        : '${at == null ? 'n' : 'a'}${center.$1.toStringAsFixed(3)},${center.$2.toStringAsFixed(3)}';
     final key = '${pharmacy ? 'p' : 'h'}|${_n(q)}|${_n(addr)}|$code|$nearKey';
     if (_useCache) {
       final m = _mem[key];
@@ -64,10 +92,12 @@ class Silson24 {
     SilsonCheck r;
     try {
       // 1차: 정리한 이름으로, 못 찾으면 2차: 종별(의원·약국 등)을 뗀 이름으로 (실손24는 부분 검색)
-      r = pick(await _search(q, pharmacy: pharmacy), q, addr, code: code, near: near);
+      r = pick(await _search(q, pharmacy: pharmacy, center: center), q, addr,
+          code: code, at: at, near: near);
       final b = _base(q);
       if (r.miss == SilsonMiss.notFound && b.length >= 2 && b != _n(q)) {
-        r = pick(await _search(b, pharmacy: pharmacy), q, addr, code: code, near: near);
+        r = pick(await _search(b, pharmacy: pharmacy, center: center), q, addr,
+            code: code, at: at, near: near);
       }
     } catch (_) {
       return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.noResponse);
@@ -79,21 +109,47 @@ class Silson24 {
     return r;
   }
 
-  Future<List<Map<String, dynamic>>> _search(String q, {required bool pharmacy}) async {
+  static const _headers = {'Content-Type': 'application/json', 'Accept': 'application/json'};
+
+  /// 위치를 암호화할 키 (실손24가 요청마다 내줌)
+  Future<(String, Uint8List)?> _gcmKey() async {
+    try {
+      final resp = await _client
+          .post(Uri.parse(_keyUrl), headers: _headers, body: '{}')
+          .timeout(const Duration(seconds: 10));
+      final d = jsonDecode(utf8.decode(resp.bodyBytes));
+      final r = d is Map ? d['result'] : null;
+      if (r is! Map) return null;
+      return ('${r['encUuid']}', base64Decode('${r['key']}'));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _search(String q,
+      {required bool pharmacy, (double, double)? center}) async {
+    final body = <String, dynamic>{
+      'keyword': q,
+      'servicedOnly': false,
+      'hospitalType': pharmacy ? 'pharmacy' : 'hospital',
+      'hospitalAsortCds': [],
+      'zoom': 16,
+      'offset': {'offset': 0, 'limit': 100},
+      'isCurrentLocation': false,
+      'deptCd': '',
+      'orderBy': 'distance',
+    };
+    if (center != null) {
+      // 위치를 주면 그 자리에서 가까운 순으로 돌려준다 (이름이 같은 곳이 많아도 근처가 앞에 옴)
+      final k = await _gcmKey();
+      if (k != null) {
+        body['encLat'] = encrypt(center.$1.toStringAsFixed(7), k.$2);
+        body['encLng'] = encrypt(center.$2.toStringAsFixed(7), k.$2);
+        body['encUuid'] = k.$1;
+      }
+    }
     final resp = await _client
-        .post(Uri.parse(_url),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: jsonEncode({
-              'keyword': q,
-              'servicedOnly': false,
-              'hospitalType': pharmacy ? 'pharmacy' : 'hospital',
-              'offset': {'offset': 0, 'limit': 50},
-              'isCurrentLocation': false,
-              'orderBy': 'distance',
-            }))
+        .post(Uri.parse(_url), headers: _headers, body: jsonEncode(body))
         .timeout(const Duration(seconds: 12));
     if (resp.statusCode != 200) throw Exception('HTTP ${resp.statusCode}');
     final d = jsonDecode(utf8.decode(resp.bodyBytes));
@@ -130,7 +186,7 @@ class Silson24 {
       .trim();
 
   static SilsonCheck pick(List<Map<String, dynamic>> items, String query, String addr,
-      {String code = '', (double, double)? near}) {
+      {String code = '', (double, double)? at, (double, double)? near}) {
     String nm(Map<String, dynamic> e) => '${e['insttNm'] ?? ''}';
     SilsonCheck of(Map<String, dynamic> e) => SilsonCheck(
           e['serviceEnabled'] == true ? SilsonState.enabled : SilsonState.notEnabled,
@@ -165,6 +221,17 @@ class Silson24 {
     }
     if (cands.isEmpty) return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.notFound);
 
+    double dist(Map<String, dynamic> e, (double, double) p) {
+      final la = _num(e['lat']), lo = _num(e['lng']);
+      return la == null || lo == null ? double.infinity : _dist(p.$1, p.$2, la, lo);
+    }
+    // 이 기관의 위치를 알면: 같은 이름 중 바로 그 자리(300m 안)에 있는 곳
+    if (at != null) {
+      final here = cands.where((e) => dist(e, at) < 300).toList()
+        ..sort((a, b) => dist(a, at).compareTo(dist(b, at)));
+      if (here.isNotEmpty) return of(here.first);
+    }
+
     if (cands.length > 1 && addr.trim().isNotEmpty) {
       // 시·구·도로명까지 겹치는 곳
       final words = addr.split(RegExp(r'\s+')).where((w) => w.length >= 2).take(4).toList();
@@ -178,10 +245,7 @@ class Silson24 {
     }
     if (cands.length > 1 && near != null) {
       // 기준점에서 가장 가까운 곳이 5km 안이고, 두 번째보다 확실히(2배 이상) 가까우면 그곳
-      double d(Map<String, dynamic> e) {
-        final la = _num(e['lat']), lo = _num(e['lng']);
-        return la == null || lo == null ? double.infinity : _dist(near.$1, near.$2, la, lo);
-      }
+      double d(Map<String, dynamic> e) => dist(e, near);
       cands.sort((a, b) => d(a).compareTo(d(b)));
       final d0 = d(cands.first), d1 = d(cands[1]);
       if (d0 < 5000 && (d1 == double.infinity || d1 >= d0 * 2)) cands = [cands.first];
