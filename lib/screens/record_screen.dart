@@ -292,6 +292,13 @@ class _RecordScreenState extends State<RecordScreen> {
       if (!await _pickPlace(pharmacy: pharmacy)) return;
       name = pharmacy ? _r.pharmacy : _place;
     }
+    // 지도는 검색 결과까지만 열린다. 청구 버튼은 기관 상세 화면의 실손24 배너에 있으므로 먼저 안내.
+    final go = await _claimGuide(name, pharmacy: pharmacy);
+    if (go == null) return;
+    if (go == false) {
+      await _openSilson24();
+      return;
+    }
     final region = _region(pharmacy ? _r.pharmacyAddr : _r.hospitalAddr);
     final enc = Uri.encodeComponent(region.isEmpty ? name : '$region $name');
     var ok = false;
@@ -304,6 +311,63 @@ class _RecordScreenState extends State<RecordScreen> {
       await launchUrl(Uri.parse('https://map.naver.com/p/search/$enc'),
           mode: LaunchMode.externalApplication);
     }
+  }
+
+  /// 청구 방법 안내. true = 네이버 지도, false = 실손24에서 직접, null = 닫기
+  Future<bool?> _claimGuide(String name, {required bool pharmacy}) {
+    Widget step(int n, String text) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle),
+              child: Text('$n',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: KText(text,
+                  style: const TextStyle(fontSize: 15, color: AppColors.ink, height: 1.45)),
+            ),
+          ]),
+        );
+    return showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            KText('${pharmacy ? '약값' : '병원비'} 청구 방법',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
+            const SizedBox(height: 14),
+            step(1, '네이버 지도 검색 결과에서 "$name"을 눌러 상세 화면을 열어요.'),
+            step(2, '상세 화면의 실손24 배너에서 "실손보험 청구 바로가기"를 눌러요.'),
+            step(3, '네이버페이 보험금 청구 화면에서 진료 내역을 고르고 청구해요.'),
+            const KText(
+              '배너가 안 보이면 아직 실손24에 연계되지 않은 곳이거나 네이버 지도 앱이 최신 버전이 아니에요. '
+              '이때는 아래 "실손24에서 직접 청구"로 하면 돼요.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.sub, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.map_outlined),
+              label: const KText('네이버 지도 열기'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const KText('실손24에서 직접 청구'),
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 
   /// 보험개발원 실손24 (참여 병원·약국이면 서류 없이 청구)
