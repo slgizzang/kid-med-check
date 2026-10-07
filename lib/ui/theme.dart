@@ -241,7 +241,10 @@ String splitSentences(String text) =>
 ///    마지막 줄에 단어 하나만 덩그러니 남지 않게 한다 (CSS text-wrap: balance).
 class KText extends StatelessWidget {
   const KText(this.data,
-      {super.key, this.style, this.textAlign, this.maxLines, this.overflow});
+      {super.key, this.style, this.textAlign, this.maxLines, this.overflow, this.flow = false});
+
+  /// true면 문장마다 줄을 나누지 않고 이어 쓴다 (줄이 바뀔 때 단어는 끊지 않음)
+  final bool flow;
 
   final String data;
   final TextStyle? style;
@@ -251,10 +254,10 @@ class KText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = ka(maxLines == 1 ? data : splitSentences(data));
+    final text = ka(maxLines == 1 || flow ? data : splitSentences(data));
     final plain = Text(text,
         style: style, textAlign: textAlign, maxLines: maxLines, overflow: overflow);
-    if (maxLines == 1) return plain;
+    if (maxLines == 1 || flow) return plain;
     final effective = DefaultTextStyle.of(context).style.merge(style);
     final align = switch (textAlign) {
       TextAlign.center => 0.5,

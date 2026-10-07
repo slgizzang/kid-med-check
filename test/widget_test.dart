@@ -19,6 +19,7 @@ import 'package:kid_med_check/logic/report.dart';
 import 'package:kid_med_check/logic/dur_text.dart';
 import 'package:kid_med_check/logic/hira_import.dart';
 import 'package:kid_med_check/logic/place_name.dart';
+import 'package:kid_med_check/logic/class_info.dart';
 import 'package:kid_med_check/logic/office_decrypt.dart';
 
 void main() {
@@ -484,6 +485,12 @@ void main() {
     expect(searchablePlaceName('의료법인성광의료재단차병원'), '차병원');
     expect(searchablePlaceName('써니이비인후과의원'), '써니이비인후과의원');
     expect(searchablePlaceName('온누리약국'), '온누리약국');
+    expect(searchablePlaceName('성심의료재단강동성심병원'), '강동성심병원');
+    expect(searchablePlaceName('서울대학교병원'), '서울대학교병원');
+    expect(searchablePlaceName('재단약국'), '재단약국');
+    expect(classDescription('해열·진통·소염제'), contains('열을 내리고'));
+    expect(classDescription('주로 그람양성·음성균에 작용하는 것'), contains('항생제'));
+    expect(classDescription('알 수 없는 분류'), isNull);
   });
 
   test('처방 기록 저장 형식', () {

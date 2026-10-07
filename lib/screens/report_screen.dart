@@ -9,6 +9,7 @@ import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
 import '../ui/theme.dart';
 import 'reaction_list_screen.dart';
 import 'record_screen.dart';
+import '../logic/class_info.dart';
 
 /// 복용 리포트: 지난 기록을 모아 많이 먹은 약 계열, 반응 기록 패턴, 생활 관리 참고를 보여준다.
 class ReportScreen extends StatefulWidget {
@@ -177,13 +178,14 @@ class _ReportScreenState extends State<ReportScreen> {
                     ),
                     _Section(
                       title: '많이 먹은 약 계열',
-                      sub: '복용 기록 수 기준',
+                      sub: '복용 기록 수 기준 · 누르면 설명',
                       child: r.topClasses.isEmpty
                           ? const _Empty('약 분류를 확인한 기록이 아직 없어요.')
                           : _RankBars(r.topClasses),
                     ),
                     _Section(
                       title: '자주 먹은 약',
+                      sub: '누르면 간단한 설명',
                       child: Column(children: [
                         for (final d in r.topDrugs) _DrugLine(d),
                       ]),
@@ -464,8 +466,11 @@ class _RankBars extends StatelessWidget {
     final maxV = items.first.count;
     return Column(children: [
       for (final it in items)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _showClassInfo(context, it),
+          child: Padding(
+          padding: const EdgeInsets.only(bottom: 12, top: 2),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(
@@ -498,6 +503,7 @@ class _RankBars extends StatelessWidget {
               ),
           ]),
         ),
+        ),
     ]);
   }
 }
@@ -507,7 +513,10 @@ class _DrugLine extends StatelessWidget {
   final CountItem d;
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _showDrugInfo(context, d),
+        child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(children: [
           Expanded(
@@ -523,7 +532,10 @@ class _DrugLine extends StatelessWidget {
           ),
           Text('${d.count}번',
               style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
+          const SizedBox(width: 2),
+          const Icon(Icons.chevron_right, size: 18, color: AppColors.sub),
         ]),
+      ),
       );
 }
 
@@ -714,4 +726,96 @@ class _DimRow extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// 팝업 공통 틀
+Future<void> _infoSheet(BuildContext context, String title, Widget body) =>
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                KText(title,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
+                const SizedBox(height: 10),
+                body,
+              ]),
+        ),
+      ),
+    );
+
+const _infoStyle = TextStyle(fontSize: 15, color: AppColors.ink, height: 1.55);
+const _infoSub = TextStyle(fontSize: 12.5, color: AppColors.sub, height: 1.5);
+
+void _showClassInfo(BuildContext context, CountItem it) {
+  final desc = classDescription(it.name);
+  _infoSheet(
+    context,
+    it.name,
+    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      KText(desc ?? '식약처 약효 분류 이름이에요. 자세한 내용은 약사에게 물어보세요.', flow: true, style: _infoStyle),
+      if (it.examples.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        KText('이 계열로 먹은 약: ${it.examples.take(6).join(', ')}', flow: true, style: _infoSub),
+      ],
+      const SizedBox(height: 4),
+      KText('복용 기록 ${it.count}번', style: _infoSub),
+    ]),
+  );
+}
+
+void _showDrugInfo(BuildContext context, CountItem d) {
+  _infoSheet(
+    context,
+    d.name,
+    FutureBuilder<DrugInfo?>(
+      future: AppStorage.apiKey().then((k) => DurApi(k).searchDrugInfo(d.name)),
+      builder: (ctx, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: LinearProgressIndicator(minHeight: 2),
+          );
+        }
+        final info = snap.data;
+        String firstSentences(String t, int n) {
+          final parts = t.trim().split(RegExp(r'(?<=[.다요])\s+'));
+          return parts.take(n).join(' ');
+        }
+        final eff = info == null ? '' : firstSentences(info.efficacy, 2);
+        final cls = info == null ? '' : prettyClass(info.className);
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (cls.isNotEmpty || (info?.etcOtc ?? '').isNotEmpty)
+            KText([cls, info?.etcOtc ?? ''].where((x) => x.isNotEmpty).join(' · '),
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.primaryDark, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          KText(
+              eff.isNotEmpty
+                  ? eff
+                  : (cls.isNotEmpty
+                      ? (classDescription(cls) ?? '$cls 계열의 약이에요.')
+                      : '설명을 찾지 못했어요.'),
+              flow: true,
+              style: _infoStyle),
+          if ((info?.ingredient ?? '').isNotEmpty) ...[
+            const SizedBox(height: 10),
+            KText('성분: ${info!.ingredient}', flow: true, style: _infoSub),
+          ],
+          const SizedBox(height: 4),
+          KText(
+              '복용 기록 ${d.count}번' +
+                  (d.last != null ? ' · 마지막 ${formatDate(d.last!)}' : ''),
+              style: _infoSub),
+        ]);
+      },
+    ),
+  );
 }

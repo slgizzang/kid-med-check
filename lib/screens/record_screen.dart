@@ -692,6 +692,7 @@ class _RecordScreenState extends State<RecordScreen> {
               const KText(
                 '촬영·사진첩은 사진 속 글자를 읽어(OCR) 식약처 약 목록과 맞는 이름만 골라요. '
                 '처방전·약봉지를 통째로 찍어도 돼요.',
+                flow: true,
                 style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
               ),
               const SizedBox(height: 20),

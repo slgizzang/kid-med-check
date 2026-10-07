@@ -24,5 +24,13 @@ String searchablePlaceName(String raw) {
       }
     }
   }
+  else {
+    // "재단법인" 같은 말 없이 법인 이름이 붙은 경우: 성심의료재단강동성심병원 → 강동성심병원
+    final m = RegExp(r'^(.{2,}?)(사회복지재단|의료재단|복지재단|공익재단|재단|학원|의료법인)(.{2,})$')
+        .firstMatch(s);
+    if (m != null && RegExp(r'(병원|의원|센터|클리닉|약국|의료원)$').hasMatch(m.group(3)!)) {
+      s = m.group(3)!;
+    }
+  }
   return s.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
