@@ -129,27 +129,24 @@ else:
         except Exception as e:  # noqa: BLE001
             out.append(f"[DUR성분 {svc}] 호출 실패: {type(e).__name__}: {str(e)[:150]}")
 
-    # 특정 약이 어느 출처에 있는지 (설명이 비는 원인 확인용)
-    for q in ["더마톱액", "더마톱"]:
-        for label, path, pname in [
-            ("DUR품목", "DURPrdlstInfoService03/getDurPrdlstInfoList03", "itemName"),
-            ("e약은요", "DrbEasyDrugInfoService/getDrbEasyDrugList", "itemName"),
-            ("허가08", "DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnInq08", "item_name"),
-            ("허가상세08", "DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnDtlInq08", "item_name"),
-        ]:
-            qs = urllib.parse.urlencode({"serviceKey": key, "type": "json", "pageNo": 1, "numOfRows": 3, pname: q})
-            try:
-                with urllib.request.urlopen(f"https://apis.data.go.kr/1471000/{path}?{qs}", timeout=30) as r:
-                    body = r.read().decode("utf-8", "replace")
-                out.append(f"[{label} {q}] " + " ".join(body.split())[:1500])
-            except Exception as e:  # noqa: BLE001
-                detail = ""
-                if hasattr(e, "read"):
-                    try:
-                        detail = " ".join(e.read().decode("utf-8", "replace").split())[:160]
-                    except Exception:  # noqa: BLE001
-                        pass
-                out.append(f"[{label} {q}] 실패: {type(e).__name__} {detail}")
+    # 심평원 병원·약국 검색 (실손 청구에서 병원·약국 고르기) — 같은 인증키로 활용신청돼 있어야 한다
+    for label, path, q in [
+        ("심평원 병원", "B551182/hospInfoServicev2/getHospBasisList", "서울대학교병원"),
+        ("심평원 약국", "B551182/pharmacyInfoService/getParmacyBasisList", "온누리약국"),
+    ]:
+        qs = urllib.parse.urlencode({"serviceKey": key, "_type": "json", "pageNo": 1, "numOfRows": 2, "yadmNm": q})
+        try:
+            with urllib.request.urlopen(f"https://apis.data.go.kr/{path}?{qs}", timeout=15) as r:
+                body = r.read().decode("utf-8", "replace")
+            out.append(f"[{label} {q}] " + " ".join(body.split())[:400])
+        except Exception as e:  # noqa: BLE001
+            detail = ""
+            if hasattr(e, "read"):
+                try:
+                    detail = " ".join(e.read().decode("utf-8", "replace").split())[:200]
+                except Exception:  # noqa: BLE001
+                    pass
+            out.append(f"[{label} {q}] 실패: {type(e).__name__} {detail}")
 
 text = "\n".join(out).replace(key, "***") if key else "\n".join(out)
 print(text)

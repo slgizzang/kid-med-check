@@ -65,11 +65,16 @@ jobs:
 
       - name: 식약처 API 점검
         continue-on-error: true
+        timeout-minutes: 4
         env:
           DUR_API_KEY: ${{ secrets.DUR_API_KEY }}
+        run: python3 tool/api_smoke_test.py
+
+      # API 점검이 느리거나 실패해도 릴리스는 올린다
+      - name: 릴리스 설명
+        if: always()
         run: |
-          python3 tool/api_smoke_test.py
-          { echo "휴대폰에서 아래 APK 파일을 눌러 받고 설치하세요."; echo; echo '```'; cat api_smoke.txt; echo '```'; } > release_body.md
+          { echo "휴대폰에서 아래 APK 파일을 눌러 받고 설치하세요."; echo; echo '```'; cat api_smoke.txt 2>/dev/null || echo "API 점검 결과 없음 (시간 초과)"; echo '```'; } > release_body.md
 
       # 휴대폰에서 바로 받을 수 있게 Releases 에도 올린다
       - uses: softprops/action-gh-release@v2
