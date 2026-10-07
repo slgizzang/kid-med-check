@@ -50,18 +50,47 @@ jobs:
           { echo '```'; tail -n 80 test.log; echo '```'; } > fail.md
           gh issue create --repo "${{ github.repository }}" --title "빌드 ${{ github.run_number }} 테스트 실패" --body-file fail.md
 
+      # 출시용 서명 키 (저장소 설정 > Secrets 에 넣어 둔 경우). 없으면 디버그 키로 서명돼 스토어에는 못 올림.
+      - name: Signing key
+        env:
+          UPLOAD_KEYSTORE_B64: ${{ secrets.UPLOAD_KEYSTORE_B64 }}
+          UPLOAD_STORE_PASSWORD: ${{ secrets.UPLOAD_STORE_PASSWORD }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+        run: |
+          if [ -n "$UPLOAD_KEYSTORE_B64" ]; then
+            echo "$UPLOAD_KEYSTORE_B64" | base64 -d > android/app/upload.jks
+            printf 'storeFile=upload.jks\nstorePassword=%s\nkeyPassword=%s\nkeyAlias=%s\n' \
+              "$UPLOAD_STORE_PASSWORD" "$UPLOAD_KEY_PASSWORD" "$UPLOAD_KEY_ALIAS" > android/key.properties
+            echo "SIGNED=1" >> "$GITHUB_ENV"
+          else
+            echo "출시용 서명 키 없음 — 디버그 키로 서명"
+          fi
+
+      # 버전 번호는 빌드 번호로 (스토어는 올릴 때마다 더 큰 번호가 필요)
       - name: Build release APK
         env:
           DUR_API_KEY: ${{ secrets.DUR_API_KEY }}
-        run: flutter build apk --release --dart-define=DUR_API_KEY="$DUR_API_KEY"
+        run: flutter build apk --release --build-number=${{ github.run_number }} --dart-define=DUR_API_KEY="$DUR_API_KEY"
+
+      - name: Build app bundle (Play 스토어용 AAB)
+        if: env.SIGNED == '1'
+        env:
+          DUR_API_KEY: ${{ secrets.DUR_API_KEY }}
+        run: |
+          flutter build appbundle --release --build-number=${{ github.run_number }} --dart-define=DUR_API_KEY="$DUR_API_KEY"
+          cp build/app/outputs/bundle/release/app-release.aab pillsafe-${{ github.run_number }}.aab
 
       - name: Rename APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk kid-med-check-${{ github.run_number }}.apk
+        run: cp build/app/outputs/flutter-apk/app-release.apk pillsafe-${{ github.run_number }}.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: kid-med-check-apk
-          path: kid-med-check-${{ github.run_number }}.apk
+          name: pillsafe-build
+          path: |
+            pillsafe-${{ github.run_number }}.apk
+            pillsafe-${{ github.run_number }}.aab
+          if-no-files-found: ignore
 
       - name: 식약처 API 점검
         continue-on-error: true
@@ -74,7 +103,7 @@ jobs:
       - name: 릴리스 설명
         if: always()
         run: |
-          { echo "휴대폰에서 아래 APK 파일을 눌러 받고 설치하세요."; echo; echo '```'; cat api_smoke.txt 2>/dev/null || echo "API 점검 결과 없음 (시간 초과)"; echo '```'; } > release_body.md
+          { echo "휴대폰에서는 APK를 눌러 설치하세요. AAB는 Play Console 업로드용이에요."; echo; echo '```'; cat api_smoke.txt 2>/dev/null || echo "API 점검 결과 없음 (시간 초과)"; echo '```'; } > release_body.md
 
       # 휴대폰에서 바로 받을 수 있게 Releases 에도 올린다
       - uses: softprops/action-gh-release@v2
@@ -82,5 +111,8 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: 필세이프 (빌드 ${{ github.run_number }})
           body_path: release_body.md
-          files: kid-med-check-${{ github.run_number }}.apk
+          files: |
+            pillsafe-${{ github.run_number }}.apk
+            pillsafe-${{ github.run_number }}.aab
+          fail_on_unmatched_files: false
           make_latest: true

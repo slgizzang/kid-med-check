@@ -10,6 +10,7 @@ import re
 import sys
 
 APP_LABEL = "필세이프"
+APP_ID = "com.pillsafe.app"
 KOREAN_OCR = "com.google.mlkit:text-recognition-korean:16.0.1"
 
 root = pathlib.Path(__file__).resolve().parent.parent
@@ -78,6 +79,31 @@ if kts.exists():
     g = kts.read_text(encoding="utf-8")
     if KOREAN_OCR not in g:
         g += f'\ndependencies {{\n    implementation("{KOREAN_OCR}")\n}}\n'
+    # Play 스토어 앱 ID (한 번 올리면 바꿀 수 없음)
+    g = re.sub(r'applicationId\s*=\s*"[^"]*"', f'applicationId = "{APP_ID}"', g)
+    # 출시용 서명: CI가 android/key.properties 를 만들어 둔 경우에만 (없으면 기본 디버그 키)
+    if "key.properties" not in g:
+        g += '''
+val pillsafeKeyFile = rootProject.file("key.properties")
+if (pillsafeKeyFile.exists()) {
+    val kp = java.util.Properties().apply { pillsafeKeyFile.inputStream().use { load(it) } }
+    android {
+        signingConfigs {
+            create("upload") {
+                storeFile = file(kp.getProperty("storeFile"))
+                storePassword = kp.getProperty("storePassword")
+                keyAlias = kp.getProperty("keyAlias")
+                keyPassword = kp.getProperty("keyPassword")
+            }
+        }
+        buildTypes {
+            getByName("release") {
+                signingConfig = signingConfigs.getByName("upload")
+            }
+        }
+    }
+}
+'''
     kts.write_text(g, encoding="utf-8")
 elif groovy.exists():
     g = groovy.read_text(encoding="utf-8")
