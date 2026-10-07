@@ -449,6 +449,34 @@ void main() {
     expect(DrugNameExtractor.isFormOnly('레스날린패치'), isFalse);
   });
 
+  test('병원·약국 검색 결과를 가까운 순으로', () async {
+    final client = MockClient((req) async {
+      expect(req.url.path, contains('getParmacyBasisList'));
+      expect(req.url.queryParameters['yadmNm'], '온누리');
+      return http.Response(
+          jsonEncode({
+            'response': {
+              'header': {'resultCode': '00'},
+              'body': {
+                'items': {
+                  'item': [
+                    {'yadmNm': '먼온누리약국', 'addr': '부산', 'XPos': '129.07', 'YPos': '35.17'},
+                    {'yadmNm': '가까운온누리약국', 'addr': '서울 강남구', 'XPos': '127.028', 'YPos': '37.498'},
+                  ]
+                }
+              }
+            }
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+    });
+    final hits = await DurApi('k', client: client)
+        .searchPlaces('온누리', pharmacy: true, lat: 37.4979, lon: 127.0276);
+    expect(hits.first.name, '가까운온누리약국');
+    expect(hits.first.distanceLabel.endsWith('m'), isTrue);
+    expect(hits.last.distanceLabel, contains('km'));
+  });
+
   test('병원 공식 이름에서 법인 부분 떼기 (네이버 지도 검색용)', () {
     expect(searchablePlaceName('재단법인아산사회복지재단서울아산병원'), '서울아산병원');
     expect(searchablePlaceName('사회복지법인삼성생명공익재단삼성서울병원'), '삼성서울병원');

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -49,12 +50,29 @@ class DurApi {
   static const _pharmPath = '/B551182/pharmacyInfoService/getParmacyBasisList';
 
   /// 병원(pharmacy=false) 또는 약국(pharmacy=true)을 이름으로 찾는다.
-  Future<List<PlaceHit>> searchPlaces(String name, {required bool pharmacy}) async {
+  /// 위치([lat],[lon])를 주면 가까운 순으로 정렬하고, 이름이 비어 있으면 주변 [radius]m 안을 찾는다.
+  Future<List<PlaceHit>> searchPlaces(String name,
+      {required bool pharmacy, double? lat, double? lon, int radius = 2000}) async {
     final q = name.trim();
-    if (q.length < 2) return const [];
-    final items = await _fetchItems(
-        pharmacy ? _pharmPath : _hospPath, {'yadmNm': q, '_type': 'json'}, 30);
-    return items.map(PlaceHit.fromJson).where((p) => p.name.isNotEmpty).toList();
+    final near = lat != null && lon != null;
+    if (q.length < 2 && !near) return const [];
+    final filters = <String, String>{'_type': 'json'};
+    if (q.length >= 2) filters['yadmNm'] = q;
+    if (near && q.length < 2) {
+      // 좌표는 소수 셋째 자리(약 100m)로 맞춰 같은 동네에서는 캐시를 다시 쓴다
+      filters['xPos'] = lon.toStringAsFixed(3);
+      filters['yPos'] = lat.toStringAsFixed(3);
+      filters['radius'] = '$radius';
+    }
+    final items = await _fetchItems(pharmacy ? _pharmPath : _hospPath, filters, 50);
+    final hits = items
+        .map((j) => PlaceHit.fromJson(j, fromLat: lat, fromLon: lon))
+        .where((p) => p.name.isNotEmpty)
+        .toList();
+    if (near) {
+      hits.sort((a, b) => (a.meters ?? 1e12).compareTo(b.meters ?? 1e12));
+    }
+    return hits;
   }
 
   Future<List<TabooRow>> searchAgeTaboo(String itemName) async {
@@ -569,7 +587,8 @@ class DurApi {
 
 /// 병원·약국 검색 결과 한 곳
 class PlaceHit {
-  const PlaceHit({required this.name, this.addr = '', this.kind = '', this.tel = ''});
+  const PlaceHit(
+      {required this.name, this.addr = '', this.kind = '', this.tel = '', this.meters});
 
   final String name;
   final String addr;
@@ -578,10 +597,37 @@ class PlaceHit {
   final String kind;
   final String tel;
 
-  factory PlaceHit.fromJson(Map<String, dynamic> j) {
-    String s(String k) => '${j[k] ?? ''}'.trim();
-    return PlaceHit(name: s('yadmNm'), addr: s('addr'), kind: s('clCdNm'), tel: s('telno'));
+  /// 내 위치에서 거리(m). 위치를 모르면 null.
+  final double? meters;
+
+  /// "350m", "1.2km"
+  String get distanceLabel {
+    final m = meters;
+    if (m == null) return '';
+    if (m < 1000) return '${(m / 10).round() * 10}m';
+    return '${(m / 1000).toStringAsFixed(m < 10000 ? 1 : 0)}km';
   }
+
+  factory PlaceHit.fromJson(Map<String, dynamic> j, {double? fromLat, double? fromLon}) {
+    String s(String k) => '${j[k] ?? ''}'.trim();
+    final x = double.tryParse(s('XPos')), y = double.tryParse(s('YPos'));
+    double? meters;
+    if (fromLat != null && fromLon != null && x != null && y != null) {
+      meters = distanceMeters(fromLat, fromLon, y, x);
+    }
+    return PlaceHit(
+        name: s('yadmNm'), addr: s('addr'), kind: s('clCdNm'), tel: s('telno'), meters: meters);
+  }
+}
+
+/// 두 위경도 사이 거리(m)
+double distanceMeters(double lat1, double lon1, double lat2, double lon2) {
+  const r = 6371000.0;
+  double rad(double d) => d * math.pi / 180;
+  final dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1);
+  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+      math.cos(rad(lat1)) * math.cos(rad(lat2)) * math.sin(dLon / 2) * math.sin(dLon / 2);
+  return 2 * r * math.asin(math.sqrt(a));
 }
 
 class DurApiException implements Exception {

@@ -60,6 +60,14 @@ if "com.nhn.android.nmap" not in m:
         <package android:name="com.nhn.android.nmap"/>""",
         1,
     )
+# 병원·약국 검색에서 가까운 곳을 먼저 보여주기 위한 대략적 위치 (정밀 위치는 쓰지 않음)
+if "ACCESS_COARSE_LOCATION" not in m:
+    m = re.sub(
+        r"(<manifest[^>]*>)",
+        r'\1\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>',
+        m,
+        count=1,
+    )
 m = re.sub(r'android:label="[^"]*"', f'android:label="{APP_LABEL}"', m, count=1)
 manifest.write_text(m, encoding="utf-8")
 
