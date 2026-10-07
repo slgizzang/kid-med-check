@@ -497,6 +497,31 @@ void main() {
     // 이름이 정확히 같은 곳이 없으면 판정하지 않는다
     expect(Silson24.pick([h('1층온누리약국', '', true)], '온누리약국', '').state, SilsonState.unknown);
 
+    // 코드가 같으면 이름이 달라도 그곳 (미연계 기관은 실손24도 심평원 코드를 씀)
+    expect(
+        Silson24.pick([
+          {'insttNm': '써니이비인후과의원', 'rnAddr': '경기도 하남시', 'serviceEnabled': false, 'hospitalCd': 'JDU4abc'},
+          {'insttNm': '써니이비인후과의원', 'rnAddr': '서울', 'serviceEnabled': true, 'hospitalCd': '1234'},
+        ], '써니이비인후과', '', code: 'JDU4abc').state,
+        SilsonState.notEnabled);
+    // 도로명 주소가 같으면 이름 표기가 달라도 그곳 (심평원: 법인 이름, 실손24: 병원 이름)
+    final asan = Silson24.pick([
+      {'insttNm': '서울아산병원', 'rnAddr': '서울특별시 송파구 올림픽로43길 88 (풍납동)', 'serviceEnabled': true},
+    ], '재단법인아산사회복지재단 서울아산병원', '서울특별시 송파구 올림픽로43길 88, 서울아산병원 (풍납동)');
+    expect(asan.state, SilsonState.enabled);
+    expect(Silson24.addrKey('서울특별시 강동구 성안로 150, (길동)'), '서울특별시강동구성안로150');
+    // 종별만 다른 이름 (써니이비인후과 ↔ 써니이비인후과의원)
+    expect(Silson24.pick([h('써니이비인후과의원', '하남', false)], '써니이비인후과', '').state,
+        SilsonState.notEnabled);
+    // 같은 이름 여럿: 기준점에서 확실히 가까운 곳
+    final near = Silson24.pick([
+      {'insttNm': '온누리약국', 'rnAddr': 'a', 'serviceEnabled': true, 'lat': 37.50, 'lng': 127.03},
+      {'insttNm': '온누리약국', 'rnAddr': 'b', 'serviceEnabled': false, 'lat': 35.10, 'lng': 129.03},
+    ], '온누리약국', '', near: (37.501, 127.031));
+    expect(near.state, SilsonState.enabled);
+    expect(Silson24.pick([h('온누리약국', '', true), h('온누리약국', '', false)], '온누리약국', '').miss,
+        SilsonMiss.ambiguous);
+
     // 요청: 법인 이름을 떼고, 병원/약국 구분을 보낸다
     final client = MockClient((req) async {
       final body = jsonDecode(req.body) as Map;

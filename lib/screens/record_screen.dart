@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import '../logic/drug_name_extractor.dart';
 import '../logic/models.dart';
 import '../logic/silson24.dart';
+import '../logic/dur_api.dart';
+import '../logic/location.dart';
 import '../logic/reaction.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
@@ -66,10 +68,7 @@ class _RecordScreenState extends State<RecordScreen> {
   void initState() {
     super.initState();
     _loadNotes();
-    if (kShowSilson24 && !_r.otc) {
-      _checkSilson(pharmacy: false);
-      _checkSilson(pharmacy: true);
-    }
+    if (kShowSilson24 && !_r.otc) _checkBoth();
     if (widget.focusClaim) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final c = _claimKey.currentContext;
@@ -289,19 +288,69 @@ class _RecordScreenState extends State<RecordScreen> {
       if (pharmacy) {
         _r.pharmacy = hit.name.trim();
         _r.pharmacyAddr = hit.addr;
+        _r.pharmacyCode = hit.code;
       } else {
         _r.hospital = hit.name.trim();
         _r.hospitalAddr = hit.addr;
+        _r.hospitalCode = hit.code;
+        _hospPos = hit.lat != null && hit.lng != null ? (hit.lat!, hit.lng!) : null;
       }
     });
     _save();
-    _checkSilson(pharmacy: pharmacy);
+    if (pharmacy) {
+      _checkSilson(pharmacy: true);
+    } else {
+      _checkBoth();
+    }
     return true;
   }
 
   /// 실손24 연계 여부 (false = 병원, true = 약국). null이면 아직 확인 안 함.
   final Map<bool, SilsonCheck?> _silson = {false: null, true: null};
   final Set<bool> _silsonLoading = {};
+
+  /// 병원 위치 (같은 이름 약국 중 병원 근처를 고를 때 씀)
+  (double, double)? _hospPos;
+
+  /// 병원 → 약국 순서로 확인 (약국은 병원 근처를 기준으로 고르므로)
+  Future<void> _checkBoth() async {
+    await _checkSilson(pharmacy: false);
+    await _checkSilson(pharmacy: true);
+  }
+
+  /// 심평원 병원·약국 정보로 코드·주소·위치를 채운다 (심평원 파일에서 불러온 기록은 이름만 있음).
+  /// 같은 이름이 여럿이면 기준점에서 확실히 가장 가까운 곳만 고른다.
+  Future<void> _resolvePlace({required bool pharmacy, (double, double)? near}) async {
+    final name = pharmacy ? _r.pharmacy : _place;
+    if (name.length < 2) return;
+    try {
+      final hits = await DurApi(await AppStorage.apiKey())
+          .searchPlaces(name, pharmacy: pharmacy, lat: near?.$1, lon: near?.$2);
+      String n(String x) => x.replaceAll(RegExp(r'\s'), '');
+      final same = hits.where((h) => n(h.name) == n(name)).toList();
+      PlaceHit? pick;
+      if (same.length == 1) {
+        pick = same.first;
+      } else if (same.length > 1 && near != null) {
+        same.sort((a, b) => (a.meters ?? 1e12).compareTo(b.meters ?? 1e12));
+        final d0 = same[0].meters, d1 = same[1].meters;
+        if (d0 != null && d0 < 5000 && (d1 == null || d1 >= d0 * 2)) pick = same.first;
+      }
+      if (pick == null || !mounted) return;
+      final hit = pick;
+      setState(() {
+        if (pharmacy) {
+          if (_r.pharmacyAddr.isEmpty) _r.pharmacyAddr = hit.addr;
+          _r.pharmacyCode = hit.code;
+        } else {
+          if (_r.hospitalAddr.isEmpty) _r.hospitalAddr = hit.addr;
+          _r.hospitalCode = hit.code;
+          if (hit.lat != null && hit.lng != null) _hospPos = (hit.lat!, hit.lng!);
+        }
+      });
+      _save();
+    } catch (_) {}
+  }
 
   /// 병원·약국이 실손24로 서류 없이 청구 가능한지 확인 (이름이 있을 때만)
   Future<void> _checkSilson({required bool pharmacy}) async {
@@ -311,13 +360,30 @@ class _RecordScreenState extends State<RecordScreen> {
       return;
     }
     setState(() => _silsonLoading.add(pharmacy));
-    final c = await Silson24()
-        .check(name, pharmacy: pharmacy, addr: pharmacy ? _r.pharmacyAddr : _r.hospitalAddr);
+    // 약국은 병원 근처, 병원은 (권한이 이미 있으면) 내 위치를 기준점으로
+    final near = pharmacy ? (_hospPos ?? await roughPosition(ask: false)) : await roughPosition(ask: false);
+    if ((pharmacy ? _r.pharmacyCode : _r.hospitalCode).isEmpty) {
+      await _resolvePlace(pharmacy: pharmacy, near: near);
+    }
+    final c = await Silson24().check(name,
+        pharmacy: pharmacy,
+        addr: pharmacy ? _r.pharmacyAddr : _r.hospitalAddr,
+        code: pharmacy ? _r.pharmacyCode : _r.hospitalCode,
+        near: pharmacy ? (_hospPos ?? near) : near);
     if (!mounted) return;
     setState(() {
       _silsonLoading.remove(pharmacy);
       _silson[pharmacy] = c;
+      if (!pharmacy && _hospPos == null && c.lat != null && c.lng != null) {
+        _hospPos = (c.lat!, c.lng!);
+      }
+      // 실손24에서 확실히 찾았는데 주소가 비어 있으면 채워 둔다
+      if (c.addr.isNotEmpty) {
+        if (pharmacy && _r.pharmacyAddr.isEmpty) _r.pharmacyAddr = c.addr;
+        if (!pharmacy && _r.hospitalAddr.isEmpty) _r.hospitalAddr = c.addr;
+      }
     });
+    _save();
   }
 
   /// 실손24로 청구: 기관 이름이 없으면 먼저 고르고, 실손24를 연다.
@@ -897,8 +963,16 @@ class _SilsonBadge extends StatelessWidget {
                 AppColors.primaryDark, Icons.check_circle),
             SilsonState.notEnabled => ('실손24 미연계', const Color(0xFFF1F3F5),
                 const Color(0xFF6B7684), Icons.remove_circle_outline),
-            _ => ('실손24 연계 여부 확인 못 함', const Color(0xFFF1F3F5),
-                const Color(0xFF6B7684), Icons.help_outline),
+            _ => (
+                switch (silson?.miss) {
+                  SilsonMiss.noResponse => '실손24 응답 없음 · 잠시 후 다시 확인',
+                  SilsonMiss.notFound => '실손24에서 찾지 못함 · 실손24에서 직접 확인',
+                  SilsonMiss.ambiguous => '같은 이름이 여러 곳 · 실손24에서 직접 확인',
+                  _ => '실손24 연계 여부 확인 중',
+                },
+                const Color(0xFFF1F3F5),
+                const Color(0xFF6B7684),
+                Icons.help_outline),
           };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

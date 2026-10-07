@@ -639,7 +639,19 @@ String shortText(String t, {int max = 120}) {
 /// 병원·약국 검색 결과 한 곳
 class PlaceHit {
   const PlaceHit(
-      {required this.name, this.addr = '', this.kind = '', this.tel = '', this.meters});
+      {required this.name,
+      this.addr = '',
+      this.kind = '',
+      this.tel = '',
+      this.meters,
+      this.code = '',
+      this.lat,
+      this.lng});
+
+  /// 심평원 암호화 요양기관기호 (실손24도 미연계 기관에 같은 값을 씀)
+  final String code;
+  final double? lat;
+  final double? lng;
 
   final String name;
   final String addr;
@@ -667,7 +679,14 @@ class PlaceHit {
       meters = distanceMeters(fromLat, fromLon, y, x);
     }
     return PlaceHit(
-        name: s('yadmNm'), addr: s('addr'), kind: s('clCdNm'), tel: s('telno'), meters: meters);
+        name: s('yadmNm'),
+        addr: s('addr'),
+        kind: s('clCdNm'),
+        tel: s('telno'),
+        meters: meters,
+        code: s('ykiho'),
+        lat: y,
+        lng: x);
   }
 }
 

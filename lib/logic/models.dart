@@ -75,6 +75,8 @@ class MedRecord {
     this.hospitalAddr = '',
     this.pharmacy = '',
     this.pharmacyAddr = '',
+    this.hospitalCode = '',
+    this.pharmacyCode = '',
     this.claimedPharm = false,
     List<RecordPhoto>? photos,
   })  : drugs = drugs ?? [],
@@ -101,6 +103,10 @@ class MedRecord {
   /// 약을 지은 약국 이름·주소
   String pharmacy;
   String pharmacyAddr;
+
+  /// 심평원 요양기관 코드(암호화 ykiho). 실손24 기관과 정확히 맞출 때 쓴다.
+  String hospitalCode;
+  String pharmacyCode;
 
   /// 병원비·약값 청구를 모두 마쳤는지 (약국을 모르면 병원비만 본다)
   bool get fullyClaimed => claimed && (claimedPharm || pharmacy.isEmpty);
@@ -137,6 +143,8 @@ class MedRecord {
         if (hospitalAddr.isNotEmpty) 'hospitalAddr': hospitalAddr,
         if (pharmacy.isNotEmpty) 'pharmacy': pharmacy,
         if (pharmacyAddr.isNotEmpty) 'pharmacyAddr': pharmacyAddr,
+        if (hospitalCode.isNotEmpty) 'hospitalCode': hospitalCode,
+        if (pharmacyCode.isNotEmpty) 'pharmacyCode': pharmacyCode,
         if (claimedPharm) 'claimedPharm': true,
         if (photos.isNotEmpty) 'photos': photos.map((p) => p.toJson()).toList(),
       };
@@ -157,6 +165,8 @@ class MedRecord {
         hospitalAddr: '${j['hospitalAddr'] ?? ''}',
         pharmacy: '${j['pharmacy'] ?? ''}',
         pharmacyAddr: '${j['pharmacyAddr'] ?? ''}',
+        hospitalCode: '${j['hospitalCode'] ?? ''}',
+        pharmacyCode: '${j['pharmacyCode'] ?? ''}',
         claimedPharm: j['claimedPharm'] == true,
         photos: (j['photos'] as List? ?? const [])
             .map((e) => RecordPhoto.fromJson(Map<String, dynamic>.from(e as Map)))

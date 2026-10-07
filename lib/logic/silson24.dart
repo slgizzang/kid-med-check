@@ -46,27 +46,32 @@ class Silson24 {
 
   /// [name] 기관이 실손24로 서류 없이 청구 가능한지. [addr]를 알면 같은 이름이 여럿일 때 가려낸다.
   /// [near]: 주소를 모를 때 같은 이름 중 가까운 곳을 고를 기준점 (병원 위치 또는 내 위치).
+  /// [code]: 심평원 요양기관 코드(있으면 가장 정확). [addr]: 도로명 주소(코드 다음으로 정확).
   Future<SilsonCheck> check(String name,
-      {required bool pharmacy, String addr = '', (double, double)? near}) async {
+      {required bool pharmacy, String addr = '', String code = '', (double, double)? near}) async {
     final q = searchablePlaceName(name);
     if (q.length < 2) return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.notFound);
     final nearKey = near == null || addr.isNotEmpty
         ? ''
         : '${near.$1.toStringAsFixed(2)},${near.$2.toStringAsFixed(2)}';
-    final key = '${pharmacy ? 'p' : 'h'}|${_n(q)}|${_n(addr)}|$nearKey';
+    final key = '${pharmacy ? 'p' : 'h'}|${_n(q)}|${_n(addr)}|$code|$nearKey';
     if (_useCache) {
       final m = _mem[key];
       if (m != null) return m;
       final d = await _read(key);
       if (d != null) return _mem[key] = d;
     }
-    final List<Map<String, dynamic>> items;
+    SilsonCheck r;
     try {
-      items = await _search(q, pharmacy: pharmacy);
+      // 1차: 정리한 이름으로, 못 찾으면 2차: 종별(의원·약국 등)을 뗀 이름으로 (실손24는 부분 검색)
+      r = pick(await _search(q, pharmacy: pharmacy), q, addr, code: code, near: near);
+      final b = _base(q);
+      if (r.miss == SilsonMiss.notFound && b.length >= 2 && b != _n(q)) {
+        r = pick(await _search(b, pharmacy: pharmacy), q, addr, code: code, near: near);
+      }
     } catch (_) {
       return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.noResponse);
     }
-    final r = pick(items, q, addr, near: near);
     if (_useCache && r.state != SilsonState.unknown) {
       _mem[key] = r;
       await _write(key, r);
@@ -116,9 +121,43 @@ class Silson24 {
   /// 1) 이름: 정확히 같은 곳 → 없으면 종별(의원·약국 등)만 다른 곳 → 없으면 이름이 포함된 곳
   /// 2) 여럿이면: 주소가 겹치는 곳 → 기준점([near])에서 확실히 가장 가까운 곳
   /// 3) 그래도 여럿이면 모두 같은 상태일 때만 판정
+  /// 도로명 주소 비교용 열쇠: "서울특별시 송파구 올림픽로43길 88, 서울아산병원 (풍납동)" → "서울특별시송파구올림픽로43길88"
+  static String addrKey(String a) => a
+      .replaceAll(RegExp(r'\([^)]*\)'), '')
+      .split(',')
+      .first
+      .replaceAll(RegExp(r'\s'), '')
+      .trim();
+
   static SilsonCheck pick(List<Map<String, dynamic>> items, String query, String addr,
-      {(double, double)? near}) {
+      {String code = '', (double, double)? near}) {
     String nm(Map<String, dynamic> e) => '${e['insttNm'] ?? ''}';
+    SilsonCheck of(Map<String, dynamic> e) => SilsonCheck(
+          e['serviceEnabled'] == true ? SilsonState.enabled : SilsonState.notEnabled,
+          name: nm(e),
+          addr: '${e['rnAddr'] ?? ''}',
+          lat: _num(e['lat']),
+          lng: _num(e['lng']),
+        );
+    // 0) 코드가 같으면 확실히 같은 곳 (미연계 기관은 실손24도 심평원 코드를 씀)
+    if (code.isNotEmpty) {
+      for (final e in items) {
+        if ('${e['hospitalCd'] ?? ''}' == code) return of(e);
+      }
+    }
+    // 0-2) 도로명 주소가 같으면 같은 곳 (이름 표기가 달라도 됨)
+    final ak = addrKey(addr);
+    if (ak.length >= 8) {
+      final same = items.where((e) => addrKey('${e['rnAddr'] ?? ''}') == ak).toList();
+      // 같은 건물에 병원이 여럿일 수 있으니 이름도 비슷한 곳을 먼저
+      final qb = _base(query);
+      final named = same.where((e) {
+        final b = _base(nm(e));
+        return b.contains(qb) || qb.contains(b);
+      }).toList();
+      if (named.length == 1) return of(named.first);
+      if (same.length == 1) return of(same.first);
+    }
     final qn = _n(query), qb = _base(query);
     var cands = items.where((e) => _n(nm(e)) == qn).toList();
     if (cands.isEmpty && qb.length >= 2) {
