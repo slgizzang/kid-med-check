@@ -34,7 +34,7 @@ const kAppName = '아이필';
 
 /// 실손24 청구 안내 (네이버 지도·토스 연계가 열리면 true로 다시 켠다).
 /// 관련 화면: 복용 기록의 '실손24로 청구하기' 버튼·청구 완료 체크, 리포트의 '실손보험 청구 확인'.
-const kShowSilson24 = false;
+const kShowSilson24 = true;
 
 /// 영문 슬로건 (아이필 = I pill)
 const kAppSlogan = 'I pill safe';

@@ -456,6 +456,12 @@ void main() {
     expect(back.title, '9월 30일 처방');
     expect(back.drugs, ['세토펜현탁액', '코푸시럽']);
     expect(MedRecord.defaultTitle(DateTime(2026, 9, 30)), '9월 30일 처방');
+    expect(back.hospital, '');
+    r.hospital = '써니이비인후과의원';
+    r.claimed = true;
+    final back2 = MedRecord.fromJson(r.toJson());
+    expect(back2.hospital, '써니이비인후과의원');
+    expect(back2.claimed, isTrue);
   });
 
   test('만 나이 개월 계산', () {

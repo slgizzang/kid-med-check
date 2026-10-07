@@ -52,6 +52,14 @@ if "CustomTabsService" not in m:
         </intent>""",
         1,
     )
+# 실손보험 청구: 네이버 지도 앱(nmap://)을 열 수 있게
+if "com.nhn.android.nmap" not in m:
+    m = m.replace(
+        "<queries>",
+        """<queries>
+        <package android:name="com.nhn.android.nmap"/>""",
+        1,
+    )
 m = re.sub(r'android:label="[^"]*"', f'android:label="{APP_LABEL}"', m, count=1)
 manifest.write_text(m, encoding="utf-8")
 

@@ -191,7 +191,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                 style: const TextStyle(color: AppColors.sub)),
                           const SizedBox(height: 8),
                           const KText(
-                            '각 복용 기록에서 "실손24로 실손보험 청구하기"를 누르고, 청구한 뒤에는 청구 완료로 표시해 주세요.',
+                            '각 복용 기록에서 "네이버 지도에서 바로 청구하기"를 누르고, 청구한 뒤에는 청구 완료로 표시해 주세요.',
                             style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
                           ),
                         ],

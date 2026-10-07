@@ -71,6 +71,7 @@ class MedRecord {
     this.importKey,
     this.otc = false,
     this.claimed = false,
+    this.hospital = '',
     List<RecordPhoto>? photos,
   })  : drugs = drugs ?? [],
         photos = photos ?? [];
@@ -83,6 +84,9 @@ class MedRecord {
 
   /// 실손보험 청구를 마쳤다고 표시했는지
   bool claimed;
+
+  /// 진료받은 병원 이름 (실손보험 청구 때 네이버 지도에서 찾기용). 모르면 빈 문자열.
+  String hospital;
 
   /// 심평원 투약이력에서 불러온 기록인지
   bool get imported => importKey != null;
@@ -112,6 +116,7 @@ class MedRecord {
         if (importKey != null) 'import': importKey,
         if (otc) 'otc': true,
         if (claimed) 'claimed': true,
+        if (hospital.isNotEmpty) 'hospital': hospital,
         if (photos.isNotEmpty) 'photos': photos.map((p) => p.toJson()).toList(),
       };
 
@@ -127,6 +132,7 @@ class MedRecord {
         importKey: j['import'] as String?,
         otc: j['otc'] == true,
         claimed: j['claimed'] == true,
+        hospital: '${j['hospital'] ?? ''}',
         photos: (j['photos'] as List? ?? const [])
             .map((e) => RecordPhoto.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList(),

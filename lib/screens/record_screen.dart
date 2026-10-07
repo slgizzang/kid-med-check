@@ -251,8 +251,9 @@ class _RecordScreenState extends State<RecordScreen> {
     if (picked != null && picked.isNotEmpty) _addNames(picked);
   }
 
-  /// 기록 제목에서 병원·약국 이름 ("9월 21일 써니이비인후과의원" → "써니이비인후과의원")
+  /// 병원 이름: 직접 입력한 것, 없으면 기록 제목에서 ("9월 21일 써니이비인후과의원" → "써니이비인후과의원")
   String get _place {
+    if (_r.hospital.trim().isNotEmpty) return _r.hospital.trim();
     final t = _r.title
         .replaceFirst(RegExp(r'^\s*\d{1,2}월\s*\d{1,2}일\s*'), '')
         .replaceAll(RegExp(r'^(처방|약국 구입)$'), '')
@@ -260,15 +261,159 @@ class _RecordScreenState extends State<RecordScreen> {
     return RegExp(r'(의원|병원|약국|센터|클리닉|보건소)').hasMatch(t) ? t : '';
   }
 
-  Future<void> _checkOnNaverMap() async {
-    final q = _place.isEmpty ? '실손24' : _place;
-    await launchUrl(Uri.parse('https://map.naver.com/p/search/${Uri.encodeComponent(q)}'),
-        mode: LaunchMode.externalApplication);
+  /// 병원 이름 입력·수정
+  Future<String?> _askHospital() async {
+    final ctl = TextEditingController(text: _place);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const KText('진료받은 병원'),
+        content: TextField(
+          controller: ctl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '예: 써니이비인후과의원'),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const KText('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx, ctl.text), child: const KText('저장')),
+        ],
+      ),
+    );
+    if (name == null) return null;
+    setState(() => _r.hospital = name.trim());
+    _save();
+    return _r.hospital;
+  }
+
+  /// 네이버 지도에서 병원을 연다. 실손24 연계 병원이면 상세 화면의 배너·"청구 바로가기"로
+  /// 네이버 안에서 청구를 끝낼 수 있다 (2026.10.7~). 앱이 없으면 웹 지도로.
+  Future<void> _claimOnNaverMap() async {
+    var q = _place;
+    if (q.isEmpty) {
+      q = await _askHospital() ?? '';
+      if (q.isEmpty) return;
+    }
+    final enc = Uri.encodeComponent(q);
+    var ok = false;
+    try {
+      ok = await launchUrl(
+          Uri.parse('nmap://search?query=$enc&appname=com.kidmedcheck.kid_med_check'),
+          mode: LaunchMode.externalApplication);
+    } catch (_) {}
+    if (!ok) {
+      await launchUrl(Uri.parse('https://map.naver.com/p/search/$enc'),
+          mode: LaunchMode.externalApplication);
+    }
   }
 
   /// 보험개발원 실손24 (참여 병원·약국이면 서류 없이 청구)
   Future<void> _openSilson24() async {
     await launchUrl(Uri.parse('https://www.silson24.or.kr'), mode: LaunchMode.externalApplication);
+  }
+
+  /// 실손보험 청구 카드
+  Widget _claimCard() {
+    final place = _place;
+    const small = TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.receipt_long_outlined, color: AppColors.brand, size: 22),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: KText('실손보험 청구',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.ink)),
+          ),
+          if (_r.claimed)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                  color: AppColors.brandTint, borderRadius: BorderRadius.circular(8)),
+              child: const Text('청구 완료',
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.brand, fontWeight: FontWeight.w700)),
+            ),
+        ]),
+        const SizedBox(height: 10),
+        // 병원 이름 (지도에서 찾을 이름)
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: _askHospital,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+                color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              const Icon(Icons.local_hospital_outlined, size: 18, color: AppColors.sub),
+              const SizedBox(width: 8),
+              Expanded(
+                child: KText(place.isEmpty ? '진료받은 병원 이름 입력' : place,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: place.isEmpty ? AppColors.sub : AppColors.ink,
+                        fontWeight: place.isEmpty ? FontWeight.w500 : FontWeight.w700)),
+              ),
+              KText(place.isEmpty ? '입력' : '변경',
+                  style: const TextStyle(
+                      fontSize: 13, color: AppColors.primaryDark, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: FilledButton.icon(
+            onPressed: _claimOnNaverMap,
+            icon: const Icon(Icons.map_outlined),
+            label: const KText('네이버 지도에서 바로 청구하기',
+                maxLines: 1, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          ),
+        ),
+        const SizedBox(height: 10),
+        const KText(
+          '지도에서 병원 화면을 열고 실손24 배너의 "청구 바로가기"를 누르면 네이버 안에서 청구가 끝나요. '
+          '마이데이터에 동의하면 병원·진료일·보험사·계좌를 따로 입력하지 않아도 돼요.',
+          style: small,
+        ),
+        const SizedBox(height: 4),
+        const KText(
+          '배너가 없으면 아직 실손24에 연계되지 않은 병원이에요. 이때는 서류를 받아 보험사 앱으로 청구해야 해요.',
+          style: small,
+        ),
+        Wrap(spacing: 4, children: [
+          TextButton(
+            onPressed: _openSilson24,
+            child: const KText('실손24 홈페이지', maxLines: 1),
+          ),
+          TextButton(
+            onPressed: () => launchUrl(
+                Uri.parse('https://www.silson24.or.kr/claim/web/serviceHospitalList'),
+                mode: LaunchMode.externalApplication),
+            child: const KText('참여병원 목록', maxLines: 1),
+          ),
+        ]),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: _r.claimed,
+          onChanged: (v) {
+            setState(() => _r.claimed = v ?? false);
+            _save();
+          },
+          title: const KText('이 처방은 청구를 마쳤어요'),
+        ),
+      ]),
+    );
   }
 
   Future<void> _check() async {
@@ -498,50 +643,8 @@ class _RecordScreenState extends State<RecordScreen> {
                 style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
               ),
               const SizedBox(height: 20),
-              // 병원 처방 기록이면 실손24 청구 안내
-              if (kShowSilson24 && !_r.otc) ...[
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-                  onPressed: _openSilson24,
-                  icon: const Icon(Icons.receipt_long_outlined, size: 20),
-                  label: const KText('실손24로 실손보험 청구하기'),
-                ),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  value: _r.claimed,
-                  onChanged: (v) {
-                    setState(() => _r.claimed = v ?? false);
-                    _save();
-                  },
-                  title: const KText('이 처방은 실손보험 청구를 마쳤어요'),
-                ),
-                const KText(
-                  '실손24에 참여한 병원·약국이면 별도 서류 없이 바로 청구할 수 있어요.',
-                  style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
-                ),
-                // 네이버 지도는 실손24 참여 병원·약국에 배너·필터를 표시한다 (2026.10.7~)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _checkOnNaverMap,
-                    icon: const Icon(Icons.map_outlined, size: 18),
-                    label: KText(_place.isEmpty
-                        ? '네이버 지도에서 실손24 참여 기관 찾기'
-                        : '네이버 지도에서 $_place 실손24 참여 확인'),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => launchUrl(
-                        Uri.parse('https://www.silson24.or.kr/claim/web/serviceHospitalList'),
-                        mode: LaunchMode.externalApplication),
-                    icon: const Icon(Icons.search, size: 18),
-                    label: const KText('실손24 참여병원 목록에서 찾기'),
-                  ),
-                ),
-              ],
+              // 병원 처방 기록이면 실손보험 청구: 네이버 지도의 실손24 연계로 바로 청구
+              if (kShowSilson24 && !_r.otc) _claimCard(),
             ],
           ),
           if (_busy)
