@@ -89,10 +89,13 @@ String recallKey(String name) => name
 
 /// 복용 기록의 약 중 회수된 것
 class RecallHit {
-  RecallHit(this.record, this.drug, this.recall);
+  RecallHit(this.record, this.drug, this.recall, {this.injected = false});
   final MedRecord record;
   final String drug;
   final Recall recall;
+
+  /// 주사제 — 병원에서 이미 맞은 약이라 집에 남은 약이 없다 (조용한 안내만)
+  final bool injected;
 }
 
 /// 기록과 회수 목록 대조. 이름이 정확히 같은 제품만, 회수일이 처방·구입일 이후(같은 날 포함)인 것만.
@@ -106,13 +109,13 @@ List<RecallHit> matchRecalls(List<MedRecord> records, List<Recall> recalls) {
   final out = <RecallHit>[];
   for (final rec in records) {
     for (final d in rec.drugs) {
-      // 주사제는 병원에서 이미 맞은 약이라 집에 남은 약이 없다 → 알리지 않음
-      if (isInjection(d)) continue;
+      // 주사제는 병원에서 이미 맞은 약이라 반납할 약이 없다 → 조용한 안내로 따로 표시
+      final injected = isInjection(d);
       for (final r in byKey[recallKey(d)] ?? const <Recall>[]) {
         final when = r.date;
         final day = DateTime(rec.createdAt.year, rec.createdAt.month, rec.createdAt.day);
         if (when == null || when.isBefore(day)) continue;
-        out.add(RecallHit(rec, d, r));
+        out.add(RecallHit(rec, d, r, injected: injected));
       }
     }
   }
@@ -205,3 +208,9 @@ bool isInjection(String name) {
   final n = name.replaceAll(RegExp(r'\s'), '').replaceFirst(RegExp(r'[(\[（].*$'), '');
   return RegExp(r'(주사|앰플|앰풀|바이알|주$|주\d)').hasMatch(n);
 }
+
+/// 이미 맞은 주사가 회수됐을 때 안내
+String injectedRecallAdvice(Recall r) =>
+    '병원에서 이미 맞은 주사라 따로 반납하거나 할 일은 없어요'
+    '${r.reason.isEmpty ? '' : ' (회수 사유: ${r.reason})'}. '
+    '맞은 뒤 평소와 다른 증상이 있었다면 진료받은 병원에 알려주세요.';

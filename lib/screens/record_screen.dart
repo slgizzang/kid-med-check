@@ -585,12 +585,15 @@ class _RecordScreenState extends State<RecordScreen> {
 
   /// 안전성 서한 표시와 반응 기록 줄
   Widget? _drugSub(String name) {
-    final recalled = _recallHits.any((h) => h.drug == name);
-    if (recalled) {
+    final hit = _recallHits.where((h) => h.drug == name).firstOrNull;
+    if (hit != null) {
       final note = _noteLine(name);
-      const r = KText('회수된 약 · 위 안내를 확인하세요',
+      final r = KText(hit.injected ? '회수된 주사 · 위 안내 참고' : '회수된 약 · 위 안내를 확인하세요',
           maxLines: 1,
-          style: TextStyle(fontSize: 12, color: Color(0xFFB71C1C), fontWeight: FontWeight.w800));
+          style: TextStyle(
+              fontSize: 12,
+              color: hit.injected ? const Color(0xFF334155) : const Color(0xFFB71C1C),
+              fontWeight: FontWeight.w800));
       return note == null
           ? r
           : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [r, note]);

@@ -1207,7 +1207,7 @@ void main() {
     expect(hits.length, 2);
     expect(recallKey('타이레놀정500밀리그람'), recallKey('타이레놀정 500밀리그램'));
     expect(recallAdvice(r1), contains('먹거나 바르지 말고'));
-    // 주사제는 이미 맞은 약이라 알리지 않음
+    // 주사제는 이미 맞은 약이라 조용한 안내로 따로
     expect(isInjection('세프트리악손주1그램'), isTrue);
     expect(isInjection('오메프라졸주'), isTrue);
     expect(isInjection('엔에스주사액'), isTrue);
@@ -1217,7 +1217,9 @@ void main() {
     final inj = MedRecord(id: 'b', childId: 'c', title: '7월 1일 처방', createdAt: DateTime(2026, 7, 1))
       ..drugs.add('세프트리악손주1그램');
     final injRecall = Recall.fromApi({'PRDUCT': '세프트리악손주1그램', 'RECALL_COMMAND_DATE': '20260801'})!;
-    expect(matchRecalls([inj], [injRecall]), isEmpty);
+    final injHits = matchRecalls([inj], [injRecall]);
+    expect(injHits.single.injected, isTrue);
+    expect(injectedRecallAdvice(injRecall), contains('이미 맞은 주사'));
     expect(recallRecordLabel(rec), '2026년 6월 3일 처방');
   });
 }
