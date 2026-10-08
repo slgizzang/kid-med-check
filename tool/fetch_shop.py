@@ -130,11 +130,81 @@ if nid and nsec:
 if not (ak and sk):
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     sys.exit(0)
-# 가장 오래전에 갱신한 검색어부터
-order = sorted(keywords, key=lambda k: data["updated"].get(k, ""))
-now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+# ── 쿠팡: 호출 수가 적으므로 한 번에 PER_RUN 번만 쓴다 ──
+# 1순위: 네이버 인기 상품 하나하나를 쿠팡에서 같은 제품으로 찾아 최저가·파트너스 링크 (48시간마다 다시)
+# 2순위: 검색어별 쿠팡 목록 (24시간마다 다시)
+data.setdefault("coupangMatch", {})
+now_dt = datetime.datetime.now(datetime.timezone.utc)
+now = now_dt.isoformat(timespec="seconds")
+
+
+def older(ts: str, hours: int) -> bool:
+    if not ts:
+        return True
+    try:
+        return now_dt - datetime.datetime.fromisoformat(ts) > datetime.timedelta(hours=hours)
+    except ValueError:
+        return True
+
+
+def tokens(name: str):
+    t = re.sub(r"[^0-9a-zA-Z가-힣]+", " ", name.lower()).split()
+    return {w for w in t if len(w) >= 2}
+
+
+def best_match(naver_name: str, cands):
+    """이름 낱말이 절반 이상 겹치는 쿠팡 상품 중 가장 싼 것 (없으면 None)."""
+    nt = tokens(naver_name)
+    if not nt:
+        return None
+    ok = []
+    for c in cands:
+        ct = tokens(c["name"])
+        overlap = len(nt & ct) / len(nt)
+        if overlap >= 0.5:
+            ok.append(c)
+    return min(ok, key=lambda c: c["price"]) if ok else None
+
+
+budget = PER_RUN
 done = 0
-for kw in order[:PER_RUN]:
+# 1) 네이버 상품 → 쿠팡 같은 제품
+wanted = []
+for kw in keywords:
+    for it in (data["naver"].get(kw) or [])[:5]:
+        m = data["coupangMatch"].get(it["url"])
+        if m is None or older(m.get("t", ""), 48):
+            wanted.append((m.get("t", "") if m else "", it))
+wanted.sort(key=lambda x: x[0])
+for _, it in wanted:
+    if budget <= 0:
+        break
+    budget -= 1
+    q = it["name"][:50]
+    try:
+        hit = best_match(it["name"], search(q, limit=10))
+        data["coupangMatch"][it["url"]] = (
+            {"price": hit["price"], "url": hit["url"], "name": hit["name"], "rocket": hit["rocket"], "t": now}
+            if hit else {"t": now}
+        )
+        done += 1
+        print(f"[쿠팡 같은 제품] {q[:30]} -> {hit['price'] if hit else '없음'}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[쿠팡 같은 제품] {q[:30]}: 실패 {type(e).__name__} {str(e)[:120]}")
+# 네이버 목록에서 빠진 상품의 짝은 정리
+alive = {it["url"] for kw in keywords for it in (data["naver"].get(kw) or [])}
+for u in list(data["coupangMatch"]):
+    if u not in alive:
+        data["coupangMatch"].pop(u, None)
+
+# 2) 검색어별 쿠팡 목록 (가장 오래된 것부터)
+order = sorted(keywords, key=lambda k: data["updated"].get(k, ""))
+for kw in order:
+    if budget <= 0:
+        break
+    if not older(data["updated"].get(kw, ""), 24):
+        continue
+    budget -= 1
     try:
         data["items"][kw] = search(kw)
         data["updated"][kw] = now

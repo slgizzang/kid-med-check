@@ -726,6 +726,20 @@ void main() {
     expect(m.coupang['유산균']!.single.name, 'A');
     expect(m.coupang['유산균']!.single.rocket, isTrue);
     expect(m.naver['유산균']!.single.brand, '브랜드');
+    // 같은 쿠팡 제품을 찾았으면 그 링크로, 아니면 그 제품 이름으로 쿠팡 낮은 가격순 검색
+    final withMatch = Shop.parse(jsonEncode({
+      'naver': {'유산균': [
+        {'name': '키즈 유산균 30포', 'price': 12000, 'url': 'https://n/1'},
+        {'name': '다른 유산균', 'price': 9000, 'url': 'https://n/2'},
+      ]},
+      'coupangMatch': {'https://n/1': {'price': 11500, 'url': 'https://link.coupang.com/x', 'rocket': true, 't': ''},
+                       'https://n/2': {'t': ''}},
+    }));
+    final n1 = withMatch.naver['유산균']![0], n2 = withMatch.naver['유산균']![1];
+    expect(withMatch.buyUrl(n1), 'https://link.coupang.com/x');
+    expect(withMatch.match[n1.url]!.price, 11500);
+    expect(withMatch.buyUrl(n2), contains('sorter=salePriceAsc'));
+    expect(withMatch.buyUrl(n2), contains(Uri.encodeQueryComponent('다른 유산균')));
   });
 
   test('처방 기록 저장 형식', () {

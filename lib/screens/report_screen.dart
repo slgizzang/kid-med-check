@@ -899,7 +899,8 @@ void _showShop(BuildContext context, CareTip t, bool child) {
                           fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.ink)),
                   if ((data.naver[k] ?? const []).isNotEmpty) ...[
                     head('네이버 가격비교 인기 상품', '전체 쇼핑몰 최저가'),
-                    for (final it in data.naver[k]!.take(5)) _ShopRow(it, lowest: true),
+                    for (final it in data.naver[k]!.take(5))
+                      _ShopRow(it, lowest: true, buyUrl: data.buyUrl(it), coupang: data.match[it.url]),
                   ],
                   if ((data.coupang[k] ?? const []).isNotEmpty) ...[
                     head('쿠팡', '낮은 가격순'),
@@ -933,16 +934,22 @@ void _showShop(BuildContext context, CareTip t, bool child) {
 }
 
 class _ShopRow extends StatelessWidget {
-  const _ShopRow(this.it, {this.lowest = false});
+  const _ShopRow(this.it, {this.lowest = false, this.buyUrl, this.coupang});
   final ShopItem it;
 
   /// 가격비교 최저가 (여러 쇼핑몰 중)
   final bool lowest;
 
+  /// 누르면 갈 곳 (네이버 상품이면 같은 쿠팡 제품). 없으면 상품 자체 주소
+  final String? buyUrl;
+
+  /// 같은 쿠팡 제품 (찾았으면)
+  final CoupangMatch? coupang;
+
   @override
   Widget build(BuildContext context) => InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => launchUrl(Uri.parse(it.url), mode: LaunchMode.externalApplication),
+        onTap: () => launchUrl(Uri.parse(buyUrl ?? it.url), mode: LaunchMode.externalApplication),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(children: [
@@ -994,6 +1001,27 @@ class _ShopRow extends StatelessWidget {
                     ),
                   ],
                 ]),
+                if (lowest) ...[
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Text(
+                        coupang != null
+                            ? '쿠팡 ${formatPrice(coupang!.price)}${coupang!.rocket ? ' · 로켓배송' : ''}'
+                            : '쿠팡 최저가로 찾기',
+                        style: const TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF2F5FBF))),
+                    const Icon(Icons.chevron_right, size: 16, color: Color(0xFF2F5FBF)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => launchUrl(Uri.parse(it.url), mode: LaunchMode.externalApplication),
+                      child: const Text('네이버 최저가 보기',
+                          style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.sub,
+                              decoration: TextDecoration.underline)),
+                    ),
+                  ]),
+                ],
               ]),
             ),
           ]),

@@ -58,9 +58,17 @@ List<String> shopKeywordsFor(String tipTitle, {required bool child}) {
   return const [];
 }
 
-/// 파트너스 목록이 아직 없을 때 쓰는 쿠팡 검색 주소 (수수료 없음)
-String shopSearchUrl(String keyword) =>
-    'https://www.coupang.com/np/search?q=${Uri.encodeQueryComponent(keyword)}';
+/// 쿠팡에서 같은 제품을 아직 못 찾았을 때: 그 제품 이름으로 쿠팡 검색, 낮은 가격순 (수수료 없음)
+String shopSearchUrl(String query) =>
+    'https://www.coupang.com/np/search?q=${Uri.encodeQueryComponent(query)}&sorter=salePriceAsc';
+
+/// 네이버 가격비교 상품과 같은 쿠팡 제품 (최저가, 파트너스 링크)
+class CoupangMatch {
+  const CoupangMatch({required this.price, required this.url, this.rocket = false});
+  final int price;
+  final String url;
+  final bool rocket;
+}
 
 String formatPrice(int won) {
   final s = won.toString();
@@ -74,9 +82,15 @@ String formatPrice(int won) {
 
 /// 검색어별 상품: 네이버 가격비교(인기순, 전체 쇼핑몰 최저가) + 쿠팡 파트너스(낮은 가격순)
 class ShopData {
-  const ShopData({this.naver = const {}, this.coupang = const {}});
+  const ShopData({this.naver = const {}, this.coupang = const {}, this.match = const {}});
   final Map<String, List<ShopItem>> naver;
   final Map<String, List<ShopItem>> coupang;
+
+  /// 네이버 상품 주소 → 같은 쿠팡 제품
+  final Map<String, CoupangMatch> match;
+
+  /// 이 상품을 사러 갈 곳: 같은 쿠팡 제품(파트너스) → 없으면 쿠팡에서 이름으로 낮은 가격순
+  String buyUrl(ShopItem it) => match[it.url]?.url ?? shopSearchUrl(it.name);
 }
 
 class Shop {
@@ -97,7 +111,18 @@ class Shop {
   static ShopData parse(String body) {
     final d = jsonDecode(body);
     if (d is! Map) return const ShopData();
-    return ShopData(naver: _group(d['naver']), coupang: _group(d['items']));
+    final m = <String, CoupangMatch>{};
+    final cm = d['coupangMatch'];
+    if (cm is Map) {
+      for (final e in cm.entries) {
+        final v = e.value;
+        if (v is Map && '${v['url'] ?? ''}'.isNotEmpty && (v['price'] as num? ?? 0) > 0) {
+          m['${e.key}'] = CoupangMatch(
+              price: (v['price'] as num).toInt(), url: '${v['url']}', rocket: v['rocket'] == true);
+        }
+      }
+    }
+    return ShopData(naver: _group(d['naver']), coupang: _group(d['items']), match: m);
   }
 
   /// 받지 못하면 빈 목록.
