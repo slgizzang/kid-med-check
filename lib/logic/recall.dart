@@ -106,6 +106,8 @@ List<RecallHit> matchRecalls(List<MedRecord> records, List<Recall> recalls) {
   final out = <RecallHit>[];
   for (final rec in records) {
     for (final d in rec.drugs) {
+      // 주사제는 병원에서 이미 맞은 약이라 집에 남은 약이 없다 → 알리지 않음
+      if (isInjection(d)) continue;
       for (final r in byKey[recallKey(d)] ?? const <Recall>[]) {
         final when = r.date;
         final day = DateTime(rec.createdAt.year, rec.createdAt.month, rec.createdAt.day);
@@ -196,4 +198,10 @@ String recallRecordLabel(MedRecord r) {
   final t = r.title.trim();
   if (RegExp(r'^\d{1,2}월').hasMatch(t)) return '${r.createdAt.year}년 $t';
   return '$t (${recallDateLabel(r.createdAt)})';
+}
+
+/// 주사제(병원에서 맞는 약)인지: "세프트리악손주1g", "오메프라졸주", "엔에스주사액", "○○앰플" 등
+bool isInjection(String name) {
+  final n = name.replaceAll(RegExp(r'\s'), '').replaceFirst(RegExp(r'[(\[（].*$'), '');
+  return RegExp(r'(주사|앰플|앰풀|바이알|주$|주\d)').hasMatch(n);
 }
