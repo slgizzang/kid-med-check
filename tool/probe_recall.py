@@ -1,18 +1,24 @@
 import json, os, urllib.parse, urllib.request, urllib.error
 key = os.environ["DUR_API_KEY"]
-base = "https://apis.data.go.kr/1471000/MdcinRtrvlSleStpgeInfoService04/getMdcinRtrvlSleStpgelList03"
-for extra in [{}, {"pageNo": 2}, {"Prduct": "챔프"}, {"prduct": "챔프"}, {"item_name": "챔프"}]:
+svc = "https://apis.data.go.kr/1471000/MdcinRtrvlSleStpgeInfoService05/"
+ok = None
+for op in ["getMdcinRtrvlSleStpgelList05", "getMdcinRtrvlSleStpgeList05", "getMdcinRtrvlSleStpgelList04",
+           "getMdcinRtrvlSleStpgelList03", "getMdcinRtrvlSleStpgelList", "getMdcinRtrvlSleStpgeList"]:
     q = {"serviceKey": key, "type": "json", "numOfRows": 3, "pageNo": 1}
-    q.update(extra)
     try:
-        raw = urllib.request.urlopen(base + "?" + urllib.parse.urlencode(q), timeout=25).read().decode("utf-8", "replace")
-        try:
-            d = json.loads(raw)
-            b = d.get("body") or {}
-            items = b.get("items") or []
-            print("==", extra, "total", b.get("totalCount"))
-            print(json.dumps(items[:3], ensure_ascii=False, indent=1)[:4000])
-        except Exception:
-            print("==", extra, raw[:1500])
+        raw = urllib.request.urlopen(svc + op + "?" + urllib.parse.urlencode(q), timeout=25).read().decode("utf-8", "replace")
+        print("== OK", op, raw[:4000])
+        ok = op
+        break
     except urllib.error.HTTPError as e:
-        print("==", extra, e.code, e.read()[:300])
+        b = e.read()[:300].decode("utf-8", "replace")
+        print("==", e.code, op, "NO_SERVICE" if "NO_OPENAPI" in b else b[:200])
+if ok:
+    for extra in [{"Prduct": "챔프"}, {"prduct": "챔프"}, {"PRDUCT": "챔프"}]:
+        q = {"serviceKey": key, "type": "json", "numOfRows": 2, "pageNo": 1, **extra}
+        try:
+            raw = urllib.request.urlopen(svc + ok + "?" + urllib.parse.urlencode(q), timeout=25).read().decode("utf-8", "replace")
+            d = json.loads(raw); b = d.get("body") or {}
+            print("== filter", extra, "total", b.get("totalCount"), json.dumps(b.get("items"), ensure_ascii=False)[:600])
+        except Exception as e:
+            print("== filter", extra, e)
