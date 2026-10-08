@@ -1,1 +1,14 @@
-{"items": {}, "updated": {}, "naver": {}, "naverUpdated": "", "source": "naver_shopping+coupang_partners"}
+{
+ "items": {},
+ "updated": {},
+ "naver": {},
+ "naverUpdated": "",
+ "source": "naver_shopping+coupang_partners",
+ "status": {
+  "checked": "2026-10-08T06:16:09+00:00",
+  "naverKey": false,
+  "coupangKey": false,
+  "naverError": "",
+  "coupangError": ""
+ }
+}
