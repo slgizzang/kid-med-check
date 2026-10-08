@@ -1058,7 +1058,7 @@ class _SilsonBadge extends StatelessWidget {
             SilsonState.enabled => docsNeeded
                 ? ('실손24 연계 · 서류 첨부 필요', const Color(0xFFFFF4E8), const Color(0xFF9A3412),
                     Icons.description_outlined)
-                : ('실손24 연계 · 서류 없이 청구', AppColors.primarySoft, AppColors.primaryDark,
+                : ('실손24 연계 · 서류 없이 청구 가능', AppColors.primarySoft, AppColors.primaryDark,
                     Icons.check_circle),
             SilsonState.notEnabled => ('실손24 미연계', const Color(0xFFF1F3F5),
                 const Color(0xFF6B7684), Icons.remove_circle_outline),
