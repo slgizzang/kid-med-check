@@ -29,8 +29,24 @@ ak = os.environ.get("COUPANG_ACCESS_KEY", "").strip()
 sk = os.environ.get("COUPANG_SECRET_KEY", "").strip()
 nid = os.environ.get("NAVER_CLIENT_ID", "").strip()
 nsec = os.environ.get("NAVER_CLIENT_SECRET", "").strip()
+status = {
+    "checked": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+    "naverKey": bool(nid and nsec),
+    "coupangKey": bool(ak and sk),
+    "naverError": "",
+    "coupangError": "",
+}
+
+
+def save_status_only():
+    d = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
+    d["status"] = status
+    OUT.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 if not (ak and sk) and not (nid and nsec):
     print("상품 검색 키가 없어 건너뜀")
+    save_status_only()
     sys.exit(0)
 
 
@@ -120,7 +136,14 @@ if nid and nsec:
                 ok += 1
                 print(f"[네이버] {kw}: {len(data['naver'][kw])}개")
             except Exception as e:  # noqa: BLE001
-                print(f"[네이버] {kw}: 실패 {type(e).__name__} {str(e)[:120]}")
+                msg = f"{type(e).__name__} {str(e)[:120]}"
+                if hasattr(e, "read"):
+                    try:
+                        msg += " " + e.read().decode("utf-8", "replace")[:200]
+                    except Exception:  # noqa: BLE001
+                        pass
+                status["naverError"] = msg
+                print(f"[네이버] {kw}: 실패 {msg}")
         if ok:
             data["naverUpdated"] = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
         for k in list(data["naver"]):
@@ -128,6 +151,7 @@ if nid and nsec:
                 data["naver"].pop(k, None)
 
 if not (ak and sk):
+    data["status"] = status
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     sys.exit(0)
 # ── 쿠팡: 호출 수가 적으므로 한 번에 PER_RUN 번만 쓴다 ──
@@ -218,5 +242,6 @@ for k in list(data["items"]):
         data["items"].pop(k, None)
         data["updated"].pop(k, None)
 data["source"] = "naver_shopping+coupang_partners"
+data["status"] = status
 OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
 print(f"갱신 {done}개")
