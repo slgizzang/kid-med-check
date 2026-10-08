@@ -287,6 +287,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           hits: letterHits(_myRecords),
                           onOpen: (h) => _openRecord(h.record),
                         ),
+                      if (_selected != null && !_selecting) ...[
+                        const SectionTitle('기록 추가'),
+                        _addRow(),
+                        const SizedBox(height: 28),
+                      ],
                       SectionTitle('복용 기록',
                           trailing: _selected == null || _myRecords.isEmpty
                               ? null
@@ -299,6 +304,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       maxLines: 1),
                                 )),
                       ..._recordList(),
+                      if (_selected != null && !_selecting && _myRecords.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        const SectionTitle('모아보기'),
+                        _viewsCard(),
+                      ],
                       const SizedBox(height: 20),
                       _notice(),
                     ]),
@@ -326,20 +336,6 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Icon(Icons.arrow_upward_rounded),
             ),
           ),
-          if (!(_loading || _selected == null || _myRecords.isEmpty || _selecting)) ...[
-            const SizedBox(height: 10),
-            FloatingActionButton.extended(
-              heroTag: 'newRecord',
-              onPressed: _newRecord,
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.onPrimary,
-              elevation: 0,
-              highlightElevation: 0,
-              icon: const Icon(Icons.add),
-              label: KText('새 복용 기록',
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
-            ),
-          ],
         ],
       ),
     );
@@ -487,57 +483,16 @@ class _HomeScreenState extends State<HomeScreen> {
       ];
     }
     final list = _myRecords;
-    // 복용 기록 위의 도구: 리포트·불러오기·반응 모아보기
-    final tools = Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(children: [
-        Expanded(
-          child: _ToolTile(
-            icon: Icons.insights_outlined,
-            label: '복용 리포트',
-            tint: kPastelTeal,
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => ReportScreen(person: _selected!))),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _ToolTile(
-            icon: Icons.history,
-            label: '1년 기록\n불러오기',
-            tint: kPastelSky,
-            onTap: _openImport,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _ToolTile(
-            icon: Icons.edit_note,
-            label: '반응 기록\n모아보기',
-            tint: kPastelLavender,
-            badge: _reactionCount[_selectedId] ?? 0,
-            onTap: () async {
-              await Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => ReactionListScreen(person: _selected!)));
-              await _load();
-            },
-          ),
-        ),
-      ]),
-    );
     if (list.isEmpty) {
       return [
-        tools,
-        _EmptyBox(
-          icon: Icons.add_circle_outline,
-          text: '아직 복용 기록이 없어요. 여기를 눌러 처방약이나 약국에서 산 약을 입력해보세요.',
-          onTap: _newRecord,
+        const _EmptyBox(
+          icon: Icons.inventory_2_outlined,
+          text: '아직 복용 기록이 없어요. 위의 "기록 추가"에서 시작해보세요.',
         ),
       ];
     }
     final allPicked = list.isNotEmpty && list.every((r) => _picked.contains(r.id));
     return [
-      if (!_selecting) tools,
       if (_selecting)
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -578,6 +533,62 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
     ];
   }
+
+  /// 기록을 만드는 두 가지 길: 직접 입력 / 심평원 1년 기록 불러오기
+  Widget _addRow() => IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(
+            child: _ActionCard(
+              icon: Icons.add_rounded,
+              title: '직접 추가',
+              sub: '처방약·약국에서 산 약 입력',
+              filled: true,
+              onTap: _newRecord,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _ActionCard(
+              icon: Icons.download_rounded,
+              title: '1년 기록 불러오기',
+              sub: '심평원 투약이력 파일로 한 번에',
+              onTap: _openImport,
+            ),
+          ),
+        ]),
+      );
+
+  /// 기록을 모아 보는 화면들
+  Widget _viewsCard() => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: Column(children: [
+          _ViewRow(
+            icon: Icons.insights_outlined,
+            tint: kPastelTeal,
+            title: '복용 리포트',
+            sub: '자주 먹은 약·계열, 반응 요약',
+            onTap: () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => ReportScreen(person: _selected!))),
+          ),
+          const Divider(height: 1, indent: 64, color: AppColors.line),
+          _ViewRow(
+            icon: Icons.edit_note,
+            tint: kPastelLavender,
+            title: '반응 기록 모아보기',
+            sub: '약을 먹고 생긴 증상 기록',
+            badge: _reactionCount[_selectedId] ?? 0,
+            onTap: () async {
+              await Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => ReactionListScreen(person: _selected!)));
+              await _load();
+            },
+          ),
+        ]),
+      );
 
   Widget _notice() => Container(
         padding: const EdgeInsets.all(16),
@@ -934,70 +945,103 @@ class _KindOption extends StatelessWidget {
   }
 }
 
-class _ToolTile extends StatelessWidget {
-  const _ToolTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.tint = kPastelTeal,
-    this.badge = 0,
-  });
-
+class _ActionCard extends StatelessWidget {
+  const _ActionCard(
+      {required this.icon, required this.title, required this.sub, required this.onTap, this.filled = false});
   final IconData icon;
-  final String label;
+  final String title;
+  final String sub;
   final VoidCallback onTap;
-
-  /// 아이콘 칩 색 (배경, 아이콘)
-  final (Color, Color) tint;
-  final int badge;
+  final bool filled;
 
   @override
   Widget build(BuildContext context) {
-    const fg = AppColors.ink;
+    final fg = filled ? AppColors.onPrimary : AppColors.ink;
+    final subFg = filled ? const Color(0xD9FFFFFF) : AppColors.sub;
     return Material(
-      color: Colors.white,
+      color: filled ? AppColors.primary : Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.line),
+        borderRadius: BorderRadius.circular(18),
+        side: filled ? BorderSide.none : const BorderSide(color: AppColors.line),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
-        child: SizedBox(
-          height: 84,
-          child: Stack(children: [
-            Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                      color: tint.$1, borderRadius: BorderRadius.circular(11)),
-                  child: Icon(icon, color: tint.$2, size: 20),
-                ),
-                const SizedBox(height: 6),
-                Text(label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 12.5, height: 1.25, fontWeight: FontWeight.w700, color: fg)),
-              ]),
-            ),
-            if (badge > 0)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                      color: kNoteBg, borderRadius: BorderRadius.circular(10)),
-                  child: Text('$badge',
-                      style: const TextStyle(
-                          fontSize: 11, color: kNoteFg, fontWeight: FontWeight.w800)),
-                ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: filled ? const Color(0x2EFFFFFF) : AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(11),
               ),
+              child: Icon(icon, size: 22, color: filled ? AppColors.onPrimary : AppColors.primary),
+            ),
+            const SizedBox(height: 10),
+            KText(title,
+                maxLines: 1,
+                style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: fg)),
+            const SizedBox(height: 2),
+            KText(sub, flow: true, style: TextStyle(fontSize: 12, color: subFg, height: 1.35)),
           ]),
         ),
       ),
     );
   }
 }
+
+/// 모아보기 한 줄
+class _ViewRow extends StatelessWidget {
+  const _ViewRow(
+      {required this.icon,
+      required this.tint,
+      required this.title,
+      required this.sub,
+      required this.onTap,
+      this.badge = 0});
+  final IconData icon;
+  final (Color, Color) tint;
+  final String title;
+  final String sub;
+  final VoidCallback onTap;
+  final int badge;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: tint.$1, borderRadius: BorderRadius.circular(11)),
+              child: Icon(icon, size: 20, color: tint.$2),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                KText(title,
+                    maxLines: 1,
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink)),
+                KText(sub, maxLines: 1, style: const TextStyle(fontSize: 12, color: AppColors.sub)),
+              ]),
+            ),
+            if (badge > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                margin: const EdgeInsets.only(right: 4),
+                decoration: BoxDecoration(color: kNoteBg, borderRadius: BorderRadius.circular(10)),
+                child: Text('$badge',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kNoteFg)),
+              ),
+            const Icon(Icons.chevron_right, color: AppColors.sub),
+          ]),
+        ),
+      );
+}
+
