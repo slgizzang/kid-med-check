@@ -258,16 +258,68 @@ class DoseFinding {
   final String note;
 
   String get title => kind == DoseKind.dose
-      ? '용량주의 · 하루 최대 $max'
-      : '투여기간주의 · 최대 $max';
+      ? '용량주의 · $ingredient 하루 최대 $max'
+      : '투여기간주의 · $ingredient 최대 $max';
+}
+
+/// 기준 문구에서 성분 이름(숫자 앞)들. "아세트아미노펜 2,600밀리그램/트라마돌염산염 300밀리그램" → {아세트아미노펜, 트라마돌염산염}
+Set<String> namesIn(String text) => {
+      for (final m in RegExp(r'([가-힣]{2,})\s*[:/]?\s*\d').allMatches(text))
+        m.group(1)!.replaceFirst(RegExp(r'(으로서|로서)$'), ''),
+    }..removeWhere((x) => x.length < 2 || const {'최대용량', '최대', '용량', '주성분', '함량', '고령자'}.contains(x));
+
+/// 같은 성분인지 (염 이름 차이 허용: 메토클로프라미드 ↔ 메토클로프라미드염산염)
+bool sameIngr(String a, String b) {
+  String n(String s) => s.replaceAll(RegExp(r'\s|\[[^\]]*\]'), '');
+  final x = n(a), y = n(b);
+  if (x.isEmpty || y.isEmpty) return false;
+  return x.contains(y) || y.contains(x);
+}
+
+/// 제품 성분 구성에 맞는 기준만 고른다.
+/// 식약처 성분표는 한 성분코드에 그 성분이 든 복합제 기준까지 함께 들어 있다
+/// (예: 아세트아미노펜 코드에 '아세트아미노펜+트라마돌' 2,600mg 기준). 단일제에는 단일 기준만,
+/// 복합제에는 함께 든 성분이 모두 맞는 복합 기준(없으면 단일 기준)을 쓴다.
+List<DoseEntry> forProduct(DoseRule rule, List<DoseEntry> entries, List<String> productIngr) {
+  Set<String> partners(DoseEntry e) =>
+      {for (final n in namesIn('${e.max} ${e.content}')) if (!sameIngr(n, rule.name)) n};
+  final plain = entries.where((e) => partners(e).isEmpty && e.remark != '복합제').toList();
+  final others = productIngr.where((x) => !sameIngr(x, rule.name)).toList();
+  if (others.isEmpty) return plain;
+  final combo = entries.where((e) {
+    final p = partners(e);
+    return p.isNotEmpty && p.every((x) => others.any((o) => sameIngr(o, x)));
+  }).toList();
+  return combo.isNotEmpty ? combo : plain;
+}
+
+/// 기준 문구에서 이 성분의 최대량(mg). "아세트아미노펜 2,600밀리그램/트라마돌염산염 300밀리그램" → 2600
+double? ingrMaxMg(String max, String ingr) {
+  final t = max.replaceAll(',', '');
+  for (final m in RegExp(r'([가-힣]{2,})\s*(\d+(?:\.\d+)?)\s*(마이크로그램|마이크로그람|밀리그램|밀리그람|mg|그램|그람|g)')
+      .allMatches(t)) {
+    if (sameIngr(m.group(1)!, ingr)) return _toMg(double.parse(m.group(2)!), m.group(3)!);
+  }
+  return maxMg(max);
+}
+
+/// 품목 DUR 목록에서 얻은 이 제품의 정보
+class ItemDose {
+  ItemDose({this.forms = const {}, this.ingredients = const []});
+
+  /// 제형 (예: 필름코팅정)
+  final Set<String> forms;
+
+  /// 제품의 주성분들 (예: [아세트아미노펜, 트라마돌염산염])
+  final List<String> ingredients;
 }
 
 /// DUR 기준과 처방 용량을 대조한다.
-/// [doseCodes]/[periodCodes]: 이 약이 용량주의/투여기간주의 품목 목록에 오른 성분코드 → 제형들.
+/// [doseCodes]/[periodCodes]: 이 약이 용량주의/투여기간주의 품목 목록에 오른 성분코드 → 제품 정보.
 List<DoseFinding> evaluateDose({
   required DoseTable table,
-  required Map<String, Set<String>> doseCodes,
-  required Map<String, Set<String>> periodCodes,
+  required Map<String, ItemDose> doseCodes,
+  required Map<String, ItemDose> periodCodes,
   required String productName,
   DoseInfo? dose,
 }) {
@@ -275,37 +327,37 @@ List<DoseFinding> evaluateDose({
   for (final e in doseCodes.entries) {
     final rule = table.dose[e.key];
     if (rule == null) continue;
-    final entries = rule.forForms(e.value);
-    final maxes = {for (final x in entries) shortMax(x.max)}..removeWhere((x) => x.isEmpty);
-    if (maxes.isEmpty) continue;
-    final mgs = {for (final x in entries) maxMg(x.max)};
+    final ingr = e.value.ingredients.isEmpty ? [rule.name] : e.value.ingredients;
+    final entries = forProduct(rule, rule.forForms(e.value.forms), ingr);
+    if (entries.isEmpty) continue;
+    final single = ingr.where((x) => !sameIngr(x, rule.name)).isEmpty;
+    final mgs = {for (final x in entries) ingrMaxMg(x.max, rule.name)};
     final limit = mgs.length == 1 ? mgs.first : null;
-    final strength = strengthMg(productName);
+    final max = limit != null
+        ? '${fmtNum(limit)}mg'
+        : ({for (final x in entries) shortMax(x.max)}..removeWhere((x) => x.isEmpty)).join(' / ');
+    if (max.isEmpty) continue;
+    final strength = single ? strengthMg(productName) : null;
     bool? over;
     var amount = '';
     final perDay = dose?.perDay;
-    if (limit != null &&
-        strength != null &&
-        perDay != null &&
-        rule.mix != '복합' &&
-        isUnitDose(dose!.unit)) {
+    if (limit != null && strength != null && perDay != null && isUnitDose(dose!.unit)) {
       final mg = perDay * strength;
-      amount = '하루 ${fmtNum(mg)}mg';
+      amount = '하루 약 ${fmtNum(mg.roundToDouble())}mg (${fmtNum(strength)}mg 1${unitLabel(dose!.unit)} 기준)';
       over = mg > limit + 1e-6;
     }
     out.add(DoseFinding(
       kind: DoseKind.dose,
       ingredient: rule.name,
-      max: maxes.join(' / '),
+      max: max,
       over: over,
       amount: amount,
-      note: _note(entries),
     ));
   }
   for (final e in periodCodes.entries) {
     final rule = table.period[e.key];
     if (rule == null) continue;
-    final entries = rule.forForms(e.value);
+    final entries = rule.forForms(e.value.forms);
     final maxes = {for (final x in entries) x.max.trim()}..removeWhere((x) => x.isEmpty);
     if (maxes.isEmpty) continue;
     final days = [for (final x in entries) ...maxDays(x.max)];
@@ -322,18 +374,7 @@ List<DoseFinding> evaluateDose({
       max: maxes.join(' / '),
       over: over,
       amount: d == null ? '' : '$d일',
-      note: _note(entries),
     ));
   }
   return out;
-}
-
-String _note(List<DoseEntry> entries) {
-  final s = <String>{
-    for (final e in entries) ...[
-      if (e.content.isNotEmpty) shortMax(e.content),
-      if (e.remark.isNotEmpty) e.remark,
-    ],
-  };
-  return s.take(2).join(' · ');
 }

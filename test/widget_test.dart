@@ -1152,13 +1152,13 @@ void main() {
       List<DoseFinding> run(DoseInfo? d, {String name = '타이레놀정500밀리그람(아세트아미노펜)'}) =>
           evaluateDose(
               table: table,
-              doseCodes: {'D000147': {'필름코팅정'}},
+              doseCodes: {'D000147': ItemDose(forms: {'필름코팅정'}, ingredients: ['아세트아미노펜'])},
               periodCodes: const {},
               productName: name,
               dose: d);
       final ok = run(const DoseInfo(unit: '정', perDose: 2, timesPerDay: 3, days: 3)).single;
       expect(ok.over, false);
-      expect(ok.amount, '하루 3,000mg');
+      expect(ok.amount, '하루 약 3,000mg (500mg 1정 기준)');
       expect(ok.max, '4,000mg');
       final over = run(const DoseInfo(unit: '정', perDose: 2, timesPerDay: 5, days: 3)).single;
       expect(over.over, true);
@@ -1172,7 +1172,7 @@ void main() {
       expect(
           evaluateDose(
               table: table,
-              doseCodes: {'D999999': <String>{}},
+              doseCodes: {'D999999': ItemDose()},
               periodCodes: const {},
               productName: 'x'),
           isEmpty);
@@ -1182,13 +1182,37 @@ void main() {
       List<DoseFinding> run(int days) => evaluateDose(
           table: table,
           doseCodes: const {},
-          periodCodes: {'D000425': {'필름코팅정'}},
+          periodCodes: {'D000425': ItemDose(forms: {'필름코팅정'})},
           productName: '맥페란정',
           dose: DoseInfo(unit: '정', perDose: 1, timesPerDay: 3, days: days));
       // 필름코팅정은 '정제' 기준(7일)만 적용
       expect(run(7).single.max, '7일');
       expect(run(7).single.over, false);
       expect(run(10).single.over, true);
+    });
+
+    test('실제 식약처 표: 성분 구성에 맞는 기준 하나만 (트라몰정325 → 4,000mg)', () {
+      final real = DoseTable.parse(File('assets/dur_dose.json').readAsStringSync());
+      final single = evaluateDose(
+          table: real,
+          doseCodes: {'D000147': ItemDose(forms: {'정제'}, ingredients: ['아세트아미노펜'])},
+          periodCodes: const {},
+          productName: '트라몰정325밀리그람(아세트아미노펜)',
+          dose: const DoseInfo(unit: '정', perDose: 0.51, timesPerDay: 3, days: 3)).single;
+      expect(single.max, '4,000mg');
+      expect(single.over, false);
+      expect(single.amount, '하루 약 497mg (325mg 1정 기준)');
+      // 트라마돌 복합제는 복합 기준(아세트아미노펜 2,600mg), 함량을 몰라 계산하지 않음
+      final combo = evaluateDose(
+          table: real,
+          doseCodes: {
+            'D000147': ItemDose(forms: {'필름코팅정'}, ingredients: ['아세트아미노펜', '트라마돌염산염'])
+          },
+          periodCodes: const {},
+          productName: '울트라셋정',
+          dose: const DoseInfo(unit: '정', perDose: 1, timesPerDay: 3)).single;
+      expect(combo.max, '2,600mg');
+      expect(combo.over, isNull);
     });
   });
 }

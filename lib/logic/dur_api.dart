@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+
+import 'dose.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'age_rule.dart';
@@ -259,21 +261,38 @@ class DurApi {
   static const _cpctyPath = '/1471000/DURPrdlstInfoService03/getCpctyAtentInfoList03';
   static const _mdctnPath = '/1471000/DURPrdlstInfoService03/getMdctnPdAtentInfoList03';
 
-  /// DUR 용량주의·투여기간주의 품목 목록에서 이 제품의 성분코드 → 제형.
+  /// DUR 용량주의·투여기간주의 품목 목록에서 이 제품의 성분코드 → 제형·주성분.
   /// 기준값(최대량·최대기간)은 성분정보 표(assets/dur_dose.json)에 있다. 실패하면 빈 값.
-  Future<(Map<String, Set<String>>, Map<String, Set<String>>)> doseCodes(
-      ProductHit best) async {
-    Future<Map<String, Set<String>>> codes(String path) async {
+  /// 다른 제품 자료가 섞이지 않도록 제품명이 정확히 같은 행만 쓴다.
+  Future<(Map<String, ItemDose>, Map<String, ItemDose>)> doseCodes(ProductHit best) async {
+    Future<Map<String, ItemDose>> codes(String path) async {
       try {
-        final out = <String, Set<String>>{};
-        for (final m in await _itemRows(path, best)) {
+        final rows = (await _itemRows(path, best))
+            .where((m) =>
+                _sameProduct(ProductHit(fullName: '${m['ITEM_NAME'] ?? ''}').displayName, best.displayName))
+            .toList();
+        final forms = <String, Set<String>>{};
+        final ingr = <String, List<String>>{};
+        for (final m in rows) {
           final code = TabooRow._pick(m, ['INGR_CODE']);
           if (code.isEmpty) continue;
           final form = TabooRow._pick(m, ['FORM_NAME']);
-          out.putIfAbsent(code, () => <String>{});
-          if (form.isNotEmpty) out[code]!.add(form);
+          (forms[code] ??= <String>{}).addAll([if (form.isNotEmpty) form]);
+          // "[M040353]아세트아미노펜/[M081234]트라마돌염산염" → 성분 이름들
+          final main = TabooRow._pick(m, ['MAIN_INGR'])
+              .replaceAll(RegExp(r'\[[^\]]*\]'), '')
+              .split(RegExp(r'[/,]'))
+              .map((x) => x.trim())
+              .where((x) => x.isNotEmpty);
+          final list = ingr[code] ??= <String>[];
+          for (final x in main) {
+            if (!list.contains(x)) list.add(x);
+          }
         }
-        return out;
+        return {
+          for (final c in forms.keys)
+            c: ItemDose(forms: forms[c]!, ingredients: ingr[c] ?? const []),
+        };
       } catch (_) {
         return {};
       }
@@ -281,6 +300,16 @@ class DurApi {
 
     final r = await Future.wait([codes(_cpctyPath), codes(_mdctnPath)]);
     return (r[0], r[1]);
+  }
+
+  /// 표기 차이(밀리그람/밀리그램, 띄어쓰기)를 무시하고 같은 제품명인지
+  static bool _sameProduct(String a, String b) {
+    String n(String s) => s
+        .replaceAll(RegExp(r'\s'), '')
+        .replaceAll('밀리그람', '밀리그램')
+        .replaceAll('마이크로그람', '마이크로그램')
+        .toLowerCase();
+    return n(a) == n(b);
   }
 
   static const _permitPath = '/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnInq08';

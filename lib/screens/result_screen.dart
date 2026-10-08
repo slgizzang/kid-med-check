@@ -558,35 +558,32 @@ class _DoseAlert extends StatelessWidget {
     final rx = dose?.label ?? '';
     final lines = <String>[];
     if (f.kind == DoseKind.dose) {
-      lines.add('하루 최대 투여량이 정해진 약이에요 (${f.ingredient} ${f.max}${f.note.isEmpty ? '' : ', ${f.note}'}).');
-      if (rx.isNotEmpty) {
-        lines.add('이번 처방: $rx${f.amount.isEmpty ? '' : ' → ${f.amount}'}');
-        if (over == true) {
-          lines.add('하루 최대량보다 많아요. 먹기 전에 처방한 병원·약국에 확인이 필요해요.');
-        } else if (over == false) {
-          lines.add(child ? '성인 하루 최대량보다 적어요.' : '하루 최대량 안이에요.');
-        } else {
-          lines.add('한 번 먹는 양의 성분 함량을 알 수 없어 하루 양은 계산하지 않았어요.');
-        }
-      } else {
+      if (rx.isEmpty) {
         lines.add('처방 용량은 심평원 투약이력을 불러온 기록에서 함께 확인돼요.');
-      }
-      if (child) lines.add('이 최대량은 성인 기준이에요. 어린이는 몸무게에 맞춰 더 적게 처방돼요.');
-    } else {
-      lines.add('한 번에 쓰는 기간이 정해진 약이에요 (${f.ingredient} 최대 ${f.max}).');
-      final d = dose?.days;
-      if (d != null) {
-        lines.add(switch (over) {
-          true => '이번 처방 $d일 — 최대 기간보다 길어요. 처방한 병원·약국에 확인이 필요해요.',
-          false => '이번 처방 $d일 — 최대 기간 안이에요.',
-          null => '이번 처방 $d일 — 쓰는 목적에 따라 최대 기간이 달라요.',
-        });
       } else {
-        lines.add('처방 일수는 심평원 투약이력을 불러온 기록에서 함께 확인돼요.');
+        lines.add('이번 처방 · $rx');
+        if (f.amount.isNotEmpty) lines.add('→ ${f.amount}');
+        lines.add(switch (over) {
+          true => '하루 최대량보다 많아요. 처방한 병원·약국에 확인이 필요해요.',
+          false => child ? '성인 하루 최대량보다 적어요.' : '하루 최대량 안이에요.',
+          null => '한 번 먹는 양에 든 성분 양을 알 수 없어 하루 양은 계산하지 않았어요.',
+        });
       }
+      if (child) lines.add('최대량은 성인 기준이고, 어린이는 몸무게에 맞춰 더 적게 처방돼요.');
+    } else {
+      final d = dose?.days;
+      lines.add(d == null
+          ? '처방 일수는 심평원 투약이력을 불러온 기록에서 함께 확인돼요.'
+          : switch (over) {
+              true => '이번 처방 $d일 · 최대 기간보다 길어요. 처방한 병원·약국에 확인이 필요해요.',
+              false => '이번 처방 $d일 · 최대 기간 안이에요.',
+              null => '이번 처방 $d일 · 쓰는 목적에 따라 최대 기간이 달라요.',
+            });
     }
     final title = over == true
-        ? (f.kind == DoseKind.dose ? '용량주의 · 하루 최대량 초과' : '투여기간주의 · 최대 기간 초과')
+        ? (f.kind == DoseKind.dose
+            ? '용량주의 · ${f.ingredient} 하루 최대 ${f.max} 초과'
+            : '투여기간주의 · 최대 ${f.max} 초과')
         : f.title;
     return Container(
       width: double.infinity,
