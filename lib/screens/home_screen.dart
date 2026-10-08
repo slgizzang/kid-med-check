@@ -324,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         _addRow(),
                         const SizedBox(height: 28),
                       ],
-                      SectionTitle('복용 기록',
+                      SectionTitle('기록 목록',
                           trailing: _selected == null || _myRecords.isEmpty
                               ? null
                               : TextButton(
