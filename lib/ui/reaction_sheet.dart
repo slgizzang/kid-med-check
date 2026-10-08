@@ -172,8 +172,8 @@ class _ReactionSheetState extends State<_ReactionSheet> {
             const SizedBox(height: 4),
             KText(
               widget.items.isEmpty
-                  ? '약 때문인지는 앱이 판단하지 않아요.\n다음에 같은 약이나 같은 성분의 약을 처방받으면 이 기록을 다시 보여드릴게요.'
-                  : '여러 약을 함께 먹어 어떤 약 때문인지 모를 때 쓰는 기록이에요.\n다음에 이 중 어떤 약이라도 다시 처방되면 "함께 먹은 약"으로 알려드릴게요.',
+                  ? '약 때문인지는 앱이 판단하지 않아요. 다음에 같은 약이나 같은 성분의 약을 처방받으면 이 기록을 다시 보여드릴게요.'
+                  : '여러 약을 함께 먹어 어떤 약 때문인지 모를 때 쓰는 기록이에요. 다음에 이 중 어떤 약이라도 다시 처방되면 "함께 먹은 약"으로 알려드릴게요.',
               style: const TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5),
             ),
             const SizedBox(height: 16),

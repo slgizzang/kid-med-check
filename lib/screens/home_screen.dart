@@ -525,7 +525,7 @@ class _HomeScreenState extends State<HomeScreen> {
         tools,
         _EmptyBox(
           icon: Icons.add_circle_outline,
-          text: '아직 복용 기록이 없어요.\n여기를 눌러 처방약이나 약국에서 산 약을 입력해보세요.',
+          text: '아직 복용 기록이 없어요. 여기를 눌러 처방약이나 약국에서 산 약을 입력해보세요.',
           onTap: _newRecord,
         ),
       ];

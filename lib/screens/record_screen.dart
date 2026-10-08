@@ -700,7 +700,7 @@ class _RecordScreenState extends State<RecordScreen> {
                     border: Border.all(color: AppColors.line),
                   ),
                   child: const KText(
-                    '먹는 약을 입력해주세요.\n아래의 촬영·사진첩·직접 입력 중 편한 방법을 쓰면 되고, 입력한 약은 자동으로 저장돼요.',
+                    '먹는 약을 입력해주세요. 아래의 촬영·사진첩·직접 입력 중 편한 방법을 쓰면 되고, 입력한 약은 자동으로 저장돼요.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.sub, height: 1.5),
                   ),

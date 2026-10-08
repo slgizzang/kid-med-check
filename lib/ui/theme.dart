@@ -246,8 +246,8 @@ String splitSentences(String text) =>
     text.replaceAllMapped(RegExp(r'([.?!。])\s+(?=[가-힣"“(])'), (m) => '${m[1]}\n');
 
 /// Text와 같지만 읽기 좋게 줄바꿈한다.
-/// 1) 한글 단어 중간에서 끊지 않고  2) 문장마다 새 줄로  3) 줄 길이를 고르게 맞춰
-///    마지막 줄에 단어 하나만 덩그러니 남지 않게 한다 (CSS text-wrap: balance).
+/// 1) 한글 단어 중간에서 끊지 않고  2) 여러 문장은 한 단락으로 이어 쓰고
+/// 3) 한 문장짜리는 줄 길이를 고르게 맞춰 마지막 줄에 단어 하나만 남지 않게 한다 (text-wrap: balance).
 class KText extends StatelessWidget {
   const KText(this.data,
       {super.key, this.style, this.textAlign, this.maxLines, this.overflow, this.flow = false});
@@ -261,12 +261,17 @@ class KText extends StatelessWidget {
   final int? maxLines;
   final TextOverflow? overflow;
 
+  /// 문장이 둘 이상인 안내문은 문장마다 끊지 않고 한 단락으로 이어 쓴다
+  /// (문장마다 줄을 바꾸면 단락이 갈라져 보여 어색하다).
+  static final _multi = RegExp(r'[.?!。]\s+\S');
+
   @override
   Widget build(BuildContext context) {
-    final text = ka(maxLines == 1 || flow ? data : splitSentences(data));
+    final asParagraph = flow || _multi.hasMatch(data);
+    final text = ka(data);
     final plain = Text(text,
         style: style, textAlign: textAlign, maxLines: maxLines, overflow: overflow);
-    if (maxLines == 1 || flow) return plain;
+    if (maxLines == 1 || asParagraph) return plain;
     final effective = DefaultTextStyle.of(context).style.merge(style);
     final align = switch (textAlign) {
       TextAlign.center => 0.5,
