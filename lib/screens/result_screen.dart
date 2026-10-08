@@ -10,6 +10,7 @@ import '../logic/class_info.dart';
 import '../logic/ingredient_info.dart';
 import '../logic/models.dart';
 import '../logic/reaction.dart';
+import '../logic/recall.dart';
 import '../logic/snapshot.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart';
@@ -30,7 +31,11 @@ class ResultScreen extends StatefulWidget {
       this.title = '안전 확인 결과',
       this.origins = const {},
       this.doses = const {},
-      this.letters = const {}});
+      this.letters = const {},
+      this.recalls = const {}});
+
+  /// 약 이름 → 식약처 회수 정보 (기록 화면에서 대조한 결과)
+  final Map<String, RecallHit> recalls;
 
   /// 약 이름 → 심평원 투약이력의 '안전성 서한' 표시
   final Map<String, String> letters;
@@ -500,6 +505,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 past: _past,
                 origin: widget.origins[c.query],
                 letter: widget.letters[c.query],
+                recall: widget.recalls[c.query],
                 notes: _notesFor(c),
                 onDeleteReaction: _deleteReaction,
                 onRetry: () => _retry(c),
@@ -637,7 +643,11 @@ class _CheckCard extends StatelessWidget {
     this.onDeleteReaction,
     this.origin,
     this.letter,
+    this.recall,
   });
+
+  /// 식약처 회수 목록에 오른 약이면 그 정보
+  final RecallHit? recall;
 
   /// 어느 복용 기록의 약인지 (여러 기록을 함께 확인할 때)
   final String? origin;
@@ -833,6 +843,15 @@ class _CheckCard extends StatelessWidget {
                   danger: true),
             if (check.nursingNote != null)
               _Alert(title: '수유부 주의', body: check.nursingNote!, danger: false),
+            if (recall != null)
+              _Alert(
+                  title: recall!.injected
+                      ? '이미 맞은 주사가 회수됐어요 · ${recallDateLabel(recall!.recall.date)}'
+                      : '회수된 약이에요 · ${recallDateLabel(recall!.recall.date)} ${recall!.recall.forced ? '회수 명령' : '자진 회수'}',
+                  body: recall!.injected
+                      ? injectedRecallAdvice(recall!.recall)
+                      : recallAdvice(recall!.recall),
+                  danger: !recall!.injected),
             if (letter != null)
               _Alert(title: '식약처 주의 알림이 있었던 약', body: _letterText(letter!), danger: false),
             for (final f in check.doseFindings)

@@ -174,6 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     final doses = {for (final r in recs) ...r.doses};
     final letters = {for (final r in recs) ...r.safetyLetters};
+    final recalls = {for (final h in matchRecalls(recs, _recalls)) h.drug: h};
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -184,6 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
           origins: drugs,
           doses: doses,
           letters: letters,
+          recalls: recalls,
         ),
       ),
     );

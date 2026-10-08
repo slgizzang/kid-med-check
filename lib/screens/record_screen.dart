@@ -548,6 +548,7 @@ class _RecordScreenState extends State<RecordScreen> {
           asOf: _r.createdAt,
           doses: Map.of(_r.doses),
           letters: Map.of(_r.safetyLetters),
+          recalls: {for (final h in _recallHits) h.drug: h},
           reuse: _resultCache[_r.id]?.$1 == _signature ? _resultCache[_r.id]!.$2 : null,
           onChecks: (checks) => _resultCache[_r.id] = (_signature, checks),
           onSnapshot: (snap) {
