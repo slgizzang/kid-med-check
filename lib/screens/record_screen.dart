@@ -601,7 +601,7 @@ class _RecordScreenState extends State<RecordScreen> {
     }
     final note = _noteLine(name);
     if (!_r.safetyLetters.containsKey(name)) return note;
-    const letter = KText('식약처 주의 알림이 있었던 약 · 확인 결과에서 보기',
+    const letter = KText('식약처 주의 알림 있음',
         maxLines: 1,
         style: TextStyle(fontSize: 12, color: Color(0xFF9A3412), fontWeight: FontWeight.w700));
     if (note == null) return letter;
