@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../logic/models.dart';
+import '../logic/recall.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
+import '../ui/recall_card.dart';
 import '../ui/theme.dart';
 import 'child_edit_screen.dart';
 import 'import_screen.dart';
@@ -89,6 +91,15 @@ class _HomeScreenState extends State<HomeScreen> {
       _hasKey = key.isNotEmpty;
       _loading = false;
     });
+    _loadRecalls(key);
+  }
+
+  /// 식약처 회수 목록 (하루 한 번 받음)
+  List<Recall> _recalls = const [];
+
+  Future<void> _loadRecalls(String key) async {
+    final list = await RecallStore.load(key);
+    if (mounted && list.isNotEmpty) setState(() => _recalls = list);
   }
 
   ChildProfile? get _selected {
@@ -266,6 +277,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                       fontSize: 12, color: AppColors.sub))),
                       _childRow(),
                       const SizedBox(height: 28),
+                      if (_selected != null)
+                        RecallCard(
+                          hits: matchRecalls(_myRecords, _recalls),
+                          showRecord: true,
+                          onOpen: (h) => _openRecord(h.record),
+                        ),
                       SectionTitle('복용 기록',
                           trailing: _selected == null || _myRecords.isEmpty
                               ? null

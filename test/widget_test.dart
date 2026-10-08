@@ -8,6 +8,7 @@ import 'package:kid_med_check/logic/age_rule.dart';
 import 'package:kid_med_check/logic/drug_name_extractor.dart';
 import 'package:kid_med_check/logic/dur_api.dart';
 import 'package:kid_med_check/logic/dose.dart';
+import 'package:kid_med_check/logic/recall.dart';
 import 'package:kid_med_check/logic/label_age.dart';
 import 'package:kid_med_check/logic/similarity.dart';
 import 'package:kid_med_check/logic/snapshot.dart';
@@ -1180,5 +1181,27 @@ void main() {
       expect(combo.max, '2,600mg');
       expect(combo.over, isNull);
     });
+  });
+
+  test('식약처 회수 목록과 복용 기록 대조', () {
+    final r1 = Recall.fromApi({
+      'PRDUCT': '1.세토펜현탁액(아세트아미노펜)',
+      'ENTRPS': '삼아제약(주)',
+      'RTRVL_RESN': '품질부적합 우려',
+      'ENFRC_YN': 'N',
+      'RECALL_COMMAND_DATE': '20261007',
+      'ITEM_SEQ': '1',
+    })!;
+    expect(r1.date, DateTime(2026, 10, 7));
+    expect(r1.forced, isFalse);
+    final old = Recall.fromApi({'PRDUCT': '코푸시럽', 'RECALL_COMMAND_DATE': '20200101', 'ENFRC_YN': 'Y'})!;
+    expect(old.forced, isTrue);
+    final rec = MedRecord(id: 'a', childId: 'c', title: '6월 3일 처방', createdAt: DateTime(2026, 6, 3))
+      ..drugs.addAll(['세토펜현탁액', '코푸시럽', '세토펜']);
+    final hits = matchRecalls([rec], [r1, old]);
+    // 이름이 정확히 같은 제품만, 오래전 회수(복용 1년 이전)는 제외
+    expect(hits.map((h) => h.drug), ['세토펜현탁액']);
+    expect(recallKey('타이레놀정500밀리그람'), recallKey('타이레놀정 500밀리그램'));
+    expect(recallAdvice(r1), contains('약국'));
   });
 }

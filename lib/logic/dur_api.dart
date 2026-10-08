@@ -33,6 +33,8 @@ class DurApi {
   static const _durItemPath = '/1471000/DURPrdlstInfoService03/getDurPrdlstInfoList03';
 
   /// 사용자가 "Encoding" 키(%2B 등 포함)를 붙여넣어도 동작하도록 한 번 디코딩한다.
+  static String normalizeKey(String key) => _normalizeKey(key);
+
   static String _normalizeKey(String key) {
     final k = key.trim();
     if (k.contains('%')) {

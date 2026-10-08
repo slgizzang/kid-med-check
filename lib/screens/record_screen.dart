@@ -9,10 +9,12 @@ import '../logic/place_resolver.dart';
 import '../logic/silson24.dart';
 import '../logic/dur_api.dart';
 import '../logic/reaction.dart';
+import '../logic/recall.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
 import '../ui/dashboard.dart';
 import '../ui/place_sheet.dart';
+import '../ui/recall_card.dart';
 import '../ui/reaction_sheet.dart';
 import 'confirm_screen.dart';
 import 'result_screen.dart';
@@ -68,6 +70,7 @@ class _RecordScreenState extends State<RecordScreen> {
   void initState() {
     super.initState();
     _loadNotes();
+    _loadRecalls();
     if (kShowSilson24 && !_r.otc) _checkBoth();
     if (widget.focusClaim) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -571,8 +574,27 @@ class _RecordScreenState extends State<RecordScreen> {
     await _loadNotes();
   }
 
+  /// 이 기록의 약 중 식약처 회수 목록에 오른 것
+  List<RecallHit> _recallHits = const [];
+
+  Future<void> _loadRecalls() async {
+    final list = await RecallStore.load(await AppStorage.apiKey());
+    if (!mounted) return;
+    setState(() => _recallHits = matchRecalls([_r], list));
+  }
+
   /// 안전성 서한 표시와 반응 기록 줄
   Widget? _drugSub(String name) {
+    final recalled = _recallHits.any((h) => h.drug == name);
+    if (recalled) {
+      final note = _noteLine(name);
+      const r = KText('회수된 약 · 위 안내를 확인하세요',
+          maxLines: 1,
+          style: TextStyle(fontSize: 12, color: Color(0xFFB71C1C), fontWeight: FontWeight.w800));
+      return note == null
+          ? r
+          : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [r, note]);
+    }
     final note = _noteLine(name);
     if (!_r.safetyLetters.containsKey(name)) return note;
     const letter = KText('식약처 주의 알림이 있었던 약 · 확인 결과에서 보기',
@@ -626,6 +648,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 style: const TextStyle(color: AppColors.sub),
               ),
               const SizedBox(height: 18),
+              RecallCard(hits: _recallHits),
               if (_r.last != null) ...[
                 const SizedBox(height: 4),
                 const SectionTitle('지난 확인 결과'),
