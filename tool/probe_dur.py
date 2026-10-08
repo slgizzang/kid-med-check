@@ -3,7 +3,7 @@ key = os.environ["DUR_API_KEY"]
 base = "https://apis.data.go.kr/1471000/DURPrdlstInfoService03/"
 ops = ["getCpctyAtentInfoList03", "getMdctnPdAtentInfoList03"]
 for op in ops:
-    for name in ["타이레놀", "세토펜", "맥시부펜", "슈다페드", "클래신", ""]:
+    for name in ["타이레놀", "세토펜", ""]:
         q = {"serviceKey": key, "type": "json", "numOfRows": 3, "pageNo": 1}
         if name:
             q["itemName"] = name
@@ -18,6 +18,6 @@ for op in ops:
             print(f"== {op} [{name}] total={b.get('totalCount')}")
             for it in items[:2]:
                 it = it.get("item", it)
-                print("  ", json.dumps(it, ensure_ascii=False)[:700])
+                print("  ", json.dumps(it, ensure_ascii=False, indent=1))
         except Exception as e:
             print(f"== {op} [{name}] fail {e}")
