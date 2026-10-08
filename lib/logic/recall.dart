@@ -88,6 +88,10 @@ String recallKey(String name) => name
     .toLowerCase();
 
 /// 복용 기록의 약 중 회수된 것
+/// 처방·구매일로부터 이 기간(일) 안에 나온 회수만 알린다
+const kRecallWindowRx = 183;
+const kRecallWindowOtc = 730;
+
 class RecallHit {
   RecallHit(this.record, this.drug, this.recall, {this.injected = false});
   final MedRecord record;
@@ -98,7 +102,8 @@ class RecallHit {
   final bool injected;
 }
 
-/// 기록과 회수 목록 대조. 이름이 정확히 같은 제품만, 회수일이 처방·구입일 이후(같은 날 포함)인 것만.
+/// 기록과 회수 목록 대조. 이름이 정확히 같은 제품만, 회수일이 처방·구입일 이후(같은 날 포함)이고
+/// 처방약은 6개월, 직접 산 약은 2년 안에 나온 것만.
 /// 회수가 먼저 있었으면 그 뒤에 받은 약은 회수 대상 제조번호가 아니므로 알리지 않는다.
 List<RecallHit> matchRecalls(List<MedRecord> records, List<Recall> recalls) {
   final byKey = <String, List<Recall>>{};
@@ -115,6 +120,9 @@ List<RecallHit> matchRecalls(List<MedRecord> records, List<Recall> recalls) {
         final when = r.date;
         final day = DateTime(rec.createdAt.year, rec.createdAt.month, rec.createdAt.day);
         if (when == null || when.isBefore(day)) continue;
+        // 너무 오래 지난 약은 집에 남아 있을 가능성이 낮다:
+        // 처방약(약국에서 덜어 준 약)은 6개월, 직접 산 약(원래 포장, 유통기한 2~3년)은 2년까지만
+        if (when.difference(day).inDays > (rec.otc ? kRecallWindowOtc : kRecallWindowRx)) continue;
         out.add(RecallHit(rec, d, r, injected: injected));
       }
     }

@@ -1217,6 +1217,13 @@ void main() {
     final inj = MedRecord(id: 'b', childId: 'c', title: '7월 1일 처방', createdAt: DateTime(2026, 7, 1))
       ..drugs.add('세프트리악손주1그램');
     final injRecall = Recall.fromApi({'PRDUCT': '세프트리악손주1그램', 'RECALL_COMMAND_DATE': '20260801'})!;
+    // 처방 후 6개월이 넘은 회수는 제외, 직접 산 약은 2년까지
+    final late = Recall.fromApi({'PRDUCT': '세토펜현탁액', 'RECALL_COMMAND_DATE': '20270301'})!;
+    expect(matchRecalls([rec], [late]), isEmpty);
+    final otc = MedRecord(
+        id: 'o', childId: 'c', title: '6월 3일 약국 구입', createdAt: DateTime(2026, 6, 3), otc: true)
+      ..drugs.add('세토펜현탁액');
+    expect(matchRecalls([otc], [late]).length, 1);
     final injHits = matchRecalls([inj], [injRecall]);
     expect(injHits.single.injected, isTrue);
     expect(injectedRecallAdvice(injRecall), contains('이미 맞은 주사'));
