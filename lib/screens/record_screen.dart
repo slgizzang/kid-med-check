@@ -389,6 +389,56 @@ class _RecordScreenState extends State<RecordScreen> {
   final _claimKey = GlobalKey();
 
   /// 실손보험 청구 카드: 병원비(병원)와 약값(약국)을 각각 청구
+  /// 병원·약국 실손24 연계 조합에 따라 지금 어떻게 청구하면 되는지
+  Widget _claimGuide(TextStyle small) {
+    final checking = _silsonLoading.isNotEmpty;
+    final h = _silson[false]?.state;
+    final noPharm = _r.inHouse || _r.pharmacy.isEmpty;
+    final p = noPharm ? null : _silson[true]?.state;
+    const on = SilsonState.enabled, off = SilsonState.notEnabled;
+    final (String? text, bool good) = checking || _place.isEmpty
+        ? (null, false)
+        : h == on && (noPharm || p == on)
+            ? (
+                _r.inHouse
+                    ? '병원이 실손24에 연계돼 있어요. 서류 준비 없이 실손24에서 지금 바로 청구할 수 있어요(약값 포함).'
+                    : noPharm
+                        ? '병원이 실손24에 연계돼 있어요. 서류 준비 없이 실손24에서 지금 바로 청구할 수 있어요.'
+                        : '병원·약국 모두 실손24에 연계돼 있어요. 서류 준비 없이 실손24에서 병원비·약값을 지금 바로 청구할 수 있어요.',
+                true
+              )
+            : h == on && p == off
+                ? ('병원비만 서류 없이 실손24에서 청구할 수 있어요. 약국은 미연계라 약값은 약국 영수증을 받아 보험사 앱으로 청구해야 해요.', false)
+                : h == on
+                    ? ('병원비는 서류 없이 실손24에서 청구할 수 있어요. 약국은 연계 여부를 확인하지 못했어요.', false)
+                    : h == off && p == on
+                        ? ('약국만 실손24에 연계돼 있어요. 약값을 실손24로 청구하려면 진료비 영수증·진료비 세부내역서·처방전을 직접 올려야 하니 병원에서 서류를 챙겨 두세요.', false)
+                        : h == off && (noPharm || p == off)
+                            ? ('실손24 미연계 병원이에요. 영수증 등 서류를 받아 보험사 앱으로 청구해야 해요.', false)
+                            : (null, false);
+    if (text == null) {
+      return KText('실손24에 연계된 병원·약국이면 서류 없이 바로 청구할 수 있어요.', flow: true, style: small);
+    }
+    final (bg, fg) = good
+        ? (AppColors.primarySoft, AppColors.primaryDark)
+        : (const Color(0xFFFFF4E8), const Color(0xFF9A3412));
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(good ? Icons.bolt_rounded : Icons.description_outlined, size: 20, color: fg),
+        const SizedBox(width: 8),
+        Expanded(
+          child: KText(text,
+              flow: true,
+              style: TextStyle(fontSize: 13.5, color: fg, height: 1.45, fontWeight: FontWeight.w600)),
+        ),
+      ]),
+    );
+  }
+
   Widget _claimCard() {
     const small = TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5);
     return Container(
@@ -409,7 +459,7 @@ class _RecordScreenState extends State<RecordScreen> {
           if (_r.fullyClaimed) const _DoneChip('모두 청구 완료'),
         ]),
         const SizedBox(height: 4),
-        const KText('실손24에 연계된 병원·약국이면 서류 없이 바로 청구할 수 있어요.', flow: true, style: small),
+        _claimGuide(small),
         const SizedBox(height: 12),
         _ClaimPart(
           pharmacy: false,
@@ -448,6 +498,8 @@ class _RecordScreenState extends State<RecordScreen> {
           done: _r.claimedPharm,
           silson: _silson[true],
           checking: _silsonLoading.contains(true),
+          // 병원이 미연계면 약값만 따로 청구할 때 서류를 직접 올려야 한다
+          docsNeeded: _silson[false]?.state == SilsonState.notEnabled,
           onPick: () => _pickPlace(pharmacy: true),
           onClaim: () => _claimOnSilson24(pharmacy: true),
           onDone: (v) {
@@ -833,7 +885,11 @@ class _ClaimPart extends StatelessWidget {
     required this.onDone,
     this.silson,
     this.checking = false,
+    this.docsNeeded = false,
   });
+
+  /// 연계돼 있어도 서류를 직접 올려야 하는 경우 (병원 미연계 약국)
+  final bool docsNeeded;
 
   final bool pharmacy;
   final String name;
@@ -890,7 +946,7 @@ class _ClaimPart extends StatelessWidget {
                       style: const TextStyle(fontSize: 11.5, color: AppColors.sub)),
                 if (name.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  _SilsonBadge(silson: silson, checking: checking),
+                  _SilsonBadge(silson: silson, checking: checking, docsNeeded: docsNeeded),
                 ],
               ]),
             ),
@@ -967,17 +1023,21 @@ class _ClaimPart extends StatelessWidget {
 
 /// 실손24 연계 여부 표시
 class _SilsonBadge extends StatelessWidget {
-  const _SilsonBadge({required this.silson, required this.checking});
+  const _SilsonBadge({required this.silson, required this.checking, this.docsNeeded = false});
   final SilsonCheck? silson;
   final bool checking;
+  final bool docsNeeded;
 
   @override
   Widget build(BuildContext context) {
     final (String text, Color bg, Color fg, IconData icon) = checking
         ? ('실손24 연계 확인 중…', AppColors.line, AppColors.sub, Icons.hourglass_empty)
         : switch (silson?.state) {
-            SilsonState.enabled => ('실손24 연계 · 서류 없이 청구', AppColors.primarySoft,
-                AppColors.primaryDark, Icons.check_circle),
+            SilsonState.enabled => docsNeeded
+                ? ('실손24 연계 · 서류 첨부 필요', const Color(0xFFFFF4E8), const Color(0xFF9A3412),
+                    Icons.description_outlined)
+                : ('실손24 연계 · 서류 없이 청구', AppColors.primarySoft, AppColors.primaryDark,
+                    Icons.check_circle),
             SilsonState.notEnabled => ('실손24 미연계', const Color(0xFFF1F3F5),
                 const Color(0xFF6B7684), Icons.remove_circle_outline),
             _ => (
