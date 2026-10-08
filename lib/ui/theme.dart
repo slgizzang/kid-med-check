@@ -39,7 +39,11 @@ const kShowSilson24 = true;
 
 /// 영문 슬로건 (pill ↔ feel)
 const kAppSlogan = 'My pill safe, I feel safe';
-const kAppTagline = '약 조회부터 안전 확인, 실손 청구까지';
+/// 메인 화면 로고 아래 (한 줄)
+const kAppTagline = '복용 안전 확인부터 의약품 회수 알림까지';
+
+/// 시작 화면 로고 아래 (두 줄)
+const kAppTaglineLong = '먹어도 되는 약인지 꼼꼼히 확인하고\n회수된 약은 먼저 알려드려요';
 
 ThemeData buildTheme() {
   final scheme = ColorScheme.fromSeed(

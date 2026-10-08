@@ -61,7 +61,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       fontWeight: FontWeight.w700,
                       color: AppColors.brand)),
               const SizedBox(height: 28),
-              Text(kAppTagline,
+              Text(kAppTaglineLong,
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 15, color: AppColors.sub, height: 1.5)),
             ]),
