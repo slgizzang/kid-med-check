@@ -1141,12 +1141,6 @@ void _showClaimHelp(BuildContext context) {
               ],
             ]),
           ),
-          const SizedBox(height: 12),
-          const KText(
-              '✓ 실손24 연계 · ✕ 미연계. 약을 병원에서 바로 받았으면(원내 조제) 약값은 병원비에 함께 들어가요. '
-              '실손24 로그인 → "나의 실손청구"에서 진료 내역을 고르면 보험사로 바로 전송돼요.',
-              flow: true,
-              style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5)),
         ]),
       ),
     ),
