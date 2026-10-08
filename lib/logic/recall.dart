@@ -95,8 +95,8 @@ class RecallHit {
   final Recall recall;
 }
 
-/// 기록과 회수 목록 대조. 이름이 정확히 같은 제품만, 회수일이 복용일 1년 전 이후인 것만
-/// (오래전에 끝난 회수는 그 뒤에 받은 약과 상관없음).
+/// 기록과 회수 목록 대조. 이름이 정확히 같은 제품만, 회수일이 처방·구입일 이후(같은 날 포함)인 것만.
+/// 회수가 먼저 있었으면 그 뒤에 받은 약은 회수 대상 제조번호가 아니므로 알리지 않는다.
 List<RecallHit> matchRecalls(List<MedRecord> records, List<Recall> recalls) {
   final byKey = <String, List<Recall>>{};
   for (final r in recalls) {
@@ -108,9 +108,8 @@ List<RecallHit> matchRecalls(List<MedRecord> records, List<Recall> recalls) {
     for (final d in rec.drugs) {
       for (final r in byKey[recallKey(d)] ?? const <Recall>[]) {
         final when = r.date;
-        if (when != null && when.isBefore(rec.createdAt.subtract(const Duration(days: 365)))) {
-          continue;
-        }
+        final day = DateTime(rec.createdAt.year, rec.createdAt.month, rec.createdAt.day);
+        if (when == null || when.isBefore(day)) continue;
         out.add(RecallHit(rec, d, r));
       }
     }

@@ -1198,9 +1198,13 @@ void main() {
     expect(old.forced, isTrue);
     final rec = MedRecord(id: 'a', childId: 'c', title: '6월 3일 처방', createdAt: DateTime(2026, 6, 3))
       ..drugs.addAll(['세토펜현탁액', '코푸시럽', '세토펜']);
-    final hits = matchRecalls([rec], [r1, old]);
-    // 이름이 정확히 같은 제품만, 오래전 회수(복용 1년 이전)는 제외
-    expect(hits.map((h) => h.drug), ['세토펜현탁액']);
+    // 처방일(6/3)보다 조금 앞선 회수도 제외
+    final before = Recall.fromApi({'PRDUCT': '세토펜현탁액', 'RECALL_COMMAND_DATE': '20260520'})!;
+    final sameDay = Recall.fromApi({'PRDUCT': '코푸시럽', 'RECALL_COMMAND_DATE': '20260603'})!;
+    final hits = matchRecalls([rec], [r1, old, before, sameDay]);
+    // 이름이 정확히 같은 제품만, 회수일이 처방일 이후(같은 날 포함)인 것만
+    expect(hits.map((h) => h.drug).toSet(), {'세토펜현탁액', '코푸시럽'});
+    expect(hits.length, 2);
     expect(recallKey('타이레놀정500밀리그람'), recallKey('타이레놀정 500밀리그램'));
     expect(recallAdvice(r1), contains('약국'));
   });
