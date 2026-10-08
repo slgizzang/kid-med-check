@@ -43,7 +43,7 @@ const kAppSlogan = 'Pill safe, I feel safe';
 const kAppTagline = '복용 안전 확인부터 실손24 연계 체크까지';
 
 /// 시작 화면 로고 아래 (두 줄)
-const kAppTaglineLong = '먹어도 되는 약인지 꼼꼼히 확인하고\n회수된 약은 먼저 알려드려요';
+const kAppTaglineLong = '약 안전 확인과 회수 알림부터\n실손24 연계 체크까지 한 번에';
 
 ThemeData buildTheme() {
   final scheme = ColorScheme.fromSeed(
