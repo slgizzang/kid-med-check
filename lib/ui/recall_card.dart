@@ -36,7 +36,7 @@ class RecallCard extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 4),
-        const KText('식약처 회수·판매중지 정보에 처방받은 제품이 올라왔어요.',
+        const KText('식약처 회수·판매중지 정보에 처방/구매한 제품이 올라왔어요.',
             flow: true, style: TextStyle(fontSize: 12.5, color: _fg, height: 1.45)),
         for (final h in hits.take(5))
           InkWell(
