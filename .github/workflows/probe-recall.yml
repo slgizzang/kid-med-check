@@ -1,0 +1,28 @@
+name: probe-recall
+on:
+  workflow_dispatch:
+permissions:
+  issues: write
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tool/probe_recall.py > out.txt 2>&1 || true
+        env:
+          DUR_API_KEY: ${{ secrets.DUR_API_KEY }}
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          DUR_API_KEY: ${{ secrets.DUR_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os
+          t = open('out.txt', encoding='utf-8').read()
+          k = os.environ.get('DUR_API_KEY', '')
+          if k:
+              t = t.replace(k, '***')
+          open('body.txt', 'w', encoding='utf-8').write(t[:60000])
+          PY
+          gh issue create --title "probe-recall ${{ github.run_number }}" --body-file body.txt
