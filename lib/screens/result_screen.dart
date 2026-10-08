@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../logic/age_rule.dart';
 import '../logic/allergy.dart';
@@ -616,6 +618,41 @@ class _DoseAlert extends StatelessWidget {
   }
 }
 
+/// 식약처 의약품안전나라 '안전성 서한' 목록 (공식 원문)
+const kSafetyLetterUrl = 'https://nedrug.mfds.go.kr/pbp/CCBAC01';
+
+/// 안전성 서한 원문 보러 가기. 검색에 쓸 성분명을 복사해 둔다.
+class _LetterLink extends StatelessWidget {
+  const _LetterLink({required this.ingredient, required this.name});
+  final String ingredient;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final q = ingredient.split(RegExp(r'[,/]')).first.trim();
+    final key = q.isNotEmpty ? q : name;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        OutlinedButton.icon(
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: key));
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: KText('"$key"를 복사했어요. 열린 화면의 검색창에 붙여넣어 찾아보세요.')));
+            }
+            await launchUrl(Uri.parse(kSafetyLetterUrl), mode: LaunchMode.externalApplication);
+          },
+          icon: const Icon(Icons.open_in_new, size: 18),
+          label: const KText('의약품안전나라에서 원문 보기', maxLines: 1),
+        ),
+        KText('누르면 성분명 "$key"이 복사돼요. 열린 안전성 서한 목록에서 검색해 보세요.',
+            flow: true, style: const TextStyle(fontSize: 12, color: AppColors.sub, height: 1.45)),
+      ]),
+    );
+  }
+}
+
 /// 안전성 서한 안내 문장 (쉬운 말로). 칸 값이 "Y" 같은 표시가 아니라 제목이면 함께 보여준다.
 String _letterText(String cell) {
   final t = cell.trim();
@@ -852,8 +889,10 @@ class _CheckCard extends StatelessWidget {
                       ? injectedRecallAdvice(recall!.recall)
                       : recallAdvice(recall!.recall),
                   danger: !recall!.injected),
-            if (letter != null)
+            if (letter != null) ...[
               _Alert(title: '식약처 주의 알림이 있었던 약', body: _letterText(letter!), danger: false),
+              _LetterLink(ingredient: check.info?.ingredient ?? check.ingredientText, name: check.title),
+            ],
             for (final f in check.doseFindings)
               _DoseAlert(finding: f, dose: check.dose, child: !adult),
             ReactionNotesView(items: notes, onDelete: onDeleteReaction),

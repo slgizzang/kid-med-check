@@ -589,7 +589,7 @@ class _RecordScreenState extends State<RecordScreen> {
     final hit = _recallHits.where((h) => h.drug == name).firstOrNull;
     if (hit != null) {
       final note = _noteLine(name);
-      final r = KText(hit.injected ? '회수된 주사 · 위 안내 참고' : '회수된 약 · 위 안내를 확인하세요',
+      final r = KText(hit.injected ? '회수된 주사' : '회수된 약',
           maxLines: 1,
           style: TextStyle(
               fontSize: 12,
