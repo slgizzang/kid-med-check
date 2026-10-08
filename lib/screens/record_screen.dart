@@ -393,50 +393,54 @@ class _RecordScreenState extends State<RecordScreen> {
 
   /// 실손보험 청구 카드: 병원비(병원)와 약값(약국)을 각각 청구
   /// 병원·약국 실손24 연계 조합에 따라 지금 어떻게 청구하면 되는지
+  /// 병원·약국 실손24 연계 조합에 따라 결론 한 줄 + 할 일 한 줄.
+  /// 핵심: 서류 없이 청구되는지는 '병원' 연계가 정한다. 약국만 연계면 결국 병원 서류가 필요해 미연계와 같다.
   Widget _claimGuide(TextStyle small) {
     final checking = _silsonLoading.isNotEmpty;
     final h = _silson[false]?.state;
     final noPharm = _r.inHouse || _r.pharmacy.isEmpty;
     final p = noPharm ? null : _silson[true]?.state;
     const on = SilsonState.enabled, off = SilsonState.notEnabled;
-    final (String? text, bool good) = checking || _place.isEmpty
-        ? (null, false)
+    const docs = '진료비 영수증·세부내역서·처방전을 받아 보험사 앱으로 청구하세요.';
+    // (제목, 설명, 단계: 0 좋음 / 1 일부 / 2 서류 필요)
+    final (String, String, int)? g = checking || _place.isEmpty
+        ? null
         : h == on && (noPharm || p == on)
             ? (
-                _r.inHouse
-                    ? '병원이 실손24에 연계돼 있어요. 서류 준비 없이 실손24에서 지금 바로 청구할 수 있어요(약값 포함).'
-                    : noPharm
-                        ? '병원이 실손24에 연계돼 있어요. 서류 준비 없이 실손24에서 지금 바로 청구할 수 있어요.'
-                        : '병원·약국 모두 실손24에 연계돼 있어요. 서류 준비 없이 실손24에서 병원비·약값을 지금 바로 청구할 수 있어요.',
-                true
+                '서류 없이 바로 청구 가능',
+                noPharm ? '실손24에서 바로 청구하세요${_r.inHouse ? ' (약값 포함)' : ''}.' : '실손24에서 병원비·약값을 한 번에 청구하세요.',
+                0
               )
             : h == on && p == off
-                ? ('병원비만 서류 없이 실손24에서 청구할 수 있어요. 약국은 미연계라 약값은 약국 영수증을 받아 보험사 앱으로 청구해야 해요.', false)
+                ? ('병원비만 서류 없이 청구 가능', '약값은 약국 영수증을 받아 보험사 앱으로 청구하세요.', 1)
                 : h == on
-                    ? ('병원비는 서류 없이 실손24에서 청구할 수 있어요. 약국은 연계 여부를 확인하지 못했어요.', false)
-                    : h == off && p == on
-                        ? ('약국만 실손24에 연계돼 있어요. 약값을 실손24로 청구하려면 병원에서 아래 서류를 받아 사진으로 올려야 해요.\n· 진료비 영수증\n· 진료비 세부내역서\n· 처방전 (환자 보관용)', false)
-                        : h == off && (noPharm || p == off)
-                            ? ('실손24 미연계 병원이에요. 영수증 등 서류를 받아 보험사 앱으로 청구해야 해요.', false)
-                            : (null, false);
-    if (text == null) {
-      return KText('실손24에 연계된 병원·약국이면 서류 없이 바로 청구할 수 있어요.', flow: true, style: small);
+                    ? ('병원비는 서류 없이 청구 가능', '약국은 연계 여부를 아직 확인하지 못했어요.', 1)
+                    : h == off
+                        ? ('서류 준비 필요', docs, 2)
+                        : null;
+    if (g == null) {
+      return KText('병원이 실손24에 연계돼 있으면 서류 없이 바로 청구할 수 있어요.', flow: true, style: small);
     }
-    final (bg, fg) = good
-        ? (AppColors.primarySoft, AppColors.primaryDark)
-        : (const Color(0xFFFFF4E8), const Color(0xFF9A3412));
+    final (title, sub, level) = g;
+    final (Color bg, Color fg, IconData icon) = switch (level) {
+      0 => (AppColors.primarySoft, AppColors.primaryDark, Icons.check_circle_rounded),
+      1 => (const Color(0xFFFFF4E8), const Color(0xFF9A3412), Icons.adjust_rounded),
+      _ => (const Color(0xFFF1F3F5), const Color(0xFF374151), Icons.description_outlined),
+    };
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 4),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(good ? Icons.bolt_rounded : Icons.description_outlined, size: 20, color: fg),
+        Icon(icon, size: 22, color: fg),
         const SizedBox(width: 8),
         Expanded(
-          child: KText(text,
-              flow: true,
-              style: TextStyle(fontSize: 13.5, color: fg, height: 1.45, fontWeight: FontWeight.w600)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            KText(title, style: TextStyle(fontSize: 15.5, color: fg, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 2),
+            KText(sub, flow: true, style: TextStyle(fontSize: 13, color: fg, height: 1.45)),
+          ]),
         ),
       ]),
     );
@@ -511,12 +515,8 @@ class _RecordScreenState extends State<RecordScreen> {
           },
         ),
         const SizedBox(height: 12),
-        const KText(
-          '실손24에서 로그인한 뒤 "나의 실손청구"에서 병원·약국과 진료 내역을 고르면 보험사로 바로 전송돼요. '
-          '연계되지 않은 곳은 영수증·처방전 같은 서류를 받아 보험사 앱으로 청구해야 해요.',
-          flow: true,
-          style: small,
-        ),
+        const KText('실손24 로그인 → "나의 실손청구"에서 진료 내역을 고르면 보험사로 바로 전송돼요.',
+            flow: true, style: small),
         Wrap(spacing: 4, children: [
           TextButton(
             onPressed: _openSilson24,
@@ -1031,12 +1031,6 @@ class _ClaimPart extends StatelessWidget {
             ),
           ),
         ]),
-        if (notEnabled && !done)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: KText('이곳은 서류(영수증·처방전 등)를 받아 보험사 앱으로 청구해야 해요.',
-                flow: true, style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.45)),
-          ),
         const SizedBox(height: 8),
       ]),
     );
@@ -1056,7 +1050,7 @@ class _SilsonBadge extends StatelessWidget {
         ? ('실손24 연계 확인 중…', AppColors.line, AppColors.sub, Icons.hourglass_empty)
         : switch (silson?.state) {
             SilsonState.enabled => docsNeeded
-                ? ('실손24 연계 · 서류 첨부 필요', const Color(0xFFFFF4E8), const Color(0xFF9A3412),
+                ? ('실손24 연계 · 병원 서류 필요', const Color(0xFFFFF4E8), const Color(0xFF9A3412),
                     Icons.description_outlined)
                 : ('실손24 연계 · 서류 없이 청구 가능', AppColors.primarySoft, AppColors.primaryDark,
                     Icons.check_circle),
