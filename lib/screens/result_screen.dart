@@ -29,7 +29,11 @@ class ResultScreen extends StatefulWidget {
       this.asOf,
       this.title = '안전 확인 결과',
       this.origins = const {},
-      this.doses = const {}});
+      this.doses = const {},
+      this.letters = const {}});
+
+  /// 약 이름 → 심평원 투약이력의 '안전성 서한' 표시
+  final Map<String, String> letters;
 
   /// 약 이름 → 처방 용량 (심평원 투약이력에서 불러온 기록). 용량주의·투여기간주의 대조에 쓴다.
   final Map<String, DoseInfo> doses;
@@ -495,6 +499,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 pregnant: widget.child.pregnant,
                 past: _past,
                 origin: widget.origins[c.query],
+                letter: widget.letters[c.query],
                 notes: _notesFor(c),
                 onDeleteReaction: _deleteReaction,
                 onRetry: () => _retry(c),
@@ -605,6 +610,14 @@ class _DoseAlert extends StatelessWidget {
   }
 }
 
+/// 안전성 서한 안내 문장. 칸 값이 "Y" 같은 표시가 아니라 제목이면 함께 보여준다.
+String _letterText(String cell) {
+  final t = cell.trim();
+  final mark = RegExp(r'^(y|yes|o|있음|해당|대상)$', caseSensitive: false).hasMatch(t);
+  return '식약처가 이 약(또는 성분)의 안전성 정보를 의사·약사에게 알린 약이에요${mark ? '' : ' ($t)'}. '
+      '자세한 내용은 식약처 의약품안전나라의 안전성 서한에서 볼 수 있어요.';
+}
+
 String _ruleText(List<TabooRow> rows) =>
     AgeRule.summarize([for (final r in rows) ...r.rule.conditions]);
 
@@ -621,10 +634,14 @@ class _CheckCard extends StatelessWidget {
     this.onAddReaction,
     this.onDeleteReaction,
     this.origin,
+    this.letter,
   });
 
   /// 어느 복용 기록의 약인지 (여러 기록을 함께 확인할 때)
   final String? origin;
+
+  /// 심평원 투약이력의 '안전성 서한' 표시 (있을 때만)
+  final String? letter;
 
   final List<(ReactionNote, ReactionMatch)> notes;
   final VoidCallback? onAddReaction;
@@ -814,6 +831,8 @@ class _CheckCard extends StatelessWidget {
                   danger: true),
             if (check.nursingNote != null)
               _Alert(title: '수유부 주의', body: check.nursingNote!, danger: false),
+            if (letter != null)
+              _Alert(title: '식약처 안전성 서한', body: _letterText(letter!), danger: false),
             for (final f in check.doseFindings)
               _DoseAlert(finding: f, dose: check.dose, child: !adult),
             ReactionNotesView(items: notes, onDelete: onDeleteReaction),

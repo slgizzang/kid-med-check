@@ -544,6 +544,7 @@ class _RecordScreenState extends State<RecordScreen> {
           recordId: _r.id,
           asOf: _r.createdAt,
           doses: Map.of(_r.doses),
+          letters: Map.of(_r.safetyLetters),
           reuse: _resultCache[_r.id]?.$1 == _signature ? _resultCache[_r.id]!.$2 : null,
           onChecks: (checks) => _resultCache[_r.id] = (_signature, checks),
           onSnapshot: (snap) {
@@ -568,6 +569,17 @@ class _RecordScreenState extends State<RecordScreen> {
       ),
     );
     await _loadNotes();
+  }
+
+  /// 안전성 서한 표시와 반응 기록 줄
+  Widget? _drugSub(String name) {
+    final note = _noteLine(name);
+    if (!_r.safetyLetters.containsKey(name)) return note;
+    const letter = KText('식약처 안전성 서한 있는 약',
+        maxLines: 1,
+        style: TextStyle(fontSize: 12, color: Color(0xFF9A3412), fontWeight: FontWeight.w700));
+    if (note == null) return letter;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [letter, note]);
   }
 
   Widget? _noteLine(String name) {
@@ -674,7 +686,7 @@ class _RecordScreenState extends State<RecordScreen> {
                         ),
                         title: KText(_r.drugs[i],
                             style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: _noteLine(_r.drugs[i]),
+                        subtitle: _drugSub(_r.drugs[i]),
                         onTap: () => _addReaction(_r.drugs[i]),
                         contentPadding: const EdgeInsets.only(left: 14, right: 2),
                         trailing: Row(mainAxisSize: MainAxisSize.min, children: [

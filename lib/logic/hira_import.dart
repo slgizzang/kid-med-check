@@ -35,6 +35,9 @@ class ImportedVisit {
   /// 약 이름 → 처방 용량 (1회 투약량·1일 투여횟수·총 투약일수)
   final Map<String, DoseInfo> doses = {};
 
+  /// 약 이름 → 심평원 '안전성 서한' 칸 내용 (서한이 나온 약만)
+  final Map<String, String> safetyLetters = {};
+
   /// 다시 불러와도 같은 기록을 또 만들지 않기 위한 키
   String get key =>
       'hira|${date.year}-${date.month}-${date.day}|${place.replaceAll(RegExp(r'\s'), '')}';
@@ -108,6 +111,15 @@ class HiraImport {
   static const _timesKeys = ['1일투여횟수', '1일투약횟수', '투여횟수', '투약횟수'];
   static const _daysKeys = ['총투약일수', '총투여일수', '투약일수', '투여일수'];
   static const _unitKeys = ['단위'];
+  static const _letterKeys = ['안전성서한', '안전성 서한'];
+
+  /// '안전성 서한' 칸이 서한 있음을 뜻하는지 ("Y", "O", 서한 제목 등). 빈칸·N·없음은 아님.
+  static String? safetyLetterOf(String cell) {
+    final t = cell.trim();
+    if (t.isEmpty) return null;
+    if (RegExp(r'^(n|no|x|-|없음|해당\s*없음|0|false)$', caseSensitive: false).hasMatch(t)) return null;
+    return t;
+  }
 
   static int _findCol(List<String> header, List<String> keys, {Set<int> skip = const {}}) {
     for (final k in keys) {
@@ -145,6 +157,8 @@ class HiraImport {
     final timesCol = _findCol(header, _timesKeys, skip: {...used, perDoseCol});
     final daysCol = _findCol(header, _daysKeys, skip: {...used, perDoseCol, timesCol});
     final unitCol = _findCol(header, _unitKeys, skip: {...used, perDoseCol, timesCol, daysCol});
+    final letterCol =
+        _findCol(header, _letterKeys, skip: {...used, perDoseCol, timesCol, daysCol, unitCol});
 
     final byKey = <String, ImportedVisit>{};
     DateTime? lastDate;
@@ -178,6 +192,8 @@ class HiraImport {
       if (!visit.drugs.contains(name)) visit.drugs.add(name);
       final dose = DoseInfo.parse(
           unit: cell(unitCol), perDose: cell(perDoseCol), times: cell(timesCol), days: cell(daysCol));
+      final letter = safetyLetterOf(cell(letterCol));
+      if (letter != null) visit.safetyLetters[name] = letter;
       final had = visit.doses[name];
       // 같은 약이 두 줄이면 더 긴 투약일수를 쓴다
       if (dose != null && (had == null || (dose.days ?? 0) > (had.days ?? 0))) {

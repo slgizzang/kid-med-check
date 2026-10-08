@@ -162,6 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final recs = _myRecords.where((r) => _picked.contains(r.id)).toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     final doses = {for (final r in recs) ...r.doses};
+    final letters = {for (final r in recs) ...r.safetyLetters};
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -171,6 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: '함께 먹는 약 확인',
           origins: drugs,
           doses: doses,
+          letters: letters,
         ),
       ),
     );

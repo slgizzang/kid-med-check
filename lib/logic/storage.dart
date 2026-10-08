@@ -168,6 +168,7 @@ class AppStorage {
           for (final e in v.doses.entries) {
             r.doses.putIfAbsent(e.key, () => e.value);
           }
+          r.safetyLetters.addAll(v.safetyLetters);
           if (v.inHouse) {
             r.inHouse = true;
             r.pharmacy = '';
@@ -189,6 +190,7 @@ class AppStorage {
         pharmacy: v.pharmacy,
         inHouse: v.inHouse,
         doses: Map.of(v.doses),
+        safetyLetters: Map.of(v.safetyLetters),
       ));
       have.add(v.key);
       added++;

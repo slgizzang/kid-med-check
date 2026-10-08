@@ -1112,6 +1112,15 @@ void main() {
       expect(t.days, 5);
       expect(t.label, '1회 1정 · 하루 3번 · 5일');
       expect(v.doses['맥페란정']!.label, '1회 0.5정 · 하루 3번 · 10일');
+      // 안전성 서한 칸: 표시가 있는 약만
+      expect(v.safetyLetters, isEmpty);
+      final rows2 = [
+        ['조제일자', '처방기관', '조제기관', '제품명', '안전성 서한'],
+        ['2026-10-01', '바른의원', '온누리약국', '가약', 'Y'],
+        ['2026-10-01', '바른의원', '온누리약국', '나약', ''],
+        ['2026-10-01', '바른의원', '온누리약국', '다약', 'N'],
+      ];
+      expect(HiraImport.parseRows(rows2).single.safetyLetters, {'가약': 'Y'});
 
       final r = MedRecord(id: 'a', childId: 'c', title: 't', createdAt: DateTime(2026),
           doses: Map.of(v.doses));

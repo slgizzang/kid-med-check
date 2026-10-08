@@ -84,9 +84,14 @@ class MedRecord {
     this.inHouse = false,
     List<RecordPhoto>? photos,
     Map<String, DoseInfo>? doses,
+    Map<String, String>? safetyLetters,
   })  : drugs = drugs ?? [],
         photos = photos ?? [],
-        doses = doses ?? {};
+        doses = doses ?? {},
+        safetyLetters = safetyLetters ?? {};
+
+  /// 약 이름 → 심평원 투약이력의 '안전성 서한' 표시 (식약처가 안전성 서한을 낸 약)
+  final Map<String, String> safetyLetters;
 
   /// 약 이름 → 처방 용량 (심평원 투약이력의 1회 투약량·1일 투여횟수·총 투약일수)
   final Map<String, DoseInfo> doses;
@@ -173,6 +178,7 @@ class MedRecord {
         if (inHouse) 'inHouse': true,
         if (photos.isNotEmpty) 'photos': photos.map((p) => p.toJson()).toList(),
         if (doses.isNotEmpty) 'doses': {for (final e in doses.entries) e.key: e.value.toJson()},
+        if (safetyLetters.isNotEmpty) 'letters': safetyLetters,
       };
 
   factory MedRecord.fromJson(Map<String, dynamic> j) => MedRecord(
@@ -204,6 +210,9 @@ class MedRecord {
           for (final e in (j['doses'] as Map? ?? const {}).entries)
             if (e.value is Map)
               '${e.key}': DoseInfo.fromJson(Map<String, dynamic>.from(e.value as Map)),
+        },
+        safetyLetters: {
+          for (final e in (j['letters'] as Map? ?? const {}).entries) '${e.key}': '${e.value}',
         },
       );
 }
