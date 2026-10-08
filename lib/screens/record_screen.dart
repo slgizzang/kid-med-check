@@ -426,6 +426,21 @@ class _RecordScreenState extends State<RecordScreen> {
           },
         ),
         const SizedBox(height: 10),
+        if (_r.inHouse)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(14)),
+            child: const Row(children: [
+              Icon(Icons.local_pharmacy_outlined, size: 20, color: AppColors.sub),
+              SizedBox(width: 10),
+              Expanded(
+                child: KText('약은 병원에서 바로 받았어요(원내 조제). 약값은 병원비 청구에 함께 들어가요.',
+                    flow: true, style: TextStyle(fontSize: 13, color: AppColors.ink, height: 1.45)),
+              ),
+            ]),
+          )
+        else
         _ClaimPart(
           pharmacy: true,
           name: _r.pharmacy,

@@ -6,6 +6,7 @@ library;
 import 'dart:math' as math;
 
 import 'dur_api.dart';
+import 'hira_import.dart';
 import 'models.dart';
 
 double meters((double, double) a, (double, double) b) {
@@ -111,10 +112,23 @@ Future<List<PlaceHit>> sameNameNear(DurApi api, String name, (double, double) an
 /// 바뀐 기록 수를 돌려준다.
 Future<int> fillPlaces(DurApi api, List<MedRecord> records,
     {(double, double)? me, void Function(int done, int total)? onProgress}) async {
+  // 예전에 불러온 기록 중 조제기관이 병원 자신인 것(원내 조제)은 약국이 아님
+  final fixed = <MedRecord>{};
+  for (final r in records) {
+    if (!r.inHouse && r.imported && r.pharmacy.isNotEmpty &&
+        HiraImport.isInHouse(hospitalNameOf(r), r.pharmacy)) {
+      r.inHouse = true;
+      r.pharmacy = '';
+      r.pharmacyAddr = '';
+      r.pharmacyCode = '';
+      r.pharmacyPos = null;
+      fixed.add(r);
+    }
+  }
   bool needH(MedRecord r) => hospitalNameOf(r).length >= 2 && r.hospitalPos == null;
   bool needP(MedRecord r) => r.pharmacy.length >= 2 && r.pharmacyPos == null;
   final todo = records.where((r) => !r.otc && (needH(r) || needP(r))).toList();
-  if (todo.isEmpty) return 0;
+  if (todo.isEmpty) return fixed.length;
 
   String key((double, double) p) => '${p.$1.toStringAsFixed(4)},${p.$2.toStringAsFixed(4)}';
   // 이미 정해진 것들 (같은 사람 기록 전체에서)
@@ -218,5 +232,5 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
     }
     if (changed.length == before) break;
   }
-  return changed.length;
+  return {...changed, ...fixed}.length;
 }

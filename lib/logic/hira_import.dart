@@ -28,6 +28,9 @@ class ImportedVisit {
   String hospital;
   String pharmacy;
 
+  /// 약을 병원에서 바로 받음 (조제기관 = 처방기관)
+  bool inHouse = false;
+
   /// 다시 불러와도 같은 기록을 또 만들지 않기 위한 키
   String get key =>
       'hira|${date.year}-${date.month}-${date.day}|${place.replaceAll(RegExp(r'\s'), '')}';
@@ -151,10 +154,26 @@ class HiraImport {
       final v = ImportedVisit(date: date, place: place, drugs: []);
       final visit = byKey.putIfAbsent(v.key, () => v);
       if (visit.hospital.isEmpty && clinicCol >= 0) visit.hospital = cell(clinicCol);
-      if (visit.pharmacy.isEmpty && pharmCol >= 0) visit.pharmacy = cell(pharmCol);
+      if (visit.pharmacy.isEmpty && !visit.inHouse && pharmCol >= 0) {
+        final ph = cell(pharmCol);
+        if (isInHouse(cell(clinicCol), ph)) {
+          visit.inHouse = true;
+        } else {
+          visit.pharmacy = ph;
+        }
+      }
       if (!visit.drugs.contains(name)) visit.drugs.add(name);
     }
     return byKey.values.toList()..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  /// 조제기관이 처방기관과 같거나 약국이 아니면 병원에서 약을 받은 것 (원내 조제)
+  static bool isInHouse(String clinic, String dispenser) {
+    String n(String s) => s.replaceAll(RegExp(r'\s'), '');
+    final d = n(dispenser);
+    if (d.isEmpty) return false;
+    if (n(clinic).isNotEmpty && d == n(clinic)) return true;
+    return !d.contains('약국');
   }
 
   /// "싱귤레어세립4밀리그램(몬테루카스트나트륨)" → "싱귤레어세립4밀리그램"

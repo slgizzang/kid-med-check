@@ -481,6 +481,27 @@ void main() {
     expect(hits.last.distanceLabel, contains('km'));
   });
 
+  test('실제 투약이력 형식: 안내 문구 아래 머리글, 원내 조제는 약국으로 보지 않음', () {
+    final rows = [
+      ['※ 본 자료는 개인별 의약품 투약이력 확인 목적으로 제공되는 참고자료이며'],
+      ['※ 아울러 이로 인해 발생하는 책임은 본인에게 있으며'],
+      [],
+      ['번호', '조제일자', '처방기관', '조제기관', '제품명', '약효분류', '성분명', '약품코드', '단위', '1회 투약량', '1일 투여횟수', '총 투약일수'],
+      ['1', '20251116', '재단법인아산사회복지재단 서울아산병원', '재단법인아산사회복지재단 서울아산병원', '세토펜현탁액', '해열.진통.소염제', 'acetaminophen', '645700890', '500(1)mL/병', '3.5', '1', '1'],
+      ['2', '20251117', '명소아청소년과의원', '메디파워약국', '맥시부펜시럽', '해열.진통.소염제', 'dexibuprofen', '643500800', '', '3', '3', '3'],
+      ['3', '20251117', '명소아청소년과의원', '메디파워약국', '어린이타이레놀', '해열.진통.소염제', 'acetaminophen', '672300250', '', '3', '3', '3'],
+    ];
+    final v = HiraImport.parseRows(rows);
+    expect(v.length, 2);
+    final asan = v.firstWhere((x) => x.hospital.contains('아산'));
+    expect(asan.inHouse, isTrue);
+    expect(asan.pharmacy, '');
+    final m = v.firstWhere((x) => x.hospital == '명소아청소년과의원');
+    expect(m.inHouse, isFalse);
+    expect(m.pharmacy, '메디파워약국');
+    expect(m.drugs, ['맥시부펜시럽', '어린이타이레놀']);
+  });
+
   test('병원·약국 한 세트: 한쪽이 정해지면 그 주변 1km 안의 같은 이름 하나만', () async {
     Map<String, dynamic> it(String n, String code, double y, double x) =>
         {'yadmNm': n, 'addr': '$n 주소', 'ykiho': code, 'YPos': '$y', 'XPos': '$x'};

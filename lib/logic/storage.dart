@@ -164,7 +164,12 @@ class AppStorage {
         for (final r in list) {
           if (r.childId != childId || r.importKey != v.key) continue;
           if (r.hospital.isEmpty) r.hospital = v.hospital;
-          if (r.pharmacy.isEmpty) r.pharmacy = v.pharmacy;
+          if (v.inHouse) {
+            r.inHouse = true;
+            r.pharmacy = '';
+          } else if (r.pharmacy.isEmpty) {
+            r.pharmacy = v.pharmacy;
+          }
         }
         skipped++;
         continue;
@@ -178,6 +183,7 @@ class AppStorage {
         importKey: v.key,
         hospital: v.hospital,
         pharmacy: v.pharmacy,
+        inHouse: v.inHouse,
       ));
       have.add(v.key);
       added++;

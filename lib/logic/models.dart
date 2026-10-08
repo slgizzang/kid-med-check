@@ -80,6 +80,7 @@ class MedRecord {
     this.hospitalPos,
     this.pharmacyPos,
     this.claimedPharm = false,
+    this.inHouse = false,
     List<RecordPhoto>? photos,
   })  : drugs = drugs ?? [],
         photos = photos ?? [];
@@ -95,6 +96,9 @@ class MedRecord {
 
   /// 약값(약국 조제비) 실손보험 청구를 마쳤다고 표시했는지
   bool claimedPharm;
+
+  /// 약을 병원에서 바로 받음(원내 조제) — 약값이 병원비에 포함되어 약국 청구가 따로 없다
+  bool inHouse;
 
   /// 진료받은 병원 이름 (실손보험 청구 때 네이버 지도에서 찾기용). 모르면 빈 문자열.
   String hospital;
@@ -121,7 +125,7 @@ class MedRecord {
           : null;
 
   /// 병원비·약값 청구를 모두 마쳤는지 (약국을 모르면 병원비만 본다)
-  bool get fullyClaimed => claimed && (claimedPharm || pharmacy.isEmpty);
+  bool get fullyClaimed => claimed && (claimedPharm || pharmacy.isEmpty || inHouse);
 
   /// 심평원 투약이력에서 불러온 기록인지
   bool get imported => importKey != null;
@@ -160,6 +164,7 @@ class MedRecord {
         if (hospitalPos != null) 'hospitalPos': _posJson(hospitalPos),
         if (pharmacyPos != null) 'pharmacyPos': _posJson(pharmacyPos),
         if (claimedPharm) 'claimedPharm': true,
+        if (inHouse) 'inHouse': true,
         if (photos.isNotEmpty) 'photos': photos.map((p) => p.toJson()).toList(),
       };
 
@@ -184,6 +189,7 @@ class MedRecord {
         hospitalPos: _posOf(j['hospitalPos']),
         pharmacyPos: _posOf(j['pharmacyPos']),
         claimedPharm: j['claimedPharm'] == true,
+        inHouse: j['inHouse'] == true,
         photos: (j['photos'] as List? ?? const [])
             .map((e) => RecordPhoto.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList(),
