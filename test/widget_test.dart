@@ -527,6 +527,28 @@ void main() {
     expect(r.hospitalCode, 'H1');
     expect(r.pharmacyCode, 'P-near');
 
+    // 둘 다 흔한 이름: 같은 이름 병원 두 곳 중 한 곳 옆에만 같은 이름 약국이 있으면 그 짝
+    final client3 = MockClient((req) async {
+      final q = req.url.queryParameters;
+      final pharm = req.url.path.contains('Parmacy');
+      if (!pharm) {
+        return res([it('연세소아과의원', 'H-seoul', 37.50, 127.03), it('연세소아과의원', 'H-busan', 35.10, 129.04)]);
+      }
+      if (q['yadmNm'] == '온누리약국') {
+        return res([it('온누리약국', 'P-a', 36.0, 127.5), it('온누리약국', 'P-b', 35.5, 128.0)]);
+      }
+      // 주변 검색: 부산 병원 옆에만 온누리약국
+      final y = double.parse(q['yPos'] ?? '0');
+      return y < 36
+          ? res([it('온누리약국', 'P-busan', 35.1003, 129.0403)])
+          : res([it('다른약국', 'X', 37.5001, 127.0301)]);
+    });
+    final r3 = MedRecord(id: '3', childId: 'c', title: 'x', createdAt: DateTime(2026, 10, 1),
+        hospital: '연세소아과의원', pharmacy: '온누리약국');
+    await fillPlaces(DurApi('k', client: client3), [r3]);
+    expect(r3.hospitalCode, 'H-busan');
+    expect(r3.pharmacyCode, 'P-busan');
+
     // 주변 1km 안에 같은 이름이 둘이면 정하지 않는다
     final client2 = MockClient((req) async {
       final pharm = req.url.path.contains('Parmacy');

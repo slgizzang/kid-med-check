@@ -85,20 +85,26 @@ String hospitalNameOf(MedRecord r) {
 /// 처방 병원과 조제 약국은 한 세트: 한쪽이 정확히 정해지면 다른 쪽은 이 거리 안에서만 찾는다.
 const kPairRadius = 1000.0;
 
+/// 둘 다 흔한 이름일 때: 서로 이 거리 안에 붙어 있는 병원·약국 짝이 딱 하나면 그 짝
+const kTwinRadius = 500.0;
+
+/// 둘 다 흔한 이름일 때 병원 후보를 이만큼까지만 살펴본다 (조회가 너무 많아지지 않게)
+const kTwinMaxHosp = 30;
+
 /// [anchor] 주변 [kPairRadius] 안에서 이름이 정확히 같은 기관들 (심평원 주변 검색)
 Future<List<PlaceHit>> sameNameNear(DurApi api, String name, (double, double) anchor,
-    {required bool pharmacy}) async {
+    {required bool pharmacy, double radius = kPairRadius}) async {
   if (_n(name).length < 2) return const [];
   try {
     final hits = await api.searchPlaces('',
         pharmacy: pharmacy,
         lat: anchor.$1,
         lon: anchor.$2,
-        radius: kPairRadius.round(),
+        radius: radius.round(),
         rows: 300);
     return hits
         .where((h) =>
-            _n(h.name) == _n(name) && posOf(h) != null && meters(anchor, posOf(h)!) <= kPairRadius)
+            _n(h.name) == _n(name) && posOf(h) != null && meters(anchor, posOf(h)!) <= radius)
         .toList();
   } catch (_) {
     return const [];
@@ -182,12 +188,13 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
   }
 
   final nearCache = <String, List<PlaceHit>>{};
-  Future<List<PlaceHit>> near(String name, (double, double) anchor, bool pharmacy) async {
-    final k = '${pharmacy ? 'p' : 'h'}|${_n(name)}|${key(anchor)}';
+  Future<List<PlaceHit>> near(String name, (double, double) anchor, bool pharmacy,
+      {double radius = kPairRadius}) async {
+    final k = '${pharmacy ? 'p' : 'h'}|${_n(name)}|${key(anchor)}|${radius.round()}';
     final c = nearCache[k];
     if (c != null) return c;
     total++;
-    final got = await sameNameNear(api, name, anchor, pharmacy: pharmacy);
+    final got = await sameNameNear(api, name, anchor, pharmacy: pharmacy, radius: radius);
     done++;
     onProgress?.call(done, total);
     return nearCache[k] = got;
@@ -228,6 +235,25 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
       if (needH(r) && r.pharmacyPos != null) {
         final n = await near(hn, r.pharmacyPos!, false);
         if (n.length == 1) setH(r, n.first);
+      }
+      // 둘 다 흔한 이름이라 아무것도 못 정했으면: 같은 이름 병원마다 바로 옆(500m)에
+      // 같은 이름 약국이 있는지 보고, 그런 짝이 전국에 딱 하나면 그 짝으로 확정
+      if (round == 0 && needH(r) && needP(r)) {
+        final hs = cand[(hn, false)] ?? const [];
+        if (hs.length > 1 && hs.length <= kTwinMaxHosp) {
+          final twins = <(PlaceHit, PlaceHit)>[];
+          for (final h in hs) {
+            final ps = await near(r.pharmacy, posOf(h)!, true, radius: kTwinRadius);
+            for (final p in ps) {
+              twins.add((h, p));
+            }
+            if (twins.length > 1) break; // 둘 이상이면 확정하지 않음
+          }
+          if (twins.length == 1) {
+            setH(r, twins.first.$1);
+            setP(r, twins.first.$2);
+          }
+        }
       }
     }
     if (changed.length == before) break;
