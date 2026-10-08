@@ -618,6 +618,28 @@ class _DoseAlert extends StatelessWidget {
   }
 }
 
+/// 회수 제품을 의약품안전나라에서 보기: 품목기준코드가 있으면 그 제품 상세 화면, 없으면 제품 검색
+class _RecallLink extends StatelessWidget {
+  const _RecallLink({required this.recall});
+  final Recall recall;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = recall.product.replaceFirst(RegExp(r'^\s*\d+\s*[.)]\s*'), '').trim();
+    final url = recall.itemSeq.isNotEmpty
+        ? 'https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=${recall.itemSeq}'
+        : 'https://nedrug.mfds.go.kr/searchDrug?itemName=${Uri.encodeQueryComponent(name)}';
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: OutlinedButton.icon(
+        onPressed: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+        icon: const Icon(Icons.open_in_new, size: 18),
+        label: const KText('의약품안전나라에서 제품·회수 정보 보기', maxLines: 1),
+      ),
+    );
+  }
+}
+
 /// 식약처 의약품안전나라 '안전성 서한' 목록 (공식 원문)
 const kSafetyLetterUrl = 'https://nedrug.mfds.go.kr/pbp/CCBAC01';
 
@@ -889,6 +911,7 @@ class _CheckCard extends StatelessWidget {
                       ? injectedRecallAdvice(recall!.recall)
                       : recallAdvice(recall!.recall),
                   danger: !recall!.injected),
+            if (recall != null) _RecallLink(recall: recall!.recall),
             if (letter != null) ...[
               _Alert(title: '식약처 주의 알림이 있었던 약', body: _letterText(letter!), danger: false),
               _LetterLink(ingredient: check.info?.ingredient ?? check.ingredientText, name: check.title),
