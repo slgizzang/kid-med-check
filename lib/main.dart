@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'logic/dur_api.dart';
-import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 import 'ui/theme.dart';
 
 void main() {
@@ -34,7 +34,7 @@ class KidMedCheckApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const HomeScreen(),
+      home: const SplashScreen(),
     );
   }
 }
