@@ -268,14 +268,46 @@ class _HomeScreenState extends State<HomeScreen> {
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
                       if (!_hasKey) _keyBanner(),
-                      SectionTitle('누구의 약인가요?',
-                          trailing: _children.isEmpty
-                              ? null
-                              : KText('길게 눌러 수정',
-                                  style: TextStyle(
-                                      fontSize: 12, color: AppColors.sub))),
-                      _childRow(),
+                      // 복용자 고르기: 아래 기록 영역과 구분되도록 색 있는 패널로 묶는다
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 0, 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.primarySoft,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 16, bottom: 10),
+                            child: Row(children: [
+                              const Icon(Icons.people_alt_outlined,
+                                  size: 20, color: AppColors.primaryDark),
+                              const SizedBox(width: 6),
+                              const Expanded(
+                                child: KText('누구의 약인가요?',
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.primaryDark)),
+                              ),
+                              if (_children.isNotEmpty)
+                                const KText('길게 눌러 수정',
+                                    maxLines: 1,
+                                    style: TextStyle(fontSize: 12, color: AppColors.sub)),
+                            ]),
+                          ),
+                          _childRow(),
+                        ]),
+                      ),
                       const SizedBox(height: 28),
+                      if (_selected != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: KText('${_selected!.name}님의 복용 기록',
+                              maxLines: 1,
+                              style: const TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.ink)),
+                        ),
                       if (_selected != null)
                         RecallCard(
                           hits: matchRecalls(_myRecords, _recalls),
