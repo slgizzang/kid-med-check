@@ -469,10 +469,15 @@ class _RecordScreenState extends State<RecordScreen> {
         Row(children: [
           const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 22),
           const SizedBox(width: 8),
-          const Expanded(
-            child: KText('실손보험 청구',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.ink)),
+          const KText('실손보험 청구',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.ink)),
+          IconButton(
+            tooltip: '실손24 청구 방법',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => _showClaimHelp(context),
+            icon: const Icon(Icons.help_outline_rounded, size: 20, color: AppColors.sub),
           ),
+          const Spacer(),
           if (_r.fullyClaimed) const _DoneChip('모두 청구 완료'),
         ]),
         const SizedBox(height: 4),
@@ -1088,3 +1093,74 @@ class _SilsonBadge extends StatelessWidget {
     );
   }
 }
+
+/// 실손24 연계 조합별 청구 방법 표
+void _showClaimHelp(BuildContext context) {
+  const rows = [
+    ('병원 ✓ · 약국 ✓', '서류 없이 바로 청구 가능', '실손24에서 병원비·약값을 한 번에 청구', Color(0xFF0B7D62)),
+    ('병원 ✓ · 약국 ✕', '병원비만 서류 없이 청구 가능', '약값은 약국 영수증과 처방전(환자 보관용)을 받아 보험사 앱으로', Color(0xFF9A3412)),
+    ('병원 ✕ · 약국 ✓', '서류 준비 필요', '약국만 연계돼도 병원 서류가 필요해서 미연계와 같아요', Color(0xFF374151)),
+    ('병원 ✕ · 약국 ✕', '서류 준비 필요', '진료비 영수증·세부내역서·처방전을 받아 보험사 앱으로', Color(0xFF374151)),
+  ];
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    builder: (ctx) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const KText('실손24로 청구하는 방법',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
+          const SizedBox(height: 6),
+          const KText('서류 없이 청구되는지는 병원이 실손24에 연계돼 있는지가 정해요.',
+              flow: true, style: TextStyle(fontSize: 13, color: AppColors.sub, height: 1.5)),
+          const SizedBox(height: 14),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.line),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0) const Divider(height: 1, color: AppColors.line),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    SizedBox(
+                      width: 96,
+                      child: KText(rows[i].$1,
+                          maxLines: 1,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.ink)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        KText(rows[i].$2,
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w800, color: rows[i].$4)),
+                        const SizedBox(height: 2),
+                        KText(rows[i].$3,
+                            flow: true,
+                            style: const TextStyle(fontSize: 12.5, color: AppColors.sub, height: 1.45)),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ],
+            ]),
+          ),
+          const SizedBox(height: 12),
+          const KText(
+              '✓ 실손24 연계 · ✕ 미연계. 약을 병원에서 바로 받았으면(원내 조제) 약값은 병원비에 함께 들어가요. '
+              '실손24 로그인 → "나의 실손청구"에서 진료 내역을 고르면 보험사로 바로 전송돼요.',
+              flow: true,
+              style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5)),
+        ]),
+      ),
+    ),
+  );
+}
+
