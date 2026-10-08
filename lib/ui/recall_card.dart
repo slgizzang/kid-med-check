@@ -27,7 +27,7 @@ class RecallCard extends StatelessWidget {
           fg: const Color(0xFFB71C1C),
           bg: const Color(0xFFFDECEC),
           icon: Icons.campaign_outlined,
-          title: '회수된 약이 있어요 · ${home.length}건',
+          title: '회수된 약 · ${home.length}건',
           sub: '식약처 회수·판매중지 정보에 처방/구매한 제품이 올라왔어요.',
           items: home,
           advice: recallAdvice,

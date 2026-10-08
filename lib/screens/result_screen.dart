@@ -802,7 +802,7 @@ class _CheckCard extends StatelessWidget {
               _Alert(
                   title: recall!.injected
                       ? '이미 맞은 주사가 회수됐어요 · ${recallDateLabel(recall!.recall.date)}'
-                      : '회수된 약이에요 · ${recallDateLabel(recall!.recall.date)} ${recall!.recall.forced ? '회수 명령' : '자진 회수'}',
+                      : '회수된 약 · ${recallDateLabel(recall!.recall.date)} ${recall!.recall.forced ? '회수 명령' : '자진 회수'}',
                   body: recall!.injected
                       ? injectedRecallAdvice(recall!.recall)
                       : recallAdvice(recall!.recall),
