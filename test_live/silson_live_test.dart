@@ -115,6 +115,14 @@ void main() {
         print('ONE   - ${e['insttNm']} | ${e['rnAddr']} | ${e['detailAddr']} | svc=${e['serviceEnabled']} | ${e['lat']},${e['lng']} | cd=${'${e['hospitalCd']}'.length > 10 ? '${e['hospitalCd']}'.substring(0, 10) : e['hospitalCd']}');
       }
       print('ONE addrKey hira=${Silson24.addrKey(h.addr)}');
+      for (final kw in ['', '소아']) {
+        final around = await s24.rawSearch(kw, pharmacy: ph, center: at);
+        print('ONE AROUND kw="$kw" results=${around.length}');
+        for (final e in around.take(8)) {
+          final la = double.tryParse('${e['lat']}'), lo = double.tryParse('${e['lng']}');
+          print('ONE   ~ ${e['insttNm']} | ${e['rnAddr']} | svc=${e['serviceEnabled']} | d=${dist(at, la, lo).round()}m');
+        }
+      }
     }
   });
 }
