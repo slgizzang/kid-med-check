@@ -158,7 +158,9 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
   final pNames = {for (final r in todo) if (needP(r)) r.pharmacy};
   final jobs = [for (final n in hNames) (n, false), for (final n in pNames) (n, true)];
   final cand = <(String, bool), List<PlaceHit>>{};
-  var done = 0, total = jobs.length;
+  // 진행률: 전체 = 이름 조회 수 + 기록 수 (처음에 정해 두고 바꾸지 않음)
+  var done = 0;
+  final total = jobs.length + todo.length;
   for (var i = 0; i < jobs.length; i += 4) {
     final batch = jobs.skip(i).take(4).toList();
     final got = await Future.wait(batch.map((j) => sameName(api, j.$1, pharmacy: j.$2)));
@@ -193,10 +195,7 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
     final k = '${pharmacy ? 'p' : 'h'}|${_n(name)}|${key(anchor)}|${radius.round()}';
     final c = nearCache[k];
     if (c != null) return c;
-    total++;
     final got = await sameNameNear(api, name, anchor, pharmacy: pharmacy, radius: radius);
-    done++;
-    onProgress?.call(done, total);
     return nearCache[k] = got;
   }
 
@@ -255,8 +254,13 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
           }
         }
       }
+      if (round == 0) {
+        done++;
+        onProgress?.call(done, total);
+      }
     }
     if (changed.length == before) break;
   }
+  onProgress?.call(total, total);
   return {...changed, ...fixed}.length;
 }

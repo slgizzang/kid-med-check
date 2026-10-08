@@ -120,7 +120,8 @@ class _ImportScreenState extends State<ImportScreen> {
       await AppStorage.fillPlaces(
           childId: widget.person.id,
           onProgress: (d, t) {
-            if (mounted) setState(() => _busyText = '병원·약국 위치를 찾는 중… $d/$t');
+            final pct = t == 0 ? 100 : (d * 100 / t).round().clamp(0, 100);
+            if (mounted) setState(() => _busyText = '병원·약국 위치를 찾는 중… $pct%');
           });
     } catch (_) {}
     if (mounted) setState(() => _busy = false);
