@@ -1,27 +1,14 @@
-import json, os, urllib.parse, urllib.request
+import json, os, urllib.parse, urllib.request, urllib.error
 key = os.environ["DUR_API_KEY"]
-base = "https://apis.data.go.kr/1471000/DURIrdntInfoService03/"
-ops = ["getCpctyAtentInfoList03", "getMdctnPdAtentInfoList03"]
-for op in ops:
-    for name in ["아세트아미노펜", "메토클로프라미드", ""]:
-        q = {"serviceKey": key, "type": "json", "numOfRows": 2, "pageNo": 1}
-        if name:
-            q["ingrKorName"] = name
-        try:
-            raw = urllib.request.urlopen(base + op + "?" + urllib.parse.urlencode(q), timeout=20).read()
+for svc in ["DURIrdntInfoService03", "DURIrdntInfoService02", "DURIrdntInfoService01"]:
+    for op in ["getCpctyAtentInfoList", "getMdctnPdAtentInfoList"]:
+        for suf in ["03", "02", "01", ""]:
+            q = {"serviceKey": key, "type": "json", "numOfRows": 1, "pageNo": 1}
+            url = f"https://apis.data.go.kr/1471000/{svc}/{op}{suf}?" + urllib.parse.urlencode(q)
             try:
-                d = json.loads(raw)
-            except Exception:
-                print(f"== {op} [{name}] raw", raw[:400]); continue
-            b = d.get("body") or d.get("response", {}).get("body", {})
-            items = b.get("items") or []
-            if isinstance(items, dict):
-                items = items.get("item", [])
-            if isinstance(items, dict):
-                items = [items]
-            print(f"== {op} [{name}] total={b.get('totalCount')}")
-            for it in items[:2]:
-                it = it.get("item", it)
-                print("  ", json.dumps(it, ensure_ascii=False, indent=1))
-        except Exception as e:
-            print(f"== {op} [{name}] fail {e}")
+                raw = urllib.request.urlopen(url, timeout=20).read().decode("utf-8", "replace")
+                print(f"== {svc}/{op}{suf} OK", raw[:1500])
+            except urllib.error.HTTPError as e:
+                print(f"== {svc}/{op}{suf} {e.code}", e.read()[:150])
+            except Exception as e:
+                print(f"== {svc}/{op}{suf} fail {e}")
