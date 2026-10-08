@@ -5,7 +5,7 @@
  "naverUpdated": "",
  "source": "naver_shopping+coupang_partners",
  "status": {
-  "checked": "2026-10-08T08:34:18+00:00",
+  "checked": "2026-10-08T08:35:33+00:00",
   "naverKey": true,
   "coupangKey": false,
   "naverError": "HTTPError HTTP Error 401: Unauthorized {\"errorMessage\":\"Scope Status Invalid : Authentication failed. (인증에 실패했습니다.)\",\"errorCode\":\"024\"}",
