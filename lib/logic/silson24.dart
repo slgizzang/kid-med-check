@@ -92,17 +92,23 @@ class Silson24 {
     SilsonCheck r;
     try {
       // 1차: 정리한 이름으로, 못 찾으면 2차: 종별(의원·약국 등)을 뗀 이름으로 (실손24는 부분 검색)
-      // 실손24는 띄어쓰기가 다르면 못 찾으므로 붙여서 찾는다 ("365 하나약국" → "365하나약국")
-      r = pick(await _search(_n(q), pharmacy: pharmacy, center: center), q, addr,
-          code: code, at: at, near: near);
-      final b = _base(q);
-      if (r.miss == SilsonMiss.notFound && b.length >= 2 && b != _n(q)) {
-        r = pick(await _search(b, pharmacy: pharmacy, center: center), q, addr,
-            code: code, at: at, near: near);
-      }
-      // 이름이 실손24에 다르게 올라가 있으면: 그 자리 주변을 이름 없이 찾아 주소·위치로 맞춘다
-      if (r.miss == SilsonMiss.notFound && at != null) {
+      if (at != null) {
+        // 이 기관의 정확한 위치를 알면: 그 자리 주변을 이름 없이(거리순) 찾아 그 자리의 기관만 본다.
+        // 다른 지역의 같은 이름 기관은 다른 곳이므로 보지 않는다.
         r = pickByPlace(await _search('', pharmacy: pharmacy, center: at), q, addr, at);
+        if (r.miss == SilsonMiss.notFound) {
+          // 주변 목록이 너무 붐비면 이름으로 한 번 더 (결과는 역시 그 자리의 것만)
+          r = pickByPlace(await _search(_base(q), pharmacy: pharmacy, center: at), q, addr, at);
+        }
+      } else {
+        // 위치를 모르면 이름으로 (띄어쓰기는 붙여서: "365 하나약국" → "365하나약국")
+        r = pick(await _search(_n(q), pharmacy: pharmacy, center: near), q, addr,
+            code: code, near: near);
+        final b = _base(q);
+        if (r.miss == SilsonMiss.notFound && b.length >= 2 && b != _n(q)) {
+          r = pick(await _search(b, pharmacy: pharmacy, center: near), q, addr,
+              code: code, near: near);
+        }
       }
     } catch (_) {
       return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.noResponse);
@@ -188,15 +194,33 @@ class Silson24 {
   /// 2) 여럿이면: 주소가 겹치는 곳 → 기준점([near])에서 확실히 가장 가까운 곳
   /// 3) 그래도 여럿이면 모두 같은 상태일 때만 판정
   /// 도로명 주소 비교용 열쇠: "서울특별시 송파구 올림픽로43길 88, 서울아산병원 (풍납동)" → "서울특별시송파구올림픽로43길88"
-  static String addrKey(String a) => a
-      .replaceAll(RegExp(r'\([^)]*\)'), '')
-      .split(',')
-      .first
-      .replaceAll(RegExp(r'\s'), '')
-      .trim();
+  static const _sido = {
+    '서울특별시': '서울', '부산광역시': '부산', '대구광역시': '대구', '인천광역시': '인천',
+    '광주광역시': '광주', '대전광역시': '대전', '울산광역시': '울산', '세종특별자치시': '세종',
+    '경기도': '경기', '강원특별자치도': '강원', '강원도': '강원', '충청북도': '충북', '충청남도': '충남',
+    '전북특별자치도': '전북', '전라북도': '전북', '전라남도': '전남', '경상북도': '경북',
+    '경상남도': '경남', '제주특별자치도': '제주',
+  };
 
-  /// 이름 없이 주변을 찾은 결과에서: 도로명 주소가 같은 곳 → 없으면 바로 그 자리(30m 안)의 곳.
-  /// 같은 건물에 여럿이면 이름이 조금이라도 겹치는 곳을 고르고, 그래도 여럿이면 판정하지 않는다.
+  /// 주소 비교용 열쇠: 시·도 이름을 줄이고 '도로명 + 건물번호'까지만.
+  /// "서울특별시 광진구 뚝섬로 552, 203호 (자양동)" == "서울 광진구 뚝섬로 552 삼희빌딩" → "서울광진구뚝섬로552"
+  static String addrKey(String a) {
+    var t = a.replaceAll(RegExp(r'\([^)]*\)'), ' ').trim();
+    for (final e in _sido.entries) {
+      if (t.startsWith(e.key)) {
+        t = e.value + t.substring(e.key.length);
+        break;
+      }
+    }
+    t = t.replaceAll(RegExp(r'\s'), '');
+    final m = RegExp(r'^(.*?(?:로|길)\d+(?:-\d+)?)').firstMatch(t);
+    return m != null ? m.group(1)! : t.split(',').first;
+  }
+
+  /// 위치를 아는 기관: 주변 검색 결과에서 "바로 그 자리"의 기관만 본다.
+  /// 1) 300m 안에서 이름(의원·약국 같은 종별을 뗀 것)이 같은 곳 중 가장 가까운 곳
+  /// 2) 없으면 그 자리(30m 안 또는 같은 도로명 주소)에서 이름 글자가 2자 이상 겹치는 곳
+  /// 다른 지역의 같은 이름은 보지 않으며, 이름이 전혀 안 맞으면 '찾지 못함'으로 둔다(남의 상태를 빌려오지 않음).
   static SilsonCheck pickByPlace(
       List<Map<String, dynamic>> items, String query, String addr, (double, double) at) {
     SilsonCheck of(Map<String, dynamic> e) => SilsonCheck(
@@ -210,29 +234,35 @@ class Silson24 {
       final la = _num(e['lat']), lo = _num(e['lng']);
       return la == null || lo == null ? double.infinity : _dist(at.$1, at.$2, la, lo);
     }
+    String nm(Map<String, dynamic> e) => '${e['insttNm'] ?? ''}';
+    final qb = _base(query);
     final ak = addrKey(addr);
-    var cands = ak.length >= 8
-        ? items.where((e) => addrKey('${e['rnAddr'] ?? ''}') == ak).toList()
-        : <Map<String, dynamic>>[];
-    if (cands.isEmpty) cands = items.where((e) => d(e) < 30).toList();
-    if (cands.length > 1) {
-      // 이름 글자가 2자 이상 연속으로 겹치는 곳
-      final qb = _base(query);
-      bool overlap(String x) {
-        final b = _base(x);
-        for (var i = 0; i + 2 <= qb.length; i++) {
-          if (b.contains(qb.substring(i, i + 2))) return true;
-        }
-        return false;
+    bool here(Map<String, dynamic> e) =>
+        d(e) < 30 || (ak.length >= 6 && addrKey('${e['rnAddr'] ?? ''}') == ak);
+
+    // 1) 같은 이름 (300m 안, 가장 가까운 곳)
+    final same = items.where((e) => _base(nm(e)) == qb && d(e) < 300).toList()
+      ..sort((a, b) => d(a).compareTo(d(b)));
+    if (same.isNotEmpty) return of(same.first);
+
+    // 2) 그 자리의 기관 중 이름이 겹치는 곳 (실손24에 이름이 조금 다르게 올라간 경우)
+    bool overlap(String x) {
+      final b = _base(x);
+      if (b.isEmpty || qb.isEmpty) return false;
+      if (b.contains(qb) || qb.contains(b)) return true;
+      for (var i = 0; i + 3 <= qb.length; i++) {
+        if (b.contains(qb.substring(i, i + 3))) return true;
       }
-      final named = cands.where((e) => overlap('${e['insttNm'] ?? ''}')).toList();
-      if (named.isNotEmpty) cands = named;
+      return false;
     }
-    if (cands.length == 1) return of(cands.first);
-    final states = cands.map((e) => e['serviceEnabled'] == true).toSet();
-    if (cands.isNotEmpty && states.length == 1) return of(cands.first);
-    return SilsonCheck(SilsonState.unknown,
-        miss: cands.isEmpty ? SilsonMiss.notFound : SilsonMiss.ambiguous);
+    final spot = items.where((e) => here(e) && overlap(nm(e))).toList();
+    if (spot.length == 1) return of(spot.first);
+    if (spot.length > 1) {
+      final states = spot.map((e) => e['serviceEnabled'] == true).toSet();
+      if (states.length == 1) return of(spot.first);
+      return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.ambiguous);
+    }
+    return const SilsonCheck(SilsonState.unknown, miss: SilsonMiss.notFound);
   }
 
   static SilsonCheck pick(List<Map<String, dynamic>> items, String query, String addr,

@@ -591,7 +591,26 @@ void main() {
       {'insttNm': '서울아산병원', 'rnAddr': '서울특별시 송파구 올림픽로43길 88 (풍납동)', 'serviceEnabled': true},
     ], '재단법인아산사회복지재단 서울아산병원', '서울특별시 송파구 올림픽로43길 88, 서울아산병원 (풍납동)');
     expect(asan.state, SilsonState.enabled);
-    expect(Silson24.addrKey('서울특별시 강동구 성안로 150, (길동)'), '서울특별시강동구성안로150');
+    expect(Silson24.addrKey('서울특별시 강동구 성안로 150, (길동)'), '서울강동구성안로150');
+    expect(Silson24.addrKey('서울특별시 광진구 뚝섬로 552, 203호 (자양동)'),
+        Silson24.addrKey('서울 광진구 뚝섬로 552 삼희빌딩'));
+    // 같은 건물 다른 층: 실손24에 '의원' 없이 올라가 있어도 그 자리의 같은 이름으로 맞추고,
+    // 다른 지역의 같은 이름(연계됨)은 보지 않는다
+    const at = (37.5342962, 127.0712962);
+    Map<String, dynamic> e(String n, String a, bool svc, double la, double lo) =>
+        {'insttNm': n, 'rnAddr': a, 'serviceEnabled': svc, 'lat': la, 'lng': lo};
+    final around = [
+      e('앨리스치과의원', '서울특별시 광진구 뚝섬로 552, 301호 (자양동)', false, 37.5342962, 127.0712962),
+      e('참경희한의원', '서울특별시 광진구 뚝섬로 552, 2층 (자양동, 삼희빌딩)', false, 37.5342962, 127.0712962),
+      e('명소아청소년과', '서울 광진구 뚝섬로 552 삼희빌딩', false, 37.5342962, 127.0712962),
+      e('명소아청소년과의원', '서울특별시 동작구 장승배기로 34', true, 37.5011562, 126.9415797),
+    ];
+    final mine = Silson24.pickByPlace(around, '명소아청소년과의원', '서울특별시 광진구 뚝섬로 552, 203호 (자양동)', at);
+    expect(mine.state, SilsonState.notEnabled);
+    expect(mine.name, '명소아청소년과');
+    // 그 자리에 이름이 맞는 곳이 없으면 남의 상태를 빌리지 않고 '찾지 못함'
+    final none = Silson24.pickByPlace(around.take(2).toList(), '명소아청소년과의원', '', at);
+    expect(none.miss, SilsonMiss.notFound);
     // 종별만 다른 이름 (써니이비인후과 ↔ 써니이비인후과의원)
     expect(Silson24.pick([h('써니이비인후과의원', '하남', false)], '써니이비인후과', '').state,
         SilsonState.notEnabled);
