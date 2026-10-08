@@ -741,6 +741,13 @@ void main() {
     expect(withMatch.match[n1.url]!.price, 11500);
     expect(withMatch.buyUrl(n2), contains('sorter=salePriceAsc'));
     expect(withMatch.buyUrl(n2), contains(Uri.encodeQueryComponent('다른 유산균')));
+    // 쿠팡 파트너스 간편 링크: 있으면 그 링크, 없으면 일반 쿠팡 검색
+    final withLinks = Shop.parse(jsonEncode({
+      'links': {'유산균': 'https://link.coupang.com/a/abc', '가습기': '', '체온계': 'http://x'},
+    }));
+    expect(withLinks.keywordUrl('유산균'), 'https://link.coupang.com/a/abc');
+    expect(withLinks.keywordUrl('가습기'), startsWith('https://www.coupang.com/np/search?q='));
+    expect(withLinks.hasLink('체온계'), isFalse);
   });
 
   test('처방 기록 저장 형식', () {

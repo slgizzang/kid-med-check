@@ -12,8 +12,11 @@ const kShopUrl = 'https://raw.githubusercontent.com/slgizzang/kid-med-check/main
 
 /// 쿠팡 파트너스 고지 문구 (파트너스 이용 약관상 표시 필요)
 const kShopDisclosure =
-    '네이버 가격비교 목록은 네이버 쇼핑 검색 결과예요. 쿠팡 목록은 쿠팡 파트너스 활동의 일환으로, '
-    '이를 통해 구매하면 필세이프가 일정액의 수수료를 받을 수 있어요. 구매하시는 가격은 똑같아요.';
+    '쿠팡 링크는 쿠팡 파트너스 활동의 일환으로, 이를 통해 구매하면 필세이프가 일정액의 수수료를 받을 수 있어요. '
+    '구매하시는 가격은 똑같아요.';
+
+/// 네이버 가격비교 목록이 있을 때 덧붙이는 출처 문구
+const kNaverSource = '네이버 가격비교 목록은 네이버 쇼핑 검색 결과예요.';
 
 class ShopItem {
   const ShopItem(
@@ -58,6 +61,10 @@ List<String> shopKeywordsFor(String tipTitle, {required bool child}) {
   return const [];
 }
 
+/// 쿠팡 검색 결과 (랭킹순 = 인기순)
+String coupangSearchUrl(String query) =>
+    'https://www.coupang.com/np/search?q=${Uri.encodeQueryComponent(query)}';
+
 /// 쿠팡에서 같은 제품을 아직 못 찾았을 때: 그 제품 이름으로 쿠팡 검색, 낮은 가격순 (수수료 없음)
 String shopSearchUrl(String query) =>
     'https://www.coupang.com/np/search?q=${Uri.encodeQueryComponent(query)}&sorter=salePriceAsc';
@@ -82,8 +89,16 @@ String formatPrice(int won) {
 
 /// 검색어별 상품: 네이버 가격비교(인기순, 전체 쇼핑몰 최저가) + 쿠팡 파트너스(낮은 가격순)
 class ShopData {
-  const ShopData({this.naver = const {}, this.coupang = const {}, this.match = const {}});
+  const ShopData(
+      {this.naver = const {}, this.coupang = const {}, this.match = const {}, this.links = const {}});
   final Map<String, List<ShopItem>> naver;
+
+  /// 검색어 → 쿠팡 파트너스 간편 링크 (그 검색어의 쿠팡 검색 결과로 이동)
+  final Map<String, String> links;
+
+  /// 검색어로 쿠팡 보기: 파트너스 간편 링크가 있으면 그것, 없으면 일반 쿠팡 검색(인기순)
+  String keywordUrl(String k) => links[k] ?? coupangSearchUrl(k);
+  bool hasLink(String k) => links.containsKey(k);
   final Map<String, List<ShopItem>> coupang;
 
   /// 네이버 상품 주소 → 같은 쿠팡 제품
@@ -122,7 +137,16 @@ class Shop {
         }
       }
     }
-    return ShopData(naver: _group(d['naver']), coupang: _group(d['items']), match: m);
+    final links = <String, String>{};
+    final lk = d['links'];
+    if (lk is Map) {
+      for (final e in lk.entries) {
+        final v = '${e.value ?? ''}'.trim();
+        if (v.startsWith('https://')) links['${e.key}'] = v;
+      }
+    }
+    return ShopData(
+        naver: _group(d['naver']), coupang: _group(d['items']), match: m, links: links);
   }
 
   /// 받지 못하면 빈 목록.

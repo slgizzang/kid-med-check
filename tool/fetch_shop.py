@@ -118,6 +118,15 @@ data.setdefault("updated", {})
 data.setdefault("naver", {})
 data.setdefault("naverUpdated", "")
 
+# 0) 쿠팡 파트너스 간편 링크 (API 승인 전에도 수익 링크로 연결). docs/shop_links.json 에서 그대로 옮긴다.
+LINKS_FILE = KW_FILE.parent / "shop_links.json"
+try:
+    raw_links = json.loads(LINKS_FILE.read_text(encoding="utf-8")).get("links", {})
+    data["links"] = {k: v.strip() for k, v in raw_links.items()
+                     if k in keywords and isinstance(v, str) and v.strip().startswith("https://")}
+except FileNotFoundError:
+    data["links"] = {}
+
 # 1) 네이버: 12시간마다 전부
 if nid and nsec:
     last = data.get("naverUpdated") or ""

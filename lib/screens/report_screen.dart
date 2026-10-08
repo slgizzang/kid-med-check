@@ -906,18 +906,24 @@ void _showShop(BuildContext context, CareTip t, bool child) {
                     head('쿠팡', '낮은 가격순'),
                     for (final it in data.coupang[k]!.take(5)) _ShopRow(it),
                   ],
-                  if ((data.naver[k] ?? const []).isEmpty && (data.coupang[k] ?? const []).isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                  // 쿠팡에서 이 검색어 보기 (파트너스 간편 링크가 있으면 그 링크)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SizedBox(
+                      width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () => launchUrl(Uri.parse(shopSearchUrl(k)),
+                        onPressed: () => launchUrl(Uri.parse(data.keywordUrl(k)),
                             mode: LaunchMode.externalApplication),
                         icon: const Icon(Icons.open_in_new, size: 18),
-                        label: KText('쿠팡에서 "$k" 보기', maxLines: 1),
+                        label: KText('쿠팡에서 "$k" 인기 상품 보기', maxLines: 1),
                       ),
                     ),
+                  ),
                 ],
               const SizedBox(height: 18),
+              if (keywords.any((k) => (data.naver[k] ?? const []).isNotEmpty))
+                const KText(kNaverSource,
+                    flow: true, style: TextStyle(fontSize: 11.5, color: AppColors.sub, height: 1.5)),
               const KText(kShopDisclosure,
                   flow: true, style: TextStyle(fontSize: 11.5, color: AppColors.sub, height: 1.5)),
               const SizedBox(height: 4),
