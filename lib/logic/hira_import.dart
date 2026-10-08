@@ -4,6 +4,7 @@ library;
 
 import 'dart:typed_data';
 
+import 'dose.dart';
 import 'models.dart';
 import 'office_decrypt.dart';
 import 'xlsx_reader.dart';
@@ -30,6 +31,9 @@ class ImportedVisit {
 
   /// 약을 병원에서 바로 받음 (조제기관 = 처방기관)
   bool inHouse = false;
+
+  /// 약 이름 → 처방 용량 (1회 투약량·1일 투여횟수·총 투약일수)
+  final Map<String, DoseInfo> doses = {};
 
   /// 다시 불러와도 같은 기록을 또 만들지 않기 위한 키
   String get key =>
@@ -100,6 +104,10 @@ class HiraImport {
   static const _clinicKeys = ['병·의원', '병의원', '병원', '의원', '처방기관', '요양기관', '기관'];
   /// 심평원 투약이력은 약국을 '조제기관'으로 표시한다
   static const _pharmKeys = ['약국', '조제기관'];
+  static const _perDoseKeys = ['1회투약량', '1회투여량', '1회량'];
+  static const _timesKeys = ['1일투여횟수', '1일투약횟수', '투여횟수', '투약횟수'];
+  static const _daysKeys = ['총투약일수', '총투여일수', '투약일수', '투여일수'];
+  static const _unitKeys = ['단위'];
 
   static int _findCol(List<String> header, List<String> keys, {Set<int> skip = const {}}) {
     for (final k in keys) {
@@ -132,6 +140,11 @@ class HiraImport {
     final pharmCol = _findCol(header, _pharmKeys, skip: {nameCol, dateCol});
     final clinicCol = _findCol(header, _clinicKeys, skip: {nameCol, dateCol, pharmCol});
     final placeCol = clinicCol >= 0 ? clinicCol : pharmCol;
+    final used = {nameCol, dateCol, pharmCol, clinicCol};
+    final perDoseCol = _findCol(header, _perDoseKeys, skip: used);
+    final timesCol = _findCol(header, _timesKeys, skip: {...used, perDoseCol});
+    final daysCol = _findCol(header, _daysKeys, skip: {...used, perDoseCol, timesCol});
+    final unitCol = _findCol(header, _unitKeys, skip: {...used, perDoseCol, timesCol, daysCol});
 
     final byKey = <String, ImportedVisit>{};
     DateTime? lastDate;
@@ -163,6 +176,13 @@ class HiraImport {
         }
       }
       if (!visit.drugs.contains(name)) visit.drugs.add(name);
+      final dose = DoseInfo.parse(
+          unit: cell(unitCol), perDose: cell(perDoseCol), times: cell(timesCol), days: cell(daysCol));
+      final had = visit.doses[name];
+      // 같은 약이 두 줄이면 더 긴 투약일수를 쓴다
+      if (dose != null && (had == null || (dose.days ?? 0) > (had.days ?? 0))) {
+        visit.doses[name] = dose;
+      }
     }
     return byKey.values.toList()..sort((a, b) => b.date.compareTo(a.date));
   }

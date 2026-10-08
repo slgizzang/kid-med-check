@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:kid_med_check/logic/age_rule.dart';
 import 'package:kid_med_check/logic/drug_name_extractor.dart';
 import 'package:kid_med_check/logic/dur_api.dart';
+import 'package:kid_med_check/logic/dose.dart';
 import 'package:kid_med_check/logic/label_age.dart';
 import 'package:kid_med_check/logic/similarity.dart';
 import 'package:kid_med_check/logic/snapshot.dart';
@@ -1081,5 +1082,113 @@ void main() {
     expect(kinds['성분']!.name, startsWith('아목시실린'));
     expect(kinds['계열']!.name, '주로 그람양성균에 작용하는 것');
     expect(kinds['계열']!.withoutSym, 0);
+  });
+
+  group('처방 용량·기간 (DUR 용량주의·투여기간주의)', () {
+    test('심평원 투약이력의 1회 투약량·1일 투여횟수·총 투약일수를 읽는다', () {
+      final rows = <List<String>>[
+        ['※ 본 자료는 참고용입니다'],
+        ['※ 조제일자 기준'],
+        <String>[],
+        ['번호', '조제일자', '처방기관', '조제기관', '제품명', '약효분류', '성분명', '약품코드', '단위',
+         '1회 투약량', '1일 투여횟수', '총 투약일수', '안전성 서한', '항혈전제 여부'],
+        ['1', '2026-10-01', '바른의원', '온누리약국', '타이레놀정500밀리그람(아세트아미노펜)', '해열.진통.소염제',
+         'acetaminophen', '123', '정', '1', '3', '5', '', ''],
+        ['2', '2026-10-01', '바른의원', '온누리약국', '맥페란정(메토클로프라미드)', '기타의 소화기관용약',
+         'metoclopramide', '456', '정', '0.5', '3', '10', '', ''],
+      ];
+      final v = HiraImport.parseRows(rows).single;
+      final t = v.doses['타이레놀정500밀리그람']!;
+      expect(t.unit, '정');
+      expect(t.perDose, 1);
+      expect(t.timesPerDay, 3);
+      expect(t.days, 5);
+      expect(t.label, '1회 1정 · 하루 3번 · 5일');
+      expect(v.doses['맥페란정']!.label, '1회 0.5정 · 하루 3번 · 10일');
+
+      final r = MedRecord(id: 'a', childId: 'c', title: 't', createdAt: DateTime(2026),
+          doses: Map.of(v.doses));
+      final back = MedRecord.fromJson(jsonDecode(jsonEncode(r.toJson())) as Map<String, dynamic>);
+      expect(back.doses['타이레놀정500밀리그람']!.days, 5);
+    });
+
+    test('기준값 읽기', () {
+      expect(maxMg('4,000밀리그램'), 4000);
+      expect(maxMg('아세트아미노펜 4,000밀리그램'), 4000);
+      expect(maxMg('3그램'), 3000);
+      expect(maxMg('0.25밀리그램'), 0.25);
+      expect(maxMg('캅토프릴 100mg/히드로클로로티아지드 50mg'), isNull);
+      expect(strengthMg('타이레놀정500밀리그람(아세트아미노펜)'), 500);
+      expect(strengthMg('세토펜현탁액'), isNull);
+      expect(strengthMg('챔프시럽160mg/5mL'), isNull);
+      expect(maxDays('7일'), [7]);
+      expect(maxDays('무배란증:12일, 난포과자극유도:20일'), [12, 20]);
+      expect(shortMax('4,000밀리그램'), '4,000mg');
+    });
+
+    final table = DoseTable.parse(jsonEncode({
+      'dose': {
+        'D000147': {
+          'n': '아세트아미노펜',
+          't': '단일',
+          'e': [
+            {'m': '4,000밀리그램', 'p': '아세트아미노펜으로서 4,000mg/day(모든제형, 단일제.복합제 포함)'}
+          ]
+        },
+      },
+      'period': {
+        'D000425': {
+          'n': '메토클로프라미드',
+          't': '단일',
+          'e': [
+            {'f': '정제', 'm': '7일'},
+            {'f': '주사제', 'm': '5일'}
+          ]
+        },
+      },
+    }));
+
+    test('하루 양이 최대량을 넘는지 (정제 함량이 이름에 있을 때만 계산)', () {
+      List<DoseFinding> run(DoseInfo? d, {String name = '타이레놀정500밀리그람(아세트아미노펜)'}) =>
+          evaluateDose(
+              table: table,
+              doseCodes: {'D000147': {'필름코팅정'}},
+              periodCodes: const {},
+              productName: name,
+              dose: d);
+      final ok = run(const DoseInfo(unit: '정', perDose: 2, timesPerDay: 3, days: 3)).single;
+      expect(ok.over, false);
+      expect(ok.amount, '하루 3,000mg');
+      expect(ok.max, '4,000mg');
+      final over = run(const DoseInfo(unit: '정', perDose: 2, timesPerDay: 5, days: 3)).single;
+      expect(over.over, true);
+      // 시럽은 mL당 함량을 몰라 계산하지 않음
+      expect(run(const DoseInfo(unit: 'mL', perDose: 5, timesPerDay: 3), name: '세토펜현탁액')
+          .single
+          .over, isNull);
+      // 처방 용량이 없으면 기준만
+      expect(run(null).single.over, isNull);
+      // 목록에 없는 성분은 결과 없음
+      expect(
+          evaluateDose(
+              table: table,
+              doseCodes: {'D999999': <String>{}},
+              periodCodes: const {},
+              productName: 'x'),
+          isEmpty);
+    });
+
+    test('처방 일수가 최대 기간을 넘는지 (제형별 기준)', () {
+      List<DoseFinding> run(int days) => evaluateDose(
+          table: table,
+          doseCodes: const {},
+          periodCodes: {'D000425': {'필름코팅정'}},
+          productName: '맥페란정',
+          dose: DoseInfo(unit: '정', perDose: 1, timesPerDay: 3, days: days));
+      // 필름코팅정은 '정제' 기준(7일)만 적용
+      expect(run(7).single.max, '7일');
+      expect(run(7).single.over, false);
+      expect(run(10).single.over, true);
+    });
   });
 }

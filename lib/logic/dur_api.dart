@@ -256,6 +256,33 @@ class DurApi {
     }
   }
 
+  static const _cpctyPath = '/1471000/DURPrdlstInfoService03/getCpctyAtentInfoList03';
+  static const _mdctnPath = '/1471000/DURPrdlstInfoService03/getMdctnPdAtentInfoList03';
+
+  /// DUR 용량주의·투여기간주의 품목 목록에서 이 제품의 성분코드 → 제형.
+  /// 기준값(최대량·최대기간)은 성분정보 표(assets/dur_dose.json)에 있다. 실패하면 빈 값.
+  Future<(Map<String, Set<String>>, Map<String, Set<String>>)> doseCodes(
+      ProductHit best) async {
+    Future<Map<String, Set<String>>> codes(String path) async {
+      try {
+        final out = <String, Set<String>>{};
+        for (final m in await _itemRows(path, best)) {
+          final code = TabooRow._pick(m, ['INGR_CODE']);
+          if (code.isEmpty) continue;
+          final form = TabooRow._pick(m, ['FORM_NAME']);
+          out.putIfAbsent(code, () => <String>{});
+          if (form.isNotEmpty) out[code]!.add(form);
+        }
+        return out;
+      } catch (_) {
+        return {};
+      }
+    }
+
+    final r = await Future.wait([codes(_cpctyPath), codes(_mdctnPath)]);
+    return (r[0], r[1]);
+  }
+
   static const _permitPath = '/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnInq08';
 
   static const _permitDetailPath =

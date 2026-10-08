@@ -1,5 +1,6 @@
 import 'allergy.dart';
 import 'claim.dart';
+import 'dose.dart';
 import 'dur_api.dart';
 import 'label_age.dart';
 import 'snapshot.dart';
@@ -82,8 +83,13 @@ class MedRecord {
     this.claimedPharm = false,
     this.inHouse = false,
     List<RecordPhoto>? photos,
+    Map<String, DoseInfo>? doses,
   })  : drugs = drugs ?? [],
-        photos = photos ?? [];
+        photos = photos ?? [],
+        doses = doses ?? {};
+
+  /// 약 이름 → 처방 용량 (심평원 투약이력의 1회 투약량·1일 투여횟수·총 투약일수)
+  final Map<String, DoseInfo> doses;
 
   /// 찍어둔 처방전·약봉지·영수증 사진 (실손보험 청구용)
   final List<RecordPhoto> photos;
@@ -166,6 +172,7 @@ class MedRecord {
         if (claimedPharm) 'claimedPharm': true,
         if (inHouse) 'inHouse': true,
         if (photos.isNotEmpty) 'photos': photos.map((p) => p.toJson()).toList(),
+        if (doses.isNotEmpty) 'doses': {for (final e in doses.entries) e.key: e.value.toJson()},
       };
 
   factory MedRecord.fromJson(Map<String, dynamic> j) => MedRecord(
@@ -193,6 +200,11 @@ class MedRecord {
         photos: (j['photos'] as List? ?? const [])
             .map((e) => RecordPhoto.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList(),
+        doses: {
+          for (final e in (j['doses'] as Map? ?? const {}).entries)
+            if (e.value is Map)
+              '${e.key}': DoseInfo.fromJson(Map<String, dynamic>.from(e.value as Map)),
+        },
       );
 }
 
@@ -251,6 +263,15 @@ class DrugCheck {
 
   /// DUR 병용금기 원자료
   List<MixTaboo> mixRows = const [];
+
+  /// 처방 용량 (심평원 투약이력에서 불러온 기록만)
+  DoseInfo? dose;
+
+  /// DUR 용량주의·투여기간주의 대조 결과
+  List<DoseFinding> doseFindings = const [];
+
+  /// 처방이 하루 최대량·최대 기간을 넘는지
+  bool get doseOver => doseFindings.any((f) => f.over == true);
 
   /// 같은 기록 안에서 함께 먹으면 안 되는 약들
   List<Interaction> interactions = [];

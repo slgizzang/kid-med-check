@@ -491,6 +491,7 @@ class _RecordScreenState extends State<RecordScreen> {
           names: List.of(_r.drugs),
           recordId: _r.id,
           asOf: _r.createdAt,
+          doses: Map.of(_r.doses),
           reuse: _resultCache[_r.id]?.$1 == _signature ? _resultCache[_r.id]!.$2 : null,
           onChecks: (checks) => _resultCache[_r.id] = (_signature, checks),
           onSnapshot: (snap) {
@@ -499,6 +500,9 @@ class _RecordScreenState extends State<RecordScreen> {
           },
           onReplace: (oldName, newName) {
             final i = _r.drugs.indexOf(oldName);
+            // 처방 용량도 고른 약 이름으로 옮긴다
+            final dose = _r.doses.remove(oldName);
+            if (dose != null) _r.doses.putIfAbsent(newName, () => dose);
             if (i >= 0) {
               if (_r.drugs.contains(newName)) {
                 _r.drugs.removeAt(i);
@@ -512,6 +516,19 @@ class _RecordScreenState extends State<RecordScreen> {
       ),
     );
     await _loadNotes();
+  }
+
+  /// 처방 용량(심평원 투약이력)과 반응 기록 줄
+  Widget? _drugSub(String name) {
+    final dose = _r.doses[name]?.label ?? '';
+    final note = _noteLine(name);
+    if (dose.isEmpty) return note;
+    final d = KText(dose,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12, color: AppColors.sub, fontWeight: FontWeight.w600));
+    if (note == null) return d;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [d, note]);
   }
 
   Widget? _noteLine(String name) {
@@ -618,7 +635,7 @@ class _RecordScreenState extends State<RecordScreen> {
                         ),
                         title: KText(_r.drugs[i],
                             style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: _noteLine(_r.drugs[i]),
+                        subtitle: _drugSub(_r.drugs[i]),
                         onTap: () => _addReaction(_r.drugs[i]),
                         contentPadding: const EdgeInsets.only(left: 14, right: 2),
                         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
