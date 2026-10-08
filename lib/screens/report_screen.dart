@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../logic/allergy.dart';
 import '../logic/dur_api.dart';
 import '../logic/models.dart';
-import '../logic/shop.dart';
 import '../logic/report.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
@@ -236,10 +234,7 @@ class _ReportScreenState extends State<ReportScreen> {
                           ? const _Empty('아직 특별히 참고할 내용이 없어요.')
                           : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               for (final t in r.tips)
-                                _TipCard(t,
-                                    onTap: shopKeywordsFor(t.title, child: _isChild).isEmpty
-                                        ? null
-                                        : () => _showShop(context, t, _isChild)),
+                                _TipCard(t),
                               const SizedBox(height: 4),
                               const KText(
                                 '영양제·건강기능식품은 나이와 먹는 약에 따라 맞지 않을 수 있어요. '
@@ -548,22 +543,12 @@ class _DrugLine extends StatelessWidget {
 }
 
 class _TipCard extends StatelessWidget {
-  const _TipCard(this.t, {this.onTap});
+  const _TipCard(this.t);
   final CareTip t;
-  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onTap,
-            child: _body(),
-          ),
-        ),
-      );
+  Widget build(BuildContext context) =>
+      Padding(padding: const EdgeInsets.only(bottom: 8), child: _body());
 
   Widget _body() => Container(
         width: double.infinity,
@@ -580,16 +565,6 @@ class _TipCard extends StatelessWidget {
           ]),
           const SizedBox(height: 4),
           KText(t.body, style: const TextStyle(color: AppColors.ink, height: 1.5)),
-          if (onTap != null) ...[
-            const SizedBox(height: 8),
-            const Row(children: [
-              Icon(Icons.shopping_bag_outlined, size: 16, color: Color(0xFF8A5A00)),
-              SizedBox(width: 4),
-              Text('관련 제품 가격 보기',
-                  style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF8A5A00))),
-            ]),
-          ],
         ]),
       );
 }
@@ -851,186 +826,4 @@ void _showDrugInfo(BuildContext context, CountItem d) {
       },
     ),
   );
-}
-
-/// 팁을 누르면: 관련 제품을 검색어별로 가격 낮은 순으로 (쿠팡 파트너스)
-void _showShop(BuildContext context, CareTip t, bool child) {
-  final keywords = shopKeywordsFor(t.title, child: child);
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (ctx) => SizedBox(
-      height: MediaQuery.of(ctx).size.height * 0.8,
-      child: FutureBuilder<ShopData>(
-        future: Shop.load(),
-        builder: (ctx, snap) {
-          final data = snap.data ?? const ShopData();
-          Widget head(String t, String sub) => Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 2),
-                child: Row(children: [
-                  Expanded(
-                    child: KText(t,
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryDark)),
-                  ),
-                  Text(sub, style: const TextStyle(fontSize: 11.5, color: AppColors.sub)),
-                ]),
-              );
-          return ListView(
-            padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.of(ctx).padding.bottom),
-            children: [
-              KText(t.title,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
-              const SizedBox(height: 6),
-              KText(t.body, flow: true, style: const TextStyle(color: AppColors.sub, height: 1.5)),
-              const SizedBox(height: 8),
-              if (snap.connectionState != ConnectionState.done)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: LinearProgressIndicator(minHeight: 2),
-                )
-              else
-                for (final k in keywords) ...[
-                  const SizedBox(height: 16),
-                  KText(k,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.ink)),
-                  if ((data.naver[k] ?? const []).isNotEmpty) ...[
-                    head('네이버 가격비교 인기 상품', '전체 쇼핑몰 최저가'),
-                    for (final it in data.naver[k]!.take(5))
-                      _ShopRow(it, lowest: true, buyUrl: data.buyUrl(it), coupang: data.match[it.url]),
-                  ],
-                  if ((data.coupang[k] ?? const []).isNotEmpty) ...[
-                    head('쿠팡', '낮은 가격순'),
-                    for (final it in data.coupang[k]!.take(5)) _ShopRow(it),
-                  ],
-                  // 쿠팡에서 이 검색어 보기 (파트너스 간편 링크가 있으면 그 링크)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => launchUrl(Uri.parse(data.keywordUrl(k)),
-                            mode: LaunchMode.externalApplication),
-                        icon: const Icon(Icons.open_in_new, size: 18),
-                        label: KText('쿠팡에서 "$k" 인기 상품 보기', maxLines: 1),
-                      ),
-                    ),
-                  ),
-                ],
-              const SizedBox(height: 18),
-              if (keywords.any((k) => (data.naver[k] ?? const []).isNotEmpty))
-                const KText(kNaverSource,
-                    flow: true, style: TextStyle(fontSize: 11.5, color: AppColors.sub, height: 1.5)),
-              const KText(kShopDisclosure,
-                  flow: true, style: TextStyle(fontSize: 11.5, color: AppColors.sub, height: 1.5)),
-              const SizedBox(height: 4),
-              const KText(
-                  '건강기능식품은 질병을 치료하는 약이 아니에요. 먹는 약이 있거나 아이에게 먹일 때는 약사·의사와 먼저 상의하세요.',
-                  flow: true,
-                  style: TextStyle(fontSize: 11.5, color: AppColors.sub, height: 1.5)),
-            ],
-          );
-        },
-      ),
-    ),
-  );
-}
-
-class _ShopRow extends StatelessWidget {
-  const _ShopRow(this.it, {this.lowest = false, this.buyUrl, this.coupang});
-  final ShopItem it;
-
-  /// 가격비교 최저가 (여러 쇼핑몰 중)
-  final bool lowest;
-
-  /// 누르면 갈 곳 (네이버 상품이면 같은 쿠팡 제품). 없으면 상품 자체 주소
-  final String? buyUrl;
-
-  /// 같은 쿠팡 제품 (찾았으면)
-  final CoupangMatch? coupang;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => launchUrl(Uri.parse(buyUrl ?? it.url), mode: LaunchMode.externalApplication),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 64,
-                height: 64,
-                color: AppColors.bg,
-                child: it.image.isEmpty
-                    ? const Icon(Icons.image_outlined, color: AppColors.sub)
-                    : Image.network(it.image,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.image_outlined, color: AppColors.sub)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                KText(it.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13.5, color: AppColors.ink, height: 1.35)),
-                const SizedBox(height: 4),
-                Row(children: [
-                  if (lowest)
-                    const Text('최저 ',
-                        style: TextStyle(fontSize: 12, color: Color(0xFFC62828), fontWeight: FontWeight.w700)),
-                  Text(formatPrice(it.price),
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.ink)),
-                  if (it.rocket) ...[
-                    const SizedBox(width: 6),
-                    const Text('로켓배송',
-                        style: TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF2F5FBF))),
-                  ] else if (it.freeShip) ...[
-                    const SizedBox(width: 6),
-                    const Text('무료배송', style: TextStyle(fontSize: 11, color: AppColors.sub)),
-                  ],
-                  if (it.brand.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(it.brand,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11, color: AppColors.sub)),
-                    ),
-                  ],
-                ]),
-                if (lowest) ...[
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    Text(
-                        coupang != null
-                            ? '쿠팡 ${formatPrice(coupang!.price)}${coupang!.rocket ? ' · 로켓배송' : ''}'
-                            : '쿠팡 최저가로 찾기',
-                        style: const TextStyle(
-                            fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF2F5FBF))),
-                    const Icon(Icons.chevron_right, size: 16, color: Color(0xFF2F5FBF)),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => launchUrl(Uri.parse(it.url), mode: LaunchMode.externalApplication),
-                      child: const Text('네이버 최저가 보기',
-                          style: TextStyle(
-                              fontSize: 11.5,
-                              color: AppColors.sub,
-                              decoration: TextDecoration.underline)),
-                    ),
-                  ]),
-                ],
-              ]),
-            ),
-          ]),
-        ),
-      );
 }

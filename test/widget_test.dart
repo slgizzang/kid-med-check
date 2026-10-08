@@ -20,7 +20,6 @@ import 'package:kid_med_check/logic/report.dart';
 import 'package:kid_med_check/logic/dur_text.dart';
 import 'package:kid_med_check/logic/hira_import.dart';
 import 'package:kid_med_check/logic/place_name.dart';
-import 'package:kid_med_check/logic/shop.dart';
 import 'package:kid_med_check/logic/silson24.dart';
 import 'package:kid_med_check/logic/place_resolver.dart';
 import 'package:kid_med_check/logic/class_info.dart';
@@ -700,55 +699,6 @@ void main() {
     expect(shortText('가' * 200).length, lessThanOrEqualTo(122));
   });
 
-  test('영양제·생활용품 목록: 팁별 검색어, 가격 표시, 목록 읽기', () {
-    expect(shopKeywordsFor('유산균(프로바이오틱스)', child: true), ['어린이 유산균']);
-    expect(shopKeywordsFor('비타민D·칼슘 상담', child: false), ['비타민D', '칼슘 마그네슘']);
-    expect(shopKeywordsFor('해열제 복용 기록', child: true), ['아기 체온계']);
-    expect(shopKeywordsFor('알 수 없는 팁', child: true), isEmpty);
-    // 앱의 검색어는 모두 상품 갱신 목록(docs/shop_keywords.json)에 있어야 한다
-    final kw = (jsonDecode(File('docs/shop_keywords.json').readAsStringSync())['keywords'] as List).toSet();
-    for (final t in ['유산균', '장 건강 관리', '비타민D·칼슘 상담', '호흡기 생활 관리', '해열제 복용 기록']) {
-      for (final c in [true, false]) {
-        for (final k in shopKeywordsFor(t, child: c)) {
-          expect(kw.contains(k), isTrue, reason: k);
-        }
-      }
-    }
-    expect(formatPrice(12900), '12,900원');
-    final m = Shop.parse(jsonEncode({
-      'items': {'유산균': [
-        {'name': 'A', 'price': 9900, 'url': 'https://link.coupang.com/a', 'rocket': true},
-        {'name': 'B', 'price': 0, 'url': ''},
-      ]},
-      'naver': {'유산균': [
-        {'name': 'N', 'price': 12000, 'url': 'https://search.shopping.naver.com/catalog/1', 'brand': '브랜드'},
-      ]},
-    }));
-    expect(m.coupang['유산균']!.single.name, 'A');
-    expect(m.coupang['유산균']!.single.rocket, isTrue);
-    expect(m.naver['유산균']!.single.brand, '브랜드');
-    // 같은 쿠팡 제품을 찾았으면 그 링크로, 아니면 그 제품 이름으로 쿠팡 낮은 가격순 검색
-    final withMatch = Shop.parse(jsonEncode({
-      'naver': {'유산균': [
-        {'name': '키즈 유산균 30포', 'price': 12000, 'url': 'https://n/1'},
-        {'name': '다른 유산균', 'price': 9000, 'url': 'https://n/2'},
-      ]},
-      'coupangMatch': {'https://n/1': {'price': 11500, 'url': 'https://link.coupang.com/x', 'rocket': true, 't': ''},
-                       'https://n/2': {'t': ''}},
-    }));
-    final n1 = withMatch.naver['유산균']![0], n2 = withMatch.naver['유산균']![1];
-    expect(withMatch.buyUrl(n1), 'https://link.coupang.com/x');
-    expect(withMatch.match[n1.url]!.price, 11500);
-    expect(withMatch.buyUrl(n2), contains('sorter=salePriceAsc'));
-    expect(withMatch.buyUrl(n2), contains(Uri.encodeQueryComponent('다른 유산균')));
-    // 쿠팡 파트너스 간편 링크: 있으면 그 링크, 없으면 일반 쿠팡 검색
-    final withLinks = Shop.parse(jsonEncode({
-      'links': {'유산균': 'https://link.coupang.com/a/abc', '가습기': '', '체온계': 'http://x'},
-    }));
-    expect(withLinks.keywordUrl('유산균'), 'https://link.coupang.com/a/abc');
-    expect(withLinks.keywordUrl('가습기'), startsWith('https://www.coupang.com/np/search?q='));
-    expect(withLinks.hasLink('체온계'), isFalse);
-  });
 
   test('처방 기록 저장 형식', () {
     final r = MedRecord(

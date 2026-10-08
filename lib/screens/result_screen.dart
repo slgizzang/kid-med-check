@@ -610,12 +610,14 @@ class _DoseAlert extends StatelessWidget {
   }
 }
 
-/// 안전성 서한 안내 문장. 칸 값이 "Y" 같은 표시가 아니라 제목이면 함께 보여준다.
+/// 안전성 서한 안내 문장 (쉬운 말로). 칸 값이 "Y" 같은 표시가 아니라 제목이면 함께 보여준다.
 String _letterText(String cell) {
   final t = cell.trim();
   final mark = RegExp(r'^(y|yes|o|있음|해당|대상)$', caseSensitive: false).hasMatch(t);
-  return '식약처가 이 약(또는 성분)의 안전성 정보를 의사·약사에게 알린 약이에요${mark ? '' : ' ($t)'}. '
-      '자세한 내용은 식약처 의약품안전나라의 안전성 서한에서 볼 수 있어요.';
+  return '이 약(또는 같은 성분)에 새로 알려진 부작용이나 주의할 점이 있어서, '
+      '식약처가 의사·약사에게 "처방할 때 주의하라"고 공식 알림(안전성 서한)을 보낸 적이 있어요'
+      '${mark ? '' : ' (내용: $t)'}. '
+      '먹으면 안 된다는 뜻은 아니에요. 먹는 동안 평소와 다른 증상이 보이면 처방한 병원·약국에 알려주세요.';
 }
 
 String _ruleText(List<TabooRow> rows) =>
@@ -832,7 +834,7 @@ class _CheckCard extends StatelessWidget {
             if (check.nursingNote != null)
               _Alert(title: '수유부 주의', body: check.nursingNote!, danger: false),
             if (letter != null)
-              _Alert(title: '식약처 안전성 서한', body: _letterText(letter!), danger: false),
+              _Alert(title: '식약처 주의 알림이 있었던 약', body: _letterText(letter!), danger: false),
             for (final f in check.doseFindings)
               _DoseAlert(finding: f, dose: check.dose, child: !adult),
             ReactionNotesView(items: notes, onDelete: onDeleteReaction),

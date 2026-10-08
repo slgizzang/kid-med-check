@@ -575,7 +575,7 @@ class _RecordScreenState extends State<RecordScreen> {
   Widget? _drugSub(String name) {
     final note = _noteLine(name);
     if (!_r.safetyLetters.containsKey(name)) return note;
-    const letter = KText('식약처 안전성 서한 있는 약',
+    const letter = KText('식약처 주의 알림이 있었던 약 · 확인 결과에서 보기',
         maxLines: 1,
         style: TextStyle(fontSize: 12, color: Color(0xFF9A3412), fontWeight: FontWeight.w700));
     if (note == null) return letter;
