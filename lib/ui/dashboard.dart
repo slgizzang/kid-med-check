@@ -132,8 +132,8 @@ class ResultDashboard extends StatelessWidget {
               _Line(
                 ok: snap.doseCount == 0,
                 text: snap.doseCount == 0
-                    ? '하루 최대량·최대 기간(용량·투여기간주의)을 넘는 처방 없음'
-                    : '하루 최대량·최대 기간을 넘는 처방 ${snap.doseCount}개',
+                    ? '최대 투여기간을 넘는 처방 없음'
+                    : '최대 투여기간을 넘는 처방 ${snap.doseCount}개',
               ),
             if (!snap.drugs.any((d) => d.hasAlert))
               const _Line(ok: true, text: '확인한 약 모두 주의할 점 없음'),
@@ -266,7 +266,7 @@ class _DrugRow extends StatelessWidget {
       if (d.nursing) const _Chip('수유부 주의', danger: false),
       if (d.labelNote != null) const _Chip('사용 연령 확인', danger: false),
       if (d.doseNote != null)
-        _Chip(d.doseNote!.contains('기간') ? '기간 확인' : '용량 확인', danger: false),
+        const _Chip('기간 확인', danger: false),
       if (d.needsPick) const _Chip('약 선택 필요', danger: false, gray: true),
       if (d.reaction != null) const _Chip('지난 반응 기록', danger: false, note: true),
     ];

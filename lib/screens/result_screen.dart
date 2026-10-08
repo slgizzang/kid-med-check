@@ -717,8 +717,7 @@ class _CheckCard extends StatelessWidget {
       bg = const Color(0xFFFFE9D6);
       fg = const Color(0xFFB45309);
       icon = Icons.warning_amber_rounded;
-      final dose = check.doseFindings.any((f) => f.over == true && f.kind == DoseKind.dose);
-      label = dose ? '용량 확인' : '기간 확인';
+      label = '기간 확인';
     }
     if (check.hasAllergy) {
       bg = const Color(0xFFFDE7E7);
@@ -756,10 +755,6 @@ class _CheckCard extends StatelessWidget {
                     KText(check.title,
                         style: theme.textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold)),
-                    if (check.dose != null && check.dose!.label.isNotEmpty)
-                      KText('처방 ${check.dose!.label}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.ink, fontWeight: FontWeight.w600)),
                     if (origin != null)
                       KText(origin!,
                           style: theme.textTheme.bodySmall?.copyWith(

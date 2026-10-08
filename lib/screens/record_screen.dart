@@ -570,19 +570,6 @@ class _RecordScreenState extends State<RecordScreen> {
     await _loadNotes();
   }
 
-  /// 처방 용량(심평원 투약이력)과 반응 기록 줄
-  Widget? _drugSub(String name) {
-    final dose = _r.doses[name]?.label ?? '';
-    final note = _noteLine(name);
-    if (dose.isEmpty) return note;
-    final d = KText(dose,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, color: AppColors.sub, fontWeight: FontWeight.w600));
-    if (note == null) return d;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [d, note]);
-  }
-
   Widget? _noteLine(String name) {
     final (drug, ingr) = _resolved(name);
     // 이 기록에서 적은 반응을 먼저, 없으면 이 기록 날짜 이전에 적은 지난 반응
@@ -687,7 +674,7 @@ class _RecordScreenState extends State<RecordScreen> {
                         ),
                         title: KText(_r.drugs[i],
                             style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: _drugSub(_r.drugs[i]),
+                        subtitle: _noteLine(_r.drugs[i]),
                         onTap: () => _addReaction(_r.drugs[i]),
                         contentPadding: const EdgeInsets.only(left: 14, right: 2),
                         trailing: Row(mainAxisSize: MainAxisSize.min, children: [

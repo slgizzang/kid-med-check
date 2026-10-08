@@ -258,7 +258,6 @@ class DurApi {
     }
   }
 
-  static const _cpctyPath = '/1471000/DURPrdlstInfoService03/getCpctyAtentInfoList03';
   static const _mdctnPath = '/1471000/DURPrdlstInfoService03/getMdctnPdAtentInfoList03';
 
   /// DUR 용량주의·투여기간주의 품목 목록에서 이 제품의 성분코드 → 제형·주성분.
@@ -298,8 +297,8 @@ class DurApi {
       }
     }
 
-    final r = await Future.wait([codes(_cpctyPath), codes(_mdctnPath)]);
-    return (r[0], r[1]);
+    // 용량주의는 표시하지 않기로 해 투여기간주의만 조회한다
+    return (<String, ItemDose>{}, await codes(_mdctnPath));
   }
 
   /// 표기 차이(밀리그람/밀리그램, 띄어쓰기)를 무시하고 같은 제품명인지
