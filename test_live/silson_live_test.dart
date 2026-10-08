@@ -91,4 +91,30 @@ void main() {
     }
     print('SUMMARY2 records=${recs.length} changed=$changed hosp_pos_right=$hRight pharm_pos_right=$pRight s24_hosp_known=$hKnown s24_pharm_known=$pKnown');
   }, timeout: const Timeout(Duration(minutes: 12)));
+
+  test('one', () async {
+    final key = Platform.environment['DUR_API_KEY'] ?? '';
+    final client = http.Client();
+    final api = DurApi(key, client: client);
+    final s24 = Silson24(client: client);
+    for (final (name, ph) in [('명소아청소년과의원', false), ('메디파워약국', true)]) {
+      final hs = await api.searchPlaces(name, pharmacy: ph, rows: 100);
+      print('ONE HIRA $name -> ${hs.length}');
+      for (final h in hs.where((h) => h.name.replaceAll(' ', '') == name).take(8)) {
+        print('ONE   ${h.name} | ${h.addr} | ${h.lat},${h.lng} | ${h.code.substring(0, 10)}');
+      }
+      final m = hs.where((h) => h.addr.contains('뚝섬로 552')).toList();
+      if (m.isEmpty) continue;
+      final h = m.first;
+      final at = (h.lat!, h.lng!);
+      final c = await s24.check(h.name, pharmacy: ph, addr: h.addr, code: h.code, at: at);
+      print('ONE CHECK ${h.name} -> ${c.state.name} miss=${c.miss.name} (${c.name} ${c.addr})');
+      final raw = await s24.rawSearch(searchablePlaceName(h.name).replaceAll(' ', ''), pharmacy: ph, center: at);
+      print('ONE S24 results=${raw.length}');
+      for (final e in raw.take(10)) {
+        print('ONE   - ${e['insttNm']} | ${e['rnAddr']} | ${e['detailAddr']} | svc=${e['serviceEnabled']} | ${e['lat']},${e['lng']} | cd=${'${e['hospitalCd']}'.length > 10 ? '${e['hospitalCd']}'.substring(0, 10) : e['hospitalCd']}');
+      }
+      print('ONE addrKey hira=${Silson24.addrKey(h.addr)}');
+    }
+  });
 }
