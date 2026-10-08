@@ -40,7 +40,7 @@ const kShowSilson24 = true;
 /// 영문 슬로건 (pill ↔ feel)
 const kAppSlogan = 'Pill safe, I feel safe';
 /// 메인 화면 로고 아래 (한 줄)
-const kAppTagline = '복용 안전 확인부터 의약품 회수 알림까지';
+const kAppTagline = '복용 안전 확인부터 실손24 연계 체크까지';
 
 /// 시작 화면 로고 아래 (두 줄)
 const kAppTaglineLong = '먹어도 되는 약인지 꼼꼼히 확인하고\n회수된 약은 먼저 알려드려요';
