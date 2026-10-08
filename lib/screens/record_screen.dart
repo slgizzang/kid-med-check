@@ -546,7 +546,6 @@ class _RecordScreenState extends State<RecordScreen> {
           names: List.of(_r.drugs),
           recordId: _r.id,
           asOf: _r.createdAt,
-          doses: Map.of(_r.doses),
           letters: Map.of(_r.safetyLetters),
           recalls: {for (final h in _recallHits) h.drug: h},
           reuse: _resultCache[_r.id]?.$1 == _signature ? _resultCache[_r.id]!.$2 : null,
@@ -557,9 +556,6 @@ class _RecordScreenState extends State<RecordScreen> {
           },
           onReplace: (oldName, newName) {
             final i = _r.drugs.indexOf(oldName);
-            // 처방 용량도 고른 약 이름으로 옮긴다
-            final dose = _r.doses.remove(oldName);
-            if (dose != null) _r.doses.putIfAbsent(newName, () => dose);
             if (i >= 0) {
               if (_r.drugs.contains(newName)) {
                 _r.drugs.removeAt(i);

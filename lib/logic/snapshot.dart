@@ -15,15 +15,8 @@ class DrugSnap {
     this.reaction,
     this.cls = '',
     this.allergy,
-    this.doseRule = false,
-    this.doseNote,
   });
 
-  /// DUR 용량주의·투여기간주의 대상 약인지
-  final bool doseRule;
-
-  /// 처방이 하루 최대량·최대 기간을 넘으면 그 내용 (예: "하루 최대량 초과")
-  final String? doseNote;
 
   /// 알레르기 약물과 같은 계열이면 그 알레르기 이름 (예: "페니실린계")
   final String? allergy;
@@ -56,7 +49,7 @@ class DrugSnap {
   bool get isDanger => ageRule != null || preg || mixWith.isNotEmpty || allergy != null;
 
   /// 금기·주의·선택 필요 (반응 기록 제외)
-  bool get hasAlert => isDanger || labelNote != null || nursing || needsPick || doseNote != null;
+  bool get hasAlert => isDanger || labelNote != null || nursing || needsPick;
   bool get hasAny => hasAlert || reaction != null;
 
   Map<String, dynamic> toJson() => {
@@ -72,8 +65,6 @@ class DrugSnap {
         if (cls.isNotEmpty) 'cls': cls,
         if (allergy != null) 'alg': allergy,
         if (reaction != null) 'react': reaction,
-        if (doseRule) 'doseRule': true,
-        if (doseNote != null) 'dose': doseNote,
       };
 
   factory DrugSnap.fromJson(Map<String, dynamic> j) => DrugSnap(
@@ -89,8 +80,6 @@ class DrugSnap {
         cls: '${j['cls'] ?? ''}',
         allergy: j['alg'] as String?,
         reaction: j['react'] as String?,
-        doseRule: j['doseRule'] == true,
-        doseNote: j['dose'] as String?,
       );
 }
 
@@ -127,8 +116,6 @@ class ResultSnapshot {
   int get labelCount => drugs.where((d) => d.labelNote != null).length;
   int get pickCount => drugs.where((d) => d.needsPick).length;
   int get allergyCount => drugs.where((d) => d.allergy != null).length;
-  int get doseCount => drugs.where((d) => d.doseNote != null).length;
-  bool get anyDoseRule => drugs.any((d) => d.doseRule);
   int get reactionCount => drugs.where((d) => d.reaction != null).length;
 
   /// 기록의 약 목록이 확인 당시와 같은지

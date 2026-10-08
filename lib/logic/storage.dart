@@ -165,9 +165,6 @@ class AppStorage {
           if (r.childId != childId || r.importKey != v.key) continue;
           if (r.hospital.isEmpty) r.hospital = v.hospital;
           // 예전 버전에서 불러와 처방 용량이 없으면 채운다
-          for (final e in v.doses.entries) {
-            r.doses.putIfAbsent(e.key, () => e.value);
-          }
           r.safetyLetters.addAll(v.safetyLetters);
           if (v.inHouse) {
             r.inHouse = true;
@@ -189,7 +186,6 @@ class AppStorage {
         hospital: v.hospital,
         pharmacy: v.pharmacy,
         inHouse: v.inHouse,
-        doses: Map.of(v.doses),
         safetyLetters: Map.of(v.safetyLetters),
       ));
       have.add(v.key);

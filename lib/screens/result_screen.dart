@@ -4,7 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../logic/age_rule.dart';
 import '../logic/allergy.dart';
-import '../logic/dose.dart';
 import '../logic/drug_name_extractor.dart';
 import '../logic/dur_api.dart';
 import '../logic/dur_text.dart';
@@ -32,7 +31,6 @@ class ResultScreen extends StatefulWidget {
       this.asOf,
       this.title = '안전 확인 결과',
       this.origins = const {},
-      this.doses = const {},
       this.letters = const {},
       this.recalls = const {}});
 
@@ -42,8 +40,6 @@ class ResultScreen extends StatefulWidget {
   /// 약 이름 → 심평원 투약이력의 '안전성 서한' 표시
   final Map<String, String> letters;
 
-  /// 약 이름 → 처방 용량 (심평원 투약이력에서 불러온 기록). 용량주의·투여기간주의 대조에 쓴다.
-  final Map<String, DoseInfo> doses;
 
   /// 화면 제목
   final String title;
@@ -182,7 +178,6 @@ class _ResultScreenState extends State<ResultScreen> {
     // 임부금기·병용금기는 약 이름만 있으면 되므로 설명을 모으는 동안 미리 조회
     final pregF = widget.child.pregnant ? api.pregnancyTaboo(picked) : null;
     final mixF = api.mixTaboo(picked);
-    final doseF = api.doseCodes(picked);
     var best = picked;
     if (best.etcOtc.isEmpty || best.ingredient.isEmpty || best.className.isEmpty) {
       for (final h in await api.searchProducts(best.searchName)) {
@@ -261,18 +256,6 @@ class _ResultScreenState extends State<ResultScreen> {
     if (pregF != null) c.pregRows = await pregF;
     if (person.nursing) c.nursingNote = _nursingSentence(info);
     c.mixRows = await mixF;
-    // DUR 용량주의·투여기간주의: 처방 용량(있으면)과 기준 대조
-    c.dose = widget.doses[c.query];
-    final (doseCodes, periodCodes) = await doseF;
-    if (doseCodes.isNotEmpty || periodCodes.isNotEmpty) {
-      c.doseFindings = evaluateDose(
-        table: await DoseTable.load(),
-        doseCodes: doseCodes,
-        periodCodes: periodCodes,
-        productName: best.fullName,
-        dose: c.dose,
-      );
-    }
 
     c.infoLoading = false;
     if (c.status != CheckStatus.error) c.applyLabel(_age);
@@ -386,12 +369,6 @@ class _ResultScreenState extends State<ResultScreen> {
             ingredient: c.best != null ? c.ingredientText : '',
             cls: c.info?.className ?? '',
             allergy: c.hasAllergy ? c.allergyHits.first.allergy : null,
-            doseRule: c.doseFindings.isNotEmpty,
-            doseNote: !c.doseOver
-                ? null
-                : c.doseFindings.any((f) => f.over == true && f.kind == DoseKind.dose)
-                    ? '하루 최대량 초과'
-                    : '최대 기간 초과',
             reaction: _notesFor(c).isEmpty ? null : _notesFor(c).first.$1.summary,
           ),
       ],
@@ -551,72 +528,6 @@ class _Alert extends StatelessWidget {
   }
 }
 
-/// DUR 용량주의·투여기간주의 — 기준과 이번 처방을 함께 보여준다
-class _DoseAlert extends StatelessWidget {
-  const _DoseAlert({required this.finding, this.dose, required this.child});
-
-  final DoseFinding finding;
-  final DoseInfo? dose;
-  final bool child;
-
-  @override
-  Widget build(BuildContext context) {
-    final f = finding;
-    final over = f.over;
-    final (Color fg, Color bg) = switch (over) {
-      true => (const Color(0xFFB71C1C), const Color(0xFFFDECEC)),
-      false => (const Color(0xFF1E6B4F), const Color(0xFFEAF6EE)),
-      null => (const Color(0xFF334155), const Color(0xFFF1F4F8)),
-    };
-    final rx = dose?.label ?? '';
-    final lines = <String>[];
-    if (f.kind == DoseKind.dose) {
-      if (rx.isEmpty) {
-        lines.add('처방 용량은 심평원 투약이력을 불러온 기록에서 함께 확인돼요.');
-      } else {
-        lines.add('이번 처방 · $rx');
-        if (f.amount.isNotEmpty) lines.add('→ ${f.amount}');
-        lines.add(switch (over) {
-          true => '하루 최대량보다 많아요. 처방한 병원·약국에 확인이 필요해요.',
-          false => child ? '성인 하루 최대량보다 적어요.' : '하루 최대량 안이에요.',
-          null => '한 번 먹는 양에 든 성분 양을 알 수 없어 하루 양은 계산하지 않았어요.',
-        });
-      }
-      if (child) lines.add('최대량은 성인 기준이고, 어린이는 몸무게에 맞춰 더 적게 처방돼요.');
-    } else {
-      final d = dose?.days;
-      lines.add(d == null
-          ? '처방 일수는 심평원 투약이력을 불러온 기록에서 함께 확인돼요.'
-          : switch (over) {
-              true => '이번 처방 $d일 · 최대 기간보다 길어요. 처방한 병원·약국에 확인이 필요해요.',
-              false => '이번 처방 $d일 · 최대 기간 안이에요.',
-              null => '이번 처방 $d일 · 쓰는 목적에 따라 최대 기간이 달라요.',
-            });
-    }
-    final title = over == true
-        ? (f.kind == DoseKind.dose
-            ? '용량주의 · ${f.ingredient} 하루 최대 ${f.max} 초과'
-            : '투여기간주의 · 최대 ${f.max} 초과')
-        : f.title;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(f.kind == DoseKind.dose ? Icons.medication_outlined : Icons.event_outlined,
-              size: 18, color: fg),
-          const SizedBox(width: 6),
-          Expanded(
-              child: KText(title, style: TextStyle(color: fg, fontWeight: FontWeight.w700))),
-        ]),
-        const SizedBox(height: 4),
-        KText(lines.join('\n'), style: TextStyle(color: fg, height: 1.45)),
-      ]),
-    );
-  }
-}
 
 /// 회수 제품을 의약품안전나라에서 보기: 품목기준코드가 있으면 그 제품 상세 화면, 없으면 제품 검색
 class _RecallLink extends StatelessWidget {
@@ -801,12 +712,6 @@ class _CheckCard extends StatelessWidget {
       icon = Icons.warning_amber_rounded;
       label = '수유부 주의';
     }
-    if (check.doseOver && !check.isDanger) {
-      bg = const Color(0xFFFFE9D6);
-      fg = const Color(0xFFB45309);
-      icon = Icons.warning_amber_rounded;
-      label = '기간 확인';
-    }
     if (check.hasAllergy) {
       bg = const Color(0xFFFDE7E7);
       fg = const Color(0xFFC62828);
@@ -916,8 +821,6 @@ class _CheckCard extends StatelessWidget {
               _Alert(title: '식약처 주의 알림이 있었던 약', body: _letterText(letter!), danger: false),
               _LetterLink(ingredient: check.info?.ingredient ?? check.ingredientText, name: check.title),
             ],
-            for (final f in check.doseFindings)
-              _DoseAlert(finding: f, dose: check.dose, child: !adult),
             ReactionNotesView(items: notes, onDelete: onDeleteReaction),
             if (check.status == CheckStatus.error) ...[
               const SizedBox(height: 8),

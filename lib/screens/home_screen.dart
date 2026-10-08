@@ -169,10 +169,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final person = _selected;
     final drugs = _pickedDrugs;
     if (person == null || drugs.length < 2) return;
-    // 약마다 가장 최근 기록의 처방 용량
     final recs = _myRecords.where((r) => _picked.contains(r.id)).toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    final doses = {for (final r in recs) ...r.doses};
     final letters = {for (final r in recs) ...r.safetyLetters};
     final recalls = {for (final h in matchRecalls(recs, _recalls)) h.drug: h};
     await Navigator.push(
@@ -183,7 +181,6 @@ class _HomeScreenState extends State<HomeScreen> {
           names: drugs.keys.toList(),
           title: '함께 먹는 약 확인',
           origins: drugs,
-          doses: doses,
           letters: letters,
           recalls: recalls,
         ),

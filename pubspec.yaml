@@ -39,7 +39,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/fonts/Pretendard-OFL.txt
-    - assets/dur_dose.json
   fonts:
     - family: Pretendard
       fonts:
