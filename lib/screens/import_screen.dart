@@ -209,8 +209,11 @@ class _ImportScreenState extends State<ImportScreen> {
                   child: const KText('복용 기록으로 저장'),
                 ),
                 const SizedBox(height: 8),
-                const KText('이미 불러온 처방은 다시 저장하지 않아요. 원본 파일은 앱에 보관하지 않아요.',
-                    style: TextStyle(fontSize: 12, color: AppColors.sub)),
+                const KText(
+                    '· 전에 불러온 기록은 겹쳐서 저장되지 않아요.\n'
+                    '· 불러온 기록은 이 휴대폰에만 저장되고, 어디에도 보내지 않아요.\n'
+                    '· 내려받은 엑셀 파일은 읽기만 하고 앱에 남기지 않아요.',
+                    style: TextStyle(fontSize: 12.5, color: AppColors.sub, height: 1.55)),
               ],
             ],
           ],
