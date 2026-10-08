@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../logic/models.dart';
 import '../logic/recall.dart';
 import 'theme.dart';
 
@@ -103,4 +104,82 @@ class RecallCard extends StatelessWidget {
             ),
         ]),
       );
+}
+
+/// 식약처 주의 알림(안전성 서한)이 있었던 약 — 첫 화면 안내 (회수 안내와 같은 모양)
+class LetterHit {
+  LetterHit(this.record, this.drug);
+  final MedRecord record;
+  final String drug;
+}
+
+/// 기록들에서 안전성 서한 표시가 있는 약 (같은 약은 가장 최근 기록 하나만)
+List<LetterHit> letterHits(List<MedRecord> records) {
+  final byDrug = <String, LetterHit>{};
+  final sorted = [...records]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  for (final r in sorted) {
+    for (final d in r.drugs) {
+      if (r.safetyLetters.containsKey(d)) byDrug.putIfAbsent(d, () => LetterHit(r, d));
+    }
+  }
+  return byDrug.values.toList();
+}
+
+class LetterCard extends StatelessWidget {
+  const LetterCard({super.key, required this.hits, this.onOpen});
+  final List<LetterHit> hits;
+  final ValueChanged<LetterHit>? onOpen;
+
+  static const _fg = Color(0xFF9A3412);
+  static const _bg = Color(0xFFFFF4E8);
+
+  @override
+  Widget build(BuildContext context) {
+    if (hits.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+      decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(16)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.info_outline, color: _fg, size: 22),
+          const SizedBox(width: 8),
+          Expanded(
+            child: KText('식약처 주의 알림이 있었던 약 · ${hits.length}건',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _fg)),
+          ),
+        ]),
+        const SizedBox(height: 4),
+        const KText(
+            '식약처가 의사·약사에게 처방할 때 주의하라고 알린(안전성 서한) 약이에요. 먹으면 안 된다는 뜻은 아니에요.',
+            flow: true,
+            style: TextStyle(fontSize: 12.5, color: _fg, height: 1.45)),
+        for (final h in hits.take(5))
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onOpen == null ? null : () => onOpen!(h),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    KText(h.drug,
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink)),
+                    KText(recallRecordLabel(h.record),
+                        style: const TextStyle(fontSize: 12, color: AppColors.sub)),
+                  ]),
+                ),
+                if (onOpen != null) const Icon(Icons.chevron_right, size: 20, color: _fg),
+              ]),
+            ),
+          ),
+        if (hits.length > 5)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: KText('외 ${hits.length - 5}건', style: const TextStyle(fontSize: 12, color: _fg)),
+          ),
+      ]),
+    );
+  }
 }

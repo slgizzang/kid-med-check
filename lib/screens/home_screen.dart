@@ -282,6 +282,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           showRecord: true,
                           onOpen: (h) => _openRecord(h.record),
                         ),
+                      if (_selected != null)
+                        LetterCard(
+                          hits: letterHits(_myRecords),
+                          onOpen: (h) => _openRecord(h.record),
+                        ),
                       SectionTitle('복용 기록',
                           trailing: _selected == null || _myRecords.isEmpty
                               ? null

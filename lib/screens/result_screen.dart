@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../logic/age_rule.dart';
@@ -551,10 +550,12 @@ class _RecallLink extends StatelessWidget {
   }
 }
 
-/// 식약처 의약품안전나라 '안전성 서한' 목록 (공식 원문)
-const kSafetyLetterUrl = 'https://nedrug.mfds.go.kr/pbp/CCBAC01';
+/// 식약처 의약품안전나라 '안전성 서한(속보)' 목록을 성분명으로 바로 검색한 화면
+String safetyLetterSearchUrl(String keyword) =>
+    'https://nedrug.mfds.go.kr/pbp/CCBAC01?searchYn=true&page=1&limit=10'
+    '&title=${Uri.encodeQueryComponent(keyword)}';
 
-/// 안전성 서한 원문 보러 가기. 검색에 쓸 성분명을 복사해 둔다.
+/// 안전성 서한 원문 보러 가기: 성분명으로 검색된 목록을 바로 연다
 class _LetterLink extends StatelessWidget {
   const _LetterLink({required this.ingredient, required this.name});
   final String ingredient;
@@ -566,22 +567,12 @@ class _LetterLink extends StatelessWidget {
     final key = q.isNotEmpty ? q : name;
     return Padding(
       padding: const EdgeInsets.only(top: 6),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        OutlinedButton.icon(
-          onPressed: () async {
-            await Clipboard.setData(ClipboardData(text: key));
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: KText('"$key"를 복사했어요. 열린 화면의 검색창에 붙여넣어 찾아보세요.')));
-            }
-            await launchUrl(Uri.parse(kSafetyLetterUrl), mode: LaunchMode.externalApplication);
-          },
-          icon: const Icon(Icons.open_in_new, size: 18),
-          label: const KText('의약품안전나라에서 원문 보기', maxLines: 1),
-        ),
-        KText('누르면 성분명 "$key"이 복사돼요. 열린 안전성 서한 목록에서 검색해 보세요.',
-            flow: true, style: const TextStyle(fontSize: 12, color: AppColors.sub, height: 1.45)),
-      ]),
+      child: OutlinedButton.icon(
+        onPressed: () =>
+            launchUrl(Uri.parse(safetyLetterSearchUrl(key)), mode: LaunchMode.externalApplication),
+        icon: const Icon(Icons.open_in_new, size: 18),
+        label: const KText('의약품안전나라에서 원문 보기', maxLines: 1),
+      ),
     );
   }
 }
