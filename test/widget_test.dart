@@ -714,12 +714,18 @@ void main() {
       }
     }
     expect(formatPrice(12900), '12,900원');
-    final m = Shop.parse(jsonEncode({'items': {'유산균': [
-      {'name': 'A', 'price': 9900, 'url': 'https://link.coupang.com/a', 'rocket': true},
-      {'name': 'B', 'price': 0, 'url': ''},
-    ]}}));
-    expect(m['유산균']!.single.name, 'A');
-    expect(m['유산균']!.single.rocket, isTrue);
+    final m = Shop.parse(jsonEncode({
+      'items': {'유산균': [
+        {'name': 'A', 'price': 9900, 'url': 'https://link.coupang.com/a', 'rocket': true},
+        {'name': 'B', 'price': 0, 'url': ''},
+      ]},
+      'naver': {'유산균': [
+        {'name': 'N', 'price': 12000, 'url': 'https://search.shopping.naver.com/catalog/1', 'brand': '브랜드'},
+      ]},
+    }));
+    expect(m.coupang['유산균']!.single.name, 'A');
+    expect(m.coupang['유산균']!.single.rocket, isTrue);
+    expect(m.naver['유산균']!.single.brand, '브랜드');
   });
 
   test('처방 기록 저장 형식', () {

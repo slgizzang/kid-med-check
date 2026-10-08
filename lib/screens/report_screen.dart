@@ -862,10 +862,21 @@ void _showShop(BuildContext context, CareTip t, bool child) {
     showDragHandle: true,
     builder: (ctx) => SizedBox(
       height: MediaQuery.of(ctx).size.height * 0.8,
-      child: FutureBuilder<Map<String, List<ShopItem>>>(
+      child: FutureBuilder<ShopData>(
         future: Shop.load(),
         builder: (ctx, snap) {
-          final data = snap.data ?? const {};
+          final data = snap.data ?? const ShopData();
+          Widget head(String t, String sub) => Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 2),
+                child: Row(children: [
+                  Expanded(
+                    child: KText(t,
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryDark)),
+                  ),
+                  Text(sub, style: const TextStyle(fontSize: 11.5, color: AppColors.sub)),
+                ]),
+              );
           return ListView(
             padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.of(ctx).padding.bottom),
             children: [
@@ -882,27 +893,28 @@ void _showShop(BuildContext context, CareTip t, bool child) {
                 )
               else
                 for (final k in keywords) ...[
-                  const SizedBox(height: 14),
-                  Row(children: [
-                    Expanded(
-                      child: KText(k,
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.ink)),
+                  const SizedBox(height: 16),
+                  KText(k,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.ink)),
+                  if ((data.naver[k] ?? const []).isNotEmpty) ...[
+                    head('네이버 가격비교 인기 상품', '전체 쇼핑몰 최저가'),
+                    for (final it in data.naver[k]!.take(5)) _ShopRow(it, lowest: true),
+                  ],
+                  if ((data.coupang[k] ?? const []).isNotEmpty) ...[
+                    head('쿠팡', '낮은 가격순'),
+                    for (final it in data.coupang[k]!.take(5)) _ShopRow(it),
+                  ],
+                  if ((data.naver[k] ?? const []).isEmpty && (data.coupang[k] ?? const []).isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: OutlinedButton.icon(
+                        onPressed: () => launchUrl(Uri.parse(shopSearchUrl(k)),
+                            mode: LaunchMode.externalApplication),
+                        icon: const Icon(Icons.open_in_new, size: 18),
+                        label: KText('쿠팡에서 "$k" 보기', maxLines: 1),
+                      ),
                     ),
-                    if ((data[k] ?? const []).isNotEmpty)
-                      const Text('낮은 가격순',
-                          style: TextStyle(fontSize: 12, color: AppColors.sub)),
-                  ]),
-                  const SizedBox(height: 6),
-                  if ((data[k] ?? const []).isEmpty)
-                    OutlinedButton.icon(
-                      onPressed: () => launchUrl(Uri.parse(shopSearchUrl(k)),
-                          mode: LaunchMode.externalApplication),
-                      icon: const Icon(Icons.open_in_new, size: 18),
-                      label: KText('쿠팡에서 "$k" 보기', maxLines: 1),
-                    )
-                  else
-                    for (final it in data[k]!.take(6)) _ShopRow(it),
                 ],
               const SizedBox(height: 18),
               const KText(kShopDisclosure,
@@ -921,8 +933,11 @@ void _showShop(BuildContext context, CareTip t, bool child) {
 }
 
 class _ShopRow extends StatelessWidget {
-  const _ShopRow(this.it);
+  const _ShopRow(this.it, {this.lowest = false});
   final ShopItem it;
+
+  /// 가격비교 최저가 (여러 쇼핑몰 중)
+  final bool lowest;
 
   @override
   Widget build(BuildContext context) => InkWell(
@@ -954,6 +969,9 @@ class _ShopRow extends StatelessWidget {
                     style: const TextStyle(fontSize: 13.5, color: AppColors.ink, height: 1.35)),
                 const SizedBox(height: 4),
                 Row(children: [
+                  if (lowest)
+                    const Text('최저 ',
+                        style: TextStyle(fontSize: 12, color: Color(0xFFC62828), fontWeight: FontWeight.w700)),
                   Text(formatPrice(it.price),
                       style: const TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.ink)),
@@ -965,6 +983,15 @@ class _ShopRow extends StatelessWidget {
                   ] else if (it.freeShip) ...[
                     const SizedBox(width: 6),
                     const Text('무료배송', style: TextStyle(fontSize: 11, color: AppColors.sub)),
+                  ],
+                  if (it.brand.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(it.brand,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11, color: AppColors.sub)),
+                    ),
                   ],
                 ]),
               ]),

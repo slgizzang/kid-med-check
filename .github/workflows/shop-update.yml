@@ -1,6 +1,6 @@
 name: shop-update
 
-# 복용 리포트의 영양제·생활용품 추천 목록(docs/shop.json)을 쿠팡 파트너스에서 갱신
+# 복용 리포트의 영양제·생활용품 목록(docs/shop.json) 갱신: 네이버 가격비교(인기·최저가) + 쿠팡 파트너스
 on:
   schedule:
     - cron: '17 * * * *'
@@ -23,6 +23,8 @@ jobs:
         env:
           COUPANG_ACCESS_KEY: ${{ secrets.COUPANG_ACCESS_KEY }}
           COUPANG_SECRET_KEY: ${{ secrets.COUPANG_SECRET_KEY }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: python3 tool/fetch_shop.py
       - name: 바뀌었으면 저장
         run: |

@@ -12,8 +12,8 @@ const kShopUrl = 'https://raw.githubusercontent.com/slgizzang/kid-med-check/main
 
 /// 쿠팡 파트너스 고지 문구 (파트너스 이용 약관상 표시 필요)
 const kShopDisclosure =
-    '이 목록은 쿠팡 파트너스 활동의 일환으로, 이를 통해 구매하면 필세이프가 일정액의 수수료를 받을 수 있어요. '
-    '구매하시는 가격은 똑같아요.';
+    '네이버 가격비교 목록은 네이버 쇼핑 검색 결과예요. 쿠팡 목록은 쿠팡 파트너스 활동의 일환으로, '
+    '이를 통해 구매하면 필세이프가 일정액의 수수료를 받을 수 있어요. 구매하시는 가격은 똑같아요.';
 
 class ShopItem {
   const ShopItem(
@@ -22,7 +22,8 @@ class ShopItem {
       required this.url,
       this.image = '',
       this.rocket = false,
-      this.freeShip = false});
+      this.freeShip = false,
+      this.brand = ''});
 
   final String name;
   final int price;
@@ -30,6 +31,7 @@ class ShopItem {
   final String image;
   final bool rocket;
   final bool freeShip;
+  final String brand;
 
   factory ShopItem.fromJson(Map<String, dynamic> j) => ShopItem(
         name: '${j['name'] ?? ''}',
@@ -38,6 +40,7 @@ class ShopItem {
         image: '${j['image'] ?? ''}',
         rocket: j['rocket'] == true,
         freeShip: j['freeShip'] == true,
+        brand: '${j['brand'] ?? ''}',
       );
 }
 
@@ -69,25 +72,36 @@ String formatPrice(int won) {
   return '$b원';
 }
 
+/// 검색어별 상품: 네이버 가격비교(인기순, 전체 쇼핑몰 최저가) + 쿠팡 파트너스(낮은 가격순)
+class ShopData {
+  const ShopData({this.naver = const {}, this.coupang = const {}});
+  final Map<String, List<ShopItem>> naver;
+  final Map<String, List<ShopItem>> coupang;
+}
+
 class Shop {
-  static Map<String, List<ShopItem>>? _mem;
+  static ShopData? _mem;
   static const _key = 'shop1';
 
-  static Map<String, List<ShopItem>> parse(String body) {
-    final d = jsonDecode(body);
-    final items = d is Map ? d['items'] : null;
+  static Map<String, List<ShopItem>> _group(dynamic items) {
     if (items is! Map) return {};
     return {
       for (final e in items.entries)
         '${e.key}': [
           for (final x in (e.value as List? ?? const []))
             if (x is Map) ShopItem.fromJson(Map<String, dynamic>.from(x))
-        ]..removeWhere((i) => i.url.isEmpty)
+        ]..removeWhere((i) => i.url.isEmpty || i.price <= 0)
     };
   }
 
-  /// 검색어별 상품 (가격 낮은 순). 받지 못하면 빈 목록.
-  static Future<Map<String, List<ShopItem>>> load({http.Client? client}) async {
+  static ShopData parse(String body) {
+    final d = jsonDecode(body);
+    if (d is! Map) return const ShopData();
+    return ShopData(naver: _group(d['naver']), coupang: _group(d['items']));
+  }
+
+  /// 받지 못하면 빈 목록.
+  static Future<ShopData> load({http.Client? client}) async {
     if (_mem != null) return _mem!;
     SharedPreferences? p;
     try {
@@ -113,6 +127,6 @@ class Shop {
         return _mem = m;
       }
     } catch (_) {}
-    return const {};
+    return const ShopData();
   }
 }
