@@ -19,6 +19,7 @@ import 'package:kid_med_check/logic/report.dart';
 import 'package:kid_med_check/logic/dur_text.dart';
 import 'package:kid_med_check/logic/hira_import.dart';
 import 'package:kid_med_check/logic/place_name.dart';
+import 'package:kid_med_check/logic/shop.dart';
 import 'package:kid_med_check/logic/silson24.dart';
 import 'package:kid_med_check/logic/place_resolver.dart';
 import 'package:kid_med_check/logic/class_info.dart';
@@ -696,6 +697,29 @@ void main() {
     expect(ingredientDescription('알 수 없는 성분'), isNull);
     expect(shortText('1. 다음 균에 의한 감염증 2. 기관지염'), '다음 균에 의한 감염증 기관지염');
     expect(shortText('가' * 200).length, lessThanOrEqualTo(122));
+  });
+
+  test('영양제·생활용품 목록: 팁별 검색어, 가격 표시, 목록 읽기', () {
+    expect(shopKeywordsFor('유산균(프로바이오틱스)', child: true), ['어린이 유산균']);
+    expect(shopKeywordsFor('비타민D·칼슘 상담', child: false), ['비타민D', '칼슘 마그네슘']);
+    expect(shopKeywordsFor('해열제 복용 기록', child: true), ['아기 체온계']);
+    expect(shopKeywordsFor('알 수 없는 팁', child: true), isEmpty);
+    // 앱의 검색어는 모두 상품 갱신 목록(docs/shop_keywords.json)에 있어야 한다
+    final kw = (jsonDecode(File('docs/shop_keywords.json').readAsStringSync())['keywords'] as List).toSet();
+    for (final t in ['유산균', '장 건강 관리', '비타민D·칼슘 상담', '호흡기 생활 관리', '해열제 복용 기록']) {
+      for (final c in [true, false]) {
+        for (final k in shopKeywordsFor(t, child: c)) {
+          expect(kw.contains(k), isTrue, reason: k);
+        }
+      }
+    }
+    expect(formatPrice(12900), '12,900원');
+    final m = Shop.parse(jsonEncode({'items': {'유산균': [
+      {'name': 'A', 'price': 9900, 'url': 'https://link.coupang.com/a', 'rocket': true},
+      {'name': 'B', 'price': 0, 'url': ''},
+    ]}}));
+    expect(m['유산균']!.single.name, 'A');
+    expect(m['유산균']!.single.rocket, isTrue);
   });
 
   test('처방 기록 저장 형식', () {

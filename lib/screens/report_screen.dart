@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../logic/allergy.dart';
 import '../logic/dur_api.dart';
 import '../logic/models.dart';
+import '../logic/shop.dart';
 import '../logic/report.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
@@ -34,6 +36,9 @@ class _ReportScreenState extends State<ReportScreen> {
 
   /// 미청구 목록을 모두 펼쳤는지
   bool _showAllUnclaimed = false;
+
+  /// 아이(만 19세 미만)면 아이용 제품으로 찾는다
+  bool get _isChild => widget.person.ageInMonths() < 19 * 12;
 
   @override
   void initState() {
@@ -230,7 +235,11 @@ class _ReportScreenState extends State<ReportScreen> {
                       child: r.tips.isEmpty
                           ? const _Empty('아직 특별히 참고할 내용이 없어요.')
                           : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              for (final t in r.tips) _TipCard(t),
+                              for (final t in r.tips)
+                                _TipCard(t,
+                                    onTap: shopKeywordsFor(t.title, child: _isChild).isEmpty
+                                        ? null
+                                        : () => _showShop(context, t, _isChild)),
                               const SizedBox(height: 4),
                               const KText(
                                 '영양제·건강기능식품은 나이와 먹는 약에 따라 맞지 않을 수 있어요. '
@@ -539,13 +548,25 @@ class _DrugLine extends StatelessWidget {
 }
 
 class _TipCard extends StatelessWidget {
-  const _TipCard(this.t);
+  const _TipCard(this.t, {this.onTap});
   final CareTip t;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: _body(),
+          ),
+        ),
+      );
+
+  Widget _body() => Container(
         width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
             color: const Color(0xFFFFF8E6), borderRadius: BorderRadius.circular(12)),
@@ -559,6 +580,16 @@ class _TipCard extends StatelessWidget {
           ]),
           const SizedBox(height: 4),
           KText(t.body, style: const TextStyle(color: AppColors.ink, height: 1.5)),
+          if (onTap != null) ...[
+            const SizedBox(height: 8),
+            const Row(children: [
+              Icon(Icons.shopping_bag_outlined, size: 16, color: Color(0xFF8A5A00)),
+              SizedBox(width: 4),
+              Text('관련 제품 가격 보기',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF8A5A00))),
+            ]),
+          ],
         ]),
       );
 }
@@ -820,4 +851,125 @@ void _showDrugInfo(BuildContext context, CountItem d) {
       },
     ),
   );
+}
+
+/// 팁을 누르면: 관련 제품을 검색어별로 가격 낮은 순으로 (쿠팡 파트너스)
+void _showShop(BuildContext context, CareTip t, bool child) {
+  final keywords = shopKeywordsFor(t.title, child: child);
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (ctx) => SizedBox(
+      height: MediaQuery.of(ctx).size.height * 0.8,
+      child: FutureBuilder<Map<String, List<ShopItem>>>(
+        future: Shop.load(),
+        builder: (ctx, snap) {
+          final data = snap.data ?? const {};
+          return ListView(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.of(ctx).padding.bottom),
+            children: [
+              KText(t.title,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
+              const SizedBox(height: 6),
+              KText(t.body, flow: true, style: const TextStyle(color: AppColors.sub, height: 1.5)),
+              const SizedBox(height: 8),
+              if (snap.connectionState != ConnectionState.done)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: LinearProgressIndicator(minHeight: 2),
+                )
+              else
+                for (final k in keywords) ...[
+                  const SizedBox(height: 14),
+                  Row(children: [
+                    Expanded(
+                      child: KText(k,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.ink)),
+                    ),
+                    if ((data[k] ?? const []).isNotEmpty)
+                      const Text('낮은 가격순',
+                          style: TextStyle(fontSize: 12, color: AppColors.sub)),
+                  ]),
+                  const SizedBox(height: 6),
+                  if ((data[k] ?? const []).isEmpty)
+                    OutlinedButton.icon(
+                      onPressed: () => launchUrl(Uri.parse(shopSearchUrl(k)),
+                          mode: LaunchMode.externalApplication),
+                      icon: const Icon(Icons.open_in_new, size: 18),
+                      label: KText('쿠팡에서 "$k" 보기', maxLines: 1),
+                    )
+                  else
+                    for (final it in data[k]!.take(6)) _ShopRow(it),
+                ],
+              const SizedBox(height: 18),
+              const KText(kShopDisclosure,
+                  flow: true, style: TextStyle(fontSize: 11.5, color: AppColors.sub, height: 1.5)),
+              const SizedBox(height: 4),
+              const KText(
+                  '건강기능식품은 질병을 치료하는 약이 아니에요. 먹는 약이 있거나 아이에게 먹일 때는 약사·의사와 먼저 상의하세요.',
+                  flow: true,
+                  style: TextStyle(fontSize: 11.5, color: AppColors.sub, height: 1.5)),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+}
+
+class _ShopRow extends StatelessWidget {
+  const _ShopRow(this.it);
+  final ShopItem it;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => launchUrl(Uri.parse(it.url), mode: LaunchMode.externalApplication),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 64,
+                height: 64,
+                color: AppColors.bg,
+                child: it.image.isEmpty
+                    ? const Icon(Icons.image_outlined, color: AppColors.sub)
+                    : Image.network(it.image,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.image_outlined, color: AppColors.sub)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                KText(it.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13.5, color: AppColors.ink, height: 1.35)),
+                const SizedBox(height: 4),
+                Row(children: [
+                  Text(formatPrice(it.price),
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.ink)),
+                  if (it.rocket) ...[
+                    const SizedBox(width: 6),
+                    const Text('로켓배송',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF2F5FBF))),
+                  ] else if (it.freeShip) ...[
+                    const SizedBox(width: 6),
+                    const Text('무료배송', style: TextStyle(fontSize: 11, color: AppColors.sub)),
+                  ],
+                ]),
+              ]),
+            ),
+          ]),
+        ),
+      );
 }
