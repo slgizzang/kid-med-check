@@ -324,36 +324,13 @@ class _RecordScreenState extends State<RecordScreen> {
   /// 이름만 있는 병원·약국의 위치·주소·코드를 심평원 정보로 채운다.
   /// 같은 이름이 여럿이면 "서로 가장 가까운 병원·약국 짝"을 고른다 (처방 병원 옆 약국).
   Future<void> _resolvePair() async {
-    final needH = _place.length >= 2 && _r.hospitalPos == null;
-    final needP = _r.pharmacy.length >= 2 && _r.pharmacyPos == null;
-    if (!needH && !needP) return;
     try {
       final api = DurApi(await AppStorage.apiKey());
-      final got = await Future.wait([
-        needH ? sameName(api, _place, pharmacy: false) : Future.value(<PlaceHit>[]),
-        needP ? sameName(api, _r.pharmacy, pharmacy: true) : Future.value(<PlaceHit>[]),
-      ]);
-      final pair = resolvePair(
-        hosps: got[0],
-        pharms: got[1],
-        hospKnown: _r.hospitalPos,
-        pharmKnown: _r.pharmacyPos,
-      );
-      if (!mounted) return;
-      setState(() {
-        final h = pair.hospital, ph = pair.pharmacy;
-        if (needH && h != null) {
-          if (_r.hospitalAddr.isEmpty) _r.hospitalAddr = h.addr;
-          _r.hospitalCode = h.code;
-          _r.hospitalPos = posOf(h);
-        }
-        if (needP && ph != null) {
-          if (_r.pharmacyAddr.isEmpty) _r.pharmacyAddr = ph.addr;
-          _r.pharmacyCode = ph.code;
-          _r.pharmacyPos = posOf(ph);
-        }
-      });
-      _save();
+      final n = await fillPlaces(api, [_r]);
+      if (n > 0 && mounted) {
+        setState(() {});
+        await _save();
+      }
     } catch (_) {}
   }
 
@@ -369,8 +346,10 @@ class _RecordScreenState extends State<RecordScreen> {
         pharmacy: pharmacy,
         addr: pharmacy ? _r.pharmacyAddr : _r.hospitalAddr,
         code: pharmacy ? _r.pharmacyCode : _r.hospitalCode,
-        // 위치는 심평원 자료로 정확히 정해진 경우에만 넘긴다 (내 위치로 추측하지 않음)
-        at: pharmacy ? _r.pharmacyPos : _r.hospitalPos);
+        // 위치는 심평원 자료로 정확히 정해진 경우에만 넘긴다 (내 위치로 추측하지 않음).
+        // 자기 위치를 모르면 짝 기관 위치 주변 1km 안에서만 맞춘다.
+        at: pharmacy ? _r.pharmacyPos : _r.hospitalPos,
+        near: pharmacy ? _r.hospitalPos : _r.pharmacyPos);
     if (!mounted) return;
     setState(() {
       _silsonLoading.remove(pharmacy);

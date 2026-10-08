@@ -294,11 +294,9 @@ class Silson24 {
       if (best >= 2) cands = cands.where((e) => score(e) == best).toList();
     }
     if (cands.length > 1 && near != null) {
-      // 기준점에서 가장 가까운 곳이 5km 안이고, 두 번째보다 확실히(2배 이상) 가까우면 그곳
-      double d(Map<String, dynamic> e) => dist(e, near);
-      cands.sort((a, b) => d(a).compareTo(d(b)));
-      final d0 = d(cands.first), d1 = d(cands[1]);
-      if (d0 < 5000 && (d1 == double.infinity || d1 >= d0 * 2)) cands = [cands.first];
+      // 짝 기관(처방 병원 ↔ 조제 약국) 주변 1km 안에 같은 이름이 딱 한 곳이면 그곳
+      final close = cands.where((e) => dist(e, near) <= 1000).toList();
+      if (close.length == 1) cands = close;
     }
     final states = cands.map((e) => e['serviceEnabled'] == true).toSet();
     if (states.length != 1) {

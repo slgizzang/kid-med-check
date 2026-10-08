@@ -20,6 +20,7 @@ import 'package:kid_med_check/logic/dur_text.dart';
 import 'package:kid_med_check/logic/hira_import.dart';
 import 'package:kid_med_check/logic/place_name.dart';
 import 'package:kid_med_check/logic/silson24.dart';
+import 'package:kid_med_check/logic/place_resolver.dart';
 import 'package:kid_med_check/logic/class_info.dart';
 import 'package:kid_med_check/logic/ingredient_info.dart';
 import 'package:kid_med_check/logic/office_decrypt.dart';
@@ -478,6 +479,44 @@ void main() {
     expect(hits.first.name, '가까운온누리약국');
     expect(hits.first.distanceLabel.endsWith('m'), isTrue);
     expect(hits.last.distanceLabel, contains('km'));
+  });
+
+  test('병원·약국 한 세트: 한쪽이 정해지면 그 주변 1km 안의 같은 이름 하나만', () async {
+    Map<String, dynamic> it(String n, String code, double y, double x) =>
+        {'yadmNm': n, 'addr': '$n 주소', 'ykiho': code, 'YPos': '$y', 'XPos': '$x'};
+    http.Response res(List<Map<String, dynamic>> items) => http.Response(
+        jsonEncode({'response': {'header': {'resultCode': '00'}, 'body': {'items': {'item': items}}}}),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'});
+    final client = MockClient((req) async {
+      final q = req.url.queryParameters;
+      final pharm = req.url.path.contains('Parmacy');
+      if (!pharm) return res([it('바른소아과의원', 'H1', 37.5600, 127.1900)]); // 병원은 전국에 하나
+      if (q['yadmNm'] == '온누리약국') {
+        // 같은 이름 약국이 전국에 여럿
+        return res([it('온누리약국', 'P-far', 35.1, 129.0), it('온누리약국', 'P-near', 37.5605, 127.1905)]);
+      }
+      // 병원 주변 검색: 같은 이름은 하나 + 다른 약국
+      return res([it('온누리약국', 'P-near', 37.5605, 127.1905), it('미사약국', 'X', 37.5601, 127.1901)]);
+    });
+    final r = MedRecord(id: '1', childId: 'c', title: '10월 1일 바른소아과의원', createdAt: DateTime(2026, 10, 1),
+        hospital: '바른소아과의원', pharmacy: '온누리약국');
+    final n = await fillPlaces(DurApi('k', client: client), [r]);
+    expect(n, 1);
+    expect(r.hospitalCode, 'H1');
+    expect(r.pharmacyCode, 'P-near');
+
+    // 주변 1km 안에 같은 이름이 둘이면 정하지 않는다
+    final client2 = MockClient((req) async {
+      final pharm = req.url.path.contains('Parmacy');
+      if (!pharm) return res([it('바른소아과의원', 'H1', 37.5600, 127.1900)]);
+      return res([it('온누리약국', 'A', 37.5605, 127.1905), it('온누리약국', 'B', 37.5610, 127.1910)]);
+    });
+    final r2 = MedRecord(id: '2', childId: 'c', title: 'x', createdAt: DateTime(2026, 10, 1),
+        hospital: '바른소아과의원', pharmacy: '온누리약국');
+    await fillPlaces(DurApi('k', client: client2), [r2]);
+    expect(r2.hospitalCode, 'H1');
+    expect(r2.pharmacyPos, isNull);
   });
 
   test('실손24 연계 여부: 이름·주소로 기관을 골라 판정', () async {

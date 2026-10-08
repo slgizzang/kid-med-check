@@ -81,25 +81,64 @@ String hospitalNameOf(MedRecord r) {
   return RegExp(r'(의원|병원|센터|클리닉|보건소)').hasMatch(t) ? t : '';
 }
 
-/// 여러 기록의 병원·약국 위치·주소·코드를 한꺼번에 채운다 (아직 위치가 없는 것만).
-/// - 같은 이름은 한 번만 심평원에 묻는다.
-/// - 한 기록에서 정해진 병원 위치는 같은 병원의 다른 기록에서 약국을 고를 때도 쓴다.
+/// 처방 병원과 조제 약국은 한 세트: 한쪽이 정확히 정해지면 다른 쪽은 이 거리 안에서만 찾는다.
+const kPairRadius = 1000.0;
+
+/// [anchor] 주변 [kPairRadius] 안에서 이름이 정확히 같은 기관들 (심평원 주변 검색)
+Future<List<PlaceHit>> sameNameNear(DurApi api, String name, (double, double) anchor,
+    {required bool pharmacy}) async {
+  if (_n(name).length < 2) return const [];
+  try {
+    final hits = await api.searchPlaces('',
+        pharmacy: pharmacy,
+        lat: anchor.$1,
+        lon: anchor.$2,
+        radius: kPairRadius.round(),
+        rows: 300);
+    return hits
+        .where((h) =>
+            _n(h.name) == _n(name) && posOf(h) != null && meters(anchor, posOf(h)!) <= kPairRadius)
+        .toList();
+  } catch (_) {
+    return const [];
+  }
+}
+
+/// 여러 기록의 병원·약국 위치·주소·코드를 한꺼번에 채운다 (아직 위치가 없는 것만). 추측하지 않는다:
+/// 1) 심평원 전체에서 이름이 정확히 한 곳뿐이면 그곳
+/// 2) 짝(병원↔약국) 중 한쪽이 정해졌으면, 그 주변 1km 안에 같은 이름이 딱 한 곳일 때 그곳
+/// 3) 같은 사람의 기록에서 이미 정해진 같은 이름(약국은 같은 병원 옆의 같은 이름)은 같은 곳
 /// 바뀐 기록 수를 돌려준다.
 Future<int> fillPlaces(DurApi api, List<MedRecord> records,
     {(double, double)? me, void Function(int done, int total)? onProgress}) async {
-  final todo = records
-      .where((r) => !r.otc &&
-          ((hospitalNameOf(r).length >= 2 && r.hospitalPos == null) ||
-              (r.pharmacy.length >= 2 && r.pharmacyPos == null)))
-      .toList();
+  bool needH(MedRecord r) => hospitalNameOf(r).length >= 2 && r.hospitalPos == null;
+  bool needP(MedRecord r) => r.pharmacy.length >= 2 && r.pharmacyPos == null;
+  final todo = records.where((r) => !r.otc && (needH(r) || needP(r))).toList();
   if (todo.isEmpty) return 0;
 
-  // 1) 이름별 후보 (같은 이름은 한 번만)
-  final hNames = {for (final r in todo) if (r.hospitalPos == null) hospitalNameOf(r)}..remove('');
-  final pNames = {for (final r in todo) if (r.pharmacyPos == null) r.pharmacy}..remove('');
+  String key((double, double) p) => '${p.$1.toStringAsFixed(4)},${p.$2.toStringAsFixed(4)}';
+  // 이미 정해진 것들 (같은 사람 기록 전체에서)
+  final hospByName = <String, PlaceHit>{};
+  final pharmByHosp = <String, PlaceHit>{}; // "약국이름|병원위치"
+  PlaceHit hitOf(String name, String addr, String code, (double, double) p) =>
+      PlaceHit(name: name, addr: addr, code: code, lat: p.$1, lng: p.$2);
+  for (final r in records) {
+    final hn = hospitalNameOf(r);
+    if (r.hospitalPos != null && hn.isNotEmpty) {
+      hospByName[_n(hn)] ??= hitOf(hn, r.hospitalAddr, r.hospitalCode, r.hospitalPos!);
+      if (r.pharmacyPos != null && r.pharmacy.isNotEmpty) {
+        pharmByHosp['${_n(r.pharmacy)}|${key(r.hospitalPos!)}'] ??=
+            hitOf(r.pharmacy, r.pharmacyAddr, r.pharmacyCode, r.pharmacyPos!);
+      }
+    }
+  }
+
+  // 1) 이름별 전국 후보 (같은 이름은 한 번만)
+  final hNames = {for (final r in todo) if (needH(r)) hospitalNameOf(r)};
+  final pNames = {for (final r in todo) if (needP(r)) r.pharmacy};
   final jobs = [for (final n in hNames) (n, false), for (final n in pNames) (n, true)];
   final cand = <(String, bool), List<PlaceHit>>{};
-  var done = 0;
+  var done = 0, total = jobs.length;
   for (var i = 0; i < jobs.length; i += 4) {
     final batch = jobs.skip(i).take(4).toList();
     final got = await Future.wait(batch.map((j) => sameName(api, j.$1, pharmacy: j.$2)));
@@ -107,51 +146,77 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
       cand[batch[k]] = got[k];
     }
     done += batch.length;
-    onProgress?.call(done, jobs.length);
+    onProgress?.call(done, total);
   }
 
-  // 2) 병원 위치: 이미 아는 기록 → 짝으로 정해지는 기록 순서로 모은다
-  final hospAt = <String, PlaceHit>{};
-  final hospPos = <String, (double, double)>{
-    for (final r in records)
-      if (r.hospitalPos != null && hospitalNameOf(r).isNotEmpty) hospitalNameOf(r): r.hospitalPos!,
-  };
-  // 두 번 돌면, 첫 바퀴에 정해진 병원 위치로 두 번째 바퀴에서 약국을 더 고를 수 있다
-  var changed = <MedRecord>{};
-  for (var pass = 0; pass < 2; pass++) {
+  final changed = <MedRecord>{};
+  void setH(MedRecord r, PlaceHit h) {
+    if (r.hospital.isEmpty) r.hospital = hospitalNameOf(r);
+    if (r.hospitalAddr.isEmpty) r.hospitalAddr = h.addr;
+    r.hospitalCode = h.code;
+    r.hospitalPos = posOf(h);
+    hospByName[_n(r.hospital)] ??= h;
+    changed.add(r);
+  }
+
+  void setP(MedRecord r, PlaceHit p) {
+    if (r.pharmacyAddr.isEmpty) r.pharmacyAddr = p.addr;
+    r.pharmacyCode = p.code;
+    r.pharmacyPos = posOf(p);
+    if (r.hospitalPos != null) pharmByHosp['${_n(r.pharmacy)}|${key(r.hospitalPos!)}'] ??= p;
+    changed.add(r);
+  }
+
+  final nearCache = <String, List<PlaceHit>>{};
+  Future<List<PlaceHit>> near(String name, (double, double) anchor, bool pharmacy) async {
+    final k = '${pharmacy ? 'p' : 'h'}|${_n(name)}|${key(anchor)}';
+    final c = nearCache[k];
+    if (c != null) return c;
+    total++;
+    final got = await sameNameNear(api, name, anchor, pharmacy: pharmacy);
+    done++;
+    onProgress?.call(done, total);
+    return nearCache[k] = got;
+  }
+
+  // 한쪽이 정해지면 다른 쪽이 풀릴 수 있으므로 바뀌는 게 없을 때까지 (최대 3바퀴)
+  for (var round = 0; round < 3; round++) {
+    final before = changed.length;
     for (final r in todo) {
       final hn = hospitalNameOf(r);
-      final known = r.hospitalPos ?? hospPos[hn];
-      final pair = resolvePair(
-        hosps: known == null ? (cand[(hn, false)] ?? const []) : const [],
-        pharms: r.pharmacyPos == null ? (cand[(r.pharmacy, true)] ?? const []) : const [],
-        hospKnown: known,
-        pharmKnown: r.pharmacyPos,
-        me: me,
-      );
-      final h = pair.hospital ?? hospAt[hn];
-      if (r.hospitalPos == null) {
-        if (h != null && posOf(h) != null) {
-          if (r.hospital.isEmpty) r.hospital = hn;
-          if (r.hospitalAddr.isEmpty) r.hospitalAddr = h.addr;
-          r.hospitalCode = h.code;
-          r.hospitalPos = posOf(h);
-          hospAt[hn] = h;
-          hospPos[hn] = r.hospitalPos!;
-          changed.add(r);
-        } else if (known != null) {
-          r.hospitalPos = known;
-          changed.add(r);
+      // 병원: 같은 이름이 이미 정해졌거나 전국에 한 곳뿐이면
+      if (needH(r)) {
+        final known = hospByName[_n(hn)];
+        final c = cand[(hn, false)] ?? const [];
+        if (known != null) {
+          setH(r, known);
+        } else if (c.length == 1) {
+          setH(r, c.first);
         }
       }
-      final ph = pair.pharmacy;
-      if (r.pharmacyPos == null && ph != null && posOf(ph) != null) {
-        if (r.pharmacyAddr.isEmpty) r.pharmacyAddr = ph.addr;
-        r.pharmacyCode = ph.code;
-        r.pharmacyPos = posOf(ph);
-        changed.add(r);
+      // 약국: 같은 병원 옆의 같은 이름이 이미 정해졌거나, 전국에 한 곳뿐이면
+      if (needP(r)) {
+        final known = r.hospitalPos == null
+            ? null
+            : pharmByHosp['${_n(r.pharmacy)}|${key(r.hospitalPos!)}'];
+        final c = cand[(r.pharmacy, true)] ?? const [];
+        if (known != null) {
+          setP(r, known);
+        } else if (c.length == 1) {
+          setP(r, c.first);
+        } else if (r.hospitalPos != null) {
+          // 병원 주변 1km 안에 같은 이름 약국이 딱 한 곳이면 그곳
+          final n = await near(r.pharmacy, r.hospitalPos!, true);
+          if (n.length == 1) setP(r, n.first);
+        }
+      }
+      // 약국만 정해졌으면: 약국 주변 1km 안에 같은 이름 병원이 딱 한 곳이면 그곳
+      if (needH(r) && r.pharmacyPos != null) {
+        final n = await near(hn, r.pharmacyPos!, false);
+        if (n.length == 1) setH(r, n.first);
       }
     }
+    if (changed.length == before) break;
   }
   return changed.length;
 }
