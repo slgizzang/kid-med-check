@@ -188,5 +188,12 @@ String recallDateLabel(DateTime? d) =>
 String recallAdvice(Recall r) =>
     '${r.forced ? '식약처가 회수를 명령한' : '제조사가 스스로 회수하는'} 약이에요'
     '${r.reason.isEmpty ? '' : ' (사유: ${r.reason})'}. '
-    '회수는 보통 특정 제조번호만 해당돼요. 집에 남은 약이 있으면 먹지 말고 약국에 가져가 '
+    '회수는 보통 특정 제조번호만 해당돼요. 집에 남은 약이 있으면 먹거나 바르지 말고 약국에 가져가 '
     '회수 대상인지 확인하세요.';
+
+/// 회수 안내에 쓸 기록 이름: 날짜에 연도까지 ("6월 3일 처방" → "2026년 6월 3일 처방")
+String recallRecordLabel(MedRecord r) {
+  final t = r.title.trim();
+  if (RegExp(r'^\d{1,2}월').hasMatch(t)) return '${r.createdAt.year}년 $t';
+  return '$t (${recallDateLabel(r.createdAt)})';
+}

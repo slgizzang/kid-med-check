@@ -1206,6 +1206,7 @@ void main() {
     expect(hits.map((h) => h.drug).toSet(), {'세토펜현탁액', '코푸시럽'});
     expect(hits.length, 2);
     expect(recallKey('타이레놀정500밀리그람'), recallKey('타이레놀정 500밀리그램'));
-    expect(recallAdvice(r1), contains('약국'));
+    expect(recallAdvice(r1), contains('먹거나 바르지 말고'));
+    expect(recallRecordLabel(rec), '2026년 6월 3일 처방');
   });
 }

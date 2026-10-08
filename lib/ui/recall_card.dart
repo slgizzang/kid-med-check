@@ -54,7 +54,7 @@ class RecallCard extends StatelessWidget {
                 ]),
                 KText(
                     [
-                      if (showRecord) h.record.title,
+                      if (showRecord) recallRecordLabel(h.record),
                       '${recallDateLabel(h.recall.date)} ${h.recall.forced ? '회수 명령' : '자진 회수'}',
                       if (h.recall.company.isNotEmpty) h.recall.company,
                     ].join(' · '),
