@@ -164,13 +164,20 @@ class AppStorage {
         for (final r in list) {
           if (r.childId != childId || r.importKey != v.key) continue;
           if (r.hospital.isEmpty) r.hospital = v.hospital;
-          // 예전 버전에서 불러와 처방 용량이 없으면 채운다
           r.safetyLetters.addAll(v.safetyLetters);
+          // 원내 조제 여부는 새로 읽은 파일 기준으로 바로잡는다
+          // (예전 버전은 주사만 병원에서 받은 날도 원내 조제로 잘못 표시했음)
           if (v.inHouse) {
-            r.inHouse = true;
-            r.pharmacy = '';
-          } else if (r.pharmacy.isEmpty) {
-            r.pharmacy = v.pharmacy;
+            if (!r.inHouse) {
+              r.inHouse = true;
+              r.pharmacy = '';
+              r.pharmacyAddr = '';
+              r.pharmacyCode = '';
+              r.pharmacyPos = null;
+            }
+          } else {
+            if (r.inHouse) r.inHouse = false;
+            if (r.pharmacy.isEmpty && v.pharmacy.isNotEmpty) r.pharmacy = v.pharmacy;
           }
         }
         skipped++;

@@ -501,6 +501,19 @@ void main() {
     expect(m.inHouse, isFalse);
     expect(m.pharmacy, '메디파워약국');
     expect(m.drugs, ['맥시부펜시럽', '어린이타이레놀']);
+
+    // 같은 날 주사는 병원에서, 먹는 약은 약국에서 → 원내 조제가 아니라 약국 조제 (순서와 상관없이)
+    final mixed = HiraImport.parseRows(<List<String>>[
+      ['조제일자', '처방기관', '조제기관', '제품명'],
+      ['20250801', '연세하임산부인과의원', '연세하임산부인과의원', '파세타주'],
+      ['20250801', '연세하임산부인과의원', '하임온누리약국', '메디락에스산'],
+    ]).single;
+    expect(mixed.inHouse, isFalse);
+    expect(mixed.pharmacy, '하임온누리약국');
+    // 이름에 '약국'이 없어도 의료기관 이름이 아니면 약국으로 본다
+    expect(HiraImport.isInHouse('바른의원', '바른메디팜'), isFalse);
+    expect(HiraImport.isInHouse('바른의원', '바른의원'), isTrue);
+    expect(HiraImport.isInHouse('바른의원', '서울대학교병원'), isTrue);
   });
 
   test('병원·약국 한 세트: 한쪽이 정해지면 그 주변 1km 안의 같은 이름 하나만', () async {

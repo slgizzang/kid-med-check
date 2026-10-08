@@ -28,8 +28,11 @@ class ImportedVisit {
   String hospital;
   String pharmacy;
 
-  /// 약을 병원에서 바로 받음 (조제기관 = 처방기관)
+  /// 약을 모두 병원에서 바로 받음 (조제기관 = 처방기관, 약국 조제 없음)
   bool inHouse = false;
+
+  /// 이 방문에서 병원이 직접 준 약(주사 등)이 있었는지
+  bool sawInHouse = false;
 
 
   /// 약 이름 → 심평원 '안전성 서한' 칸 내용 (서한이 나온 약만)
@@ -169,28 +172,38 @@ class HiraImport {
       final v = ImportedVisit(date: date, place: place, drugs: []);
       final visit = byKey.putIfAbsent(v.key, () => v);
       if (visit.hospital.isEmpty && clinicCol >= 0) visit.hospital = cell(clinicCol);
-      if (visit.pharmacy.isEmpty && !visit.inHouse && pharmCol >= 0) {
+      // 같은 날 같은 병원이라도 약마다 조제기관이 다를 수 있다
+      // (예: 주사는 병원에서, 먹는 약은 약국에서). 약국이 한 곳이라도 있으면 그 약국으로.
+      if (pharmCol >= 0) {
         final ph = cell(pharmCol);
-        if (isInHouse(cell(clinicCol), ph)) {
-          visit.inHouse = true;
-        } else {
-          visit.pharmacy = ph;
+        if (ph.isNotEmpty) {
+          if (isInHouse(cell(clinicCol), ph)) {
+            visit.sawInHouse = true;
+          } else if (visit.pharmacy.isEmpty) {
+            visit.pharmacy = ph;
+          }
         }
       }
       if (!visit.drugs.contains(name)) visit.drugs.add(name);
       final letter = safetyLetterOf(cell(letterCol));
       if (letter != null) visit.safetyLetters[name] = letter;
     }
+    for (final v in byKey.values) {
+      // 약국 조제가 하나도 없고 병원이 직접 준 약만 있을 때만 원내 조제
+      v.inHouse = v.pharmacy.isEmpty && v.sawInHouse;
+    }
     return byKey.values.toList()..sort((a, b) => b.date.compareTo(a.date));
   }
 
-  /// 조제기관이 처방기관과 같거나 약국이 아니면 병원에서 약을 받은 것 (원내 조제)
+  /// 조제기관이 병원 자신(원내 조제)인지: 처방기관과 이름이 같거나, 약국이 아니라 의료기관 이름일 때.
+  /// 이름에 '약국'이 없어도 의료기관 이름이 아니면 약국으로 본다 (예: ○○메디팜).
   static bool isInHouse(String clinic, String dispenser) {
     String n(String s) => s.replaceAll(RegExp(r'\s'), '');
     final d = n(dispenser);
     if (d.isEmpty) return false;
     if (n(clinic).isNotEmpty && d == n(clinic)) return true;
-    return !d.contains('약국');
+    if (d.contains('약국') || d.contains('약방')) return false;
+    return RegExp(r'(의원|병원|보건소|보건지소|보건진료소|클리닉|센터|한의원|치과)$').hasMatch(d);
   }
 
   /// "싱귤레어세립4밀리그램(몬테루카스트나트륨)" → "싱귤레어세립4밀리그램"
