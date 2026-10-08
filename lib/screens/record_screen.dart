@@ -532,18 +532,7 @@ class _RecordScreenState extends State<RecordScreen> {
         const SizedBox(height: 12),
         const KText('실손24 로그인 → "나의 실손청구"에서 진료 내역을 고르면 보험사로 바로 전송돼요.',
             flow: true, style: small),
-        Wrap(spacing: 4, children: [
-          TextButton(
-            onPressed: _openSilson24,
-            child: const KText('실손24 홈페이지', maxLines: 1),
-          ),
-          TextButton(
-            onPressed: () => launchUrl(
-                Uri.parse('https://www.silson24.or.kr/claim/web/serviceHospitalList'),
-                mode: LaunchMode.externalApplication),
-            child: const KText('참여기관 목록', maxLines: 1),
-          ),
-        ]),
+        const SizedBox(height: 10),
       ]),
     );
   }
