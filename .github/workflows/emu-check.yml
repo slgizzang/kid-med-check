@@ -1,0 +1,64 @@
+name: emu-check
+
+# 올린 APK를 안드로이드 에뮬레이터에 설치해 실제로 켜 보고, 화면 캡처와 로그를 남긴다
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: 빌드 번호
+        required: true
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: APK 받기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "build-${{ inputs.build }}" --repo "${{ github.repository }}" --pattern '*.apk' --output app.apk
+
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb install -r app.apk
+            adb logcat -c
+            adb shell monkey -p com.pillsafe.app -c android.intent.category.LAUNCHER 1
+            sleep 4
+            adb exec-out screencap -p > shot_04s.png
+            sleep 8
+            adb exec-out screencap -p > shot_12s.png
+            sleep 15
+            adb exec-out screencap -p > shot_27s.png
+            adb logcat -d > logcat.txt || true
+            adb shell dumpsys activity activities | grep -iE "pillsafe|mResumed|ResumedActivity" | head -20 > activity.txt || true
+
+      - name: 결과 올리기
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo "### 화면이 멈춘 곳 확인용"; echo '```'; cat activity.txt 2>/dev/null; echo '---'; grep -iE "flutter|AndroidRuntime|FATAL|pillsafe|Exception|ANR|kid_med" logcat.txt | grep -v "^--------- beginning" | tail -n 150; echo '```'; } > emu.md
+          gh issue create --repo "${{ github.repository }}" --title "에뮬레이터 점검 빌드 ${{ inputs.build }}" --body-file emu.md
+          git config user.name ci; git config user.email ci@users.noreply.github.com
+          git checkout --orphan diag-${{ inputs.build }}
+          git rm -rfq --cached . >/dev/null
+          git add -f shot_*.png logcat.txt 2>/dev/null || true
+          git commit -qm "emu ${{ inputs.build }}" && git push -f origin diag-${{ inputs.build }} || true
