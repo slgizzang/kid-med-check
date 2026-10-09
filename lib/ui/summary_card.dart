@@ -17,15 +17,15 @@ class SafetySummaryCard extends StatelessWidget {
     this.onOpen,
     this.onOpenRecalls,
     this.onOpenLetters,
-    this.onCheckAll,
+    this.checking = 0,
   });
 
   /// 회수된 약 / 주의 알림 상세 화면 열기
   final VoidCallback? onOpenRecalls;
   final VoidCallback? onOpenLetters;
 
-  /// 확인 안 된 기록을 한 번에 확인
-  final VoidCallback? onCheckAll;
+  /// 자동 안전 확인이 남은 기록 수 (0이면 모두 확인됨)
+  final int checking;
 
   final List<MedRecord> records;
   final ChildProfile person;
@@ -43,7 +43,6 @@ class SafetySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (records.isEmpty) return const SizedBox.shrink();
     final checked = [for (final r in records) if (r.last != null && r.last!.matches(r.drugs)) r];
-    final unchecked = records.where((r) => r.drugs.isNotEmpty && !checked.contains(r)).length;
     // 항목마다 (기록, 해당 약) 목록
     final age = <(MedRecord, String)>[], mix = <(MedRecord, String)>[];
     final preg = <(MedRecord, String)>[], allergy = <(MedRecord, String)>[];
@@ -61,25 +60,46 @@ class SafetySummaryCard extends StatelessWidget {
         mix.add((r, s.mixPairs.join(' / ')));
         mixN += s.mixPairs.length;
       }
-      if (p.isNotEmpty) {
+      if (p.isNotEmpty && person.pregnant) {
         preg.add((r, p.join(', ')));
         pregN += p.length;
       }
-      if (al.isNotEmpty) {
+      if (al.isNotEmpty && person.allergies.isNotEmpty) {
         allergy.add((r, al.join(', ')));
         allergyN += al.length;
       }
     }
-    // 하나도 확인하지 않았으면 금기 '없음'이라고 말하지 않는다 (확인 전)
-    final any = checked.isNotEmpty;
+    final hard = ageN + mixN + pregN + allergyN + recallCount;
+    final issues = hard + letterCount;
+    final busy = checking > 0;
+    // 결론 한 줄: 문제가 있으면 그 항목만, 없으면 '문제없어요'
+    final IconData icon;
+    final Color fg;
+    final String head;
+    final String sub;
+    if (issues > 0) {
+      icon = hard > 0 ? Icons.error : Icons.info;
+      fg = hard > 0 ? const Color(0xFFC62828) : const Color(0xFF9A3412);
+      head = '확인할 약이 $issues건 있어요';
+      sub = '아래 기록을 누르면 자세한 내용을 볼 수 있어요';
+    } else if (checked.isEmpty) {
+      icon = Icons.hourglass_top_rounded;
+      fg = AppColors.sub;
+      head = busy ? '안전 확인 중이에요' : '아직 확인한 기록이 없어요';
+      sub = busy ? '잠시만 기다려 주세요' : '인터넷 연결을 확인한 뒤 앱을 다시 열어주세요';
+    } else {
+      icon = Icons.check_circle;
+      fg = const Color(0xFF1E7B3A);
+      head = '문제없어요';
+      sub = '확인한 기록 ${checked.length}건 모두 금기·회수된 약 없음';
+    }
     final lines = <Widget>[
-      if (any) _line('연령금기', ageN, age, unit: '개'),
-      if (any) _line('병용금기(함께 먹으면 안 되는 조합)', mixN, mix, unit: '쌍'),
-      if (any && person.pregnant) _line('임부금기', pregN, preg, unit: '개'),
-      if (any && person.allergies.isNotEmpty)
-        _line('알레르기 약물과 같은 성분', allergyN, allergy, unit: '개'),
-      if (any) _line('회수된 약', recallCount, recallRecords, unit: '건'),
-      if (any)
+      if (ageN > 0) _line('연령금기', ageN, age, unit: '개'),
+      if (mixN > 0) _line('함께 먹으면 안 되는 조합', mixN, mix, unit: '쌍'),
+      if (pregN > 0) _line('임부금기', pregN, preg, unit: '개'),
+      if (allergyN > 0) _line('알레르기 약물과 같은 성분', allergyN, allergy, unit: '개'),
+      if (recallCount > 0) _line('회수된 약', recallCount, recallRecords, unit: '건'),
+      if (letterCount > 0)
         _line('식약처 주의 알림이 있었던 약', letterCount, letterRecords, unit: '건', soft: true),
     ];
     return Container(
@@ -92,50 +112,43 @@ class SafetySummaryCard extends StatelessWidget {
         border: Border.all(color: AppColors.line),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        KText('${person.name}님 약 안전 점검',
+            maxLines: 1,
+            style: const TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.sub)),
+        const SizedBox(height: 6),
         Row(children: [
-          const Icon(Icons.verified_user_outlined, color: AppColors.primary, size: 22),
+          Icon(icon, color: fg, size: 26),
           const SizedBox(width: 8),
           Expanded(
-            child: KText('${person.name}님 약 안전 점검',
+            child: KText(head,
                 maxLines: 1,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.ink)),
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: fg)),
           ),
         ]),
         Padding(
-          padding: const EdgeInsets.only(left: 30, top: 2),
-          child: KText('복용 기록 ${records.length}건 중 ${checked.length}건 확인',
-              maxLines: 1, style: const TextStyle(fontSize: 12.5, color: AppColors.sub)),
+          padding: const EdgeInsets.only(left: 34, top: 2),
+          child: KText(sub, style: const TextStyle(fontSize: 12.5, color: AppColors.sub)),
         ),
-        const SizedBox(height: 8),
-        ...lines,
-        if (unchecked > 0) ...[
+        if (lines.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-                color: const Color(0xFFFFF4E8), borderRadius: BorderRadius.circular(12)),
-            child: KText(
-                any
-                    ? '안전 확인을 안 했거나 약이 바뀐 기록 $unchecked건은 위 결과에 빠져 있어요. 아래 기록 카드를 눌러 안전 확인을 하거나, 바로 아래 버튼으로 한 번에 확인하세요.'
-                    : '아직 안전 확인한 기록이 없어요. 아래 기록 카드를 눌러 안전 확인을 하거나, 바로 아래 버튼으로 한 번에 확인하세요.',
-                flow: true,
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFF9A3412), height: 1.45)),
-          ),
-          if (onCheckAll != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: onCheckAll,
-                  icon: const Icon(Icons.shield_outlined, size: 20),
-                  label: KText('전체 안전 확인 ($unchecked건)', maxLines: 1),
-                ),
-              ),
-            ),
+          const Divider(height: 1, color: AppColors.line),
+          const SizedBox(height: 4),
+          ...lines,
         ],
+        if (busy && checked.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(children: [
+              const SizedBox(
+                  width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: KText('남은 기록 $checking건도 확인하는 중이에요',
+                    maxLines: 1, style: const TextStyle(fontSize: 12.5, color: AppColors.sub)),
+              ),
+            ]),
+          ),
       ]),
     );
   }

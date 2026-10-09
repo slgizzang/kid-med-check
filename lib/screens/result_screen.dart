@@ -32,7 +32,11 @@ class ResultScreen extends StatefulWidget {
       this.origins = const {},
       this.letters = const {},
       this.recalls = const {},
-      this.onFinished});
+      this.onFinished,
+      this.onFailed});
+
+  /// 조회 중 오류(네트워크 등)가 있어 결과를 믿을 수 없을 때 (자동 확인용)
+  final VoidCallback? onFailed;
 
   /// 모든 약 조회가 끝나면 (오류가 있어도) 한 번 — 여러 기록을 한꺼번에 확인할 때 쓴다
   final void Function(ResultSnapshot snap)? onFinished;
@@ -416,7 +420,11 @@ class _ResultScreenState extends State<ResultScreen> {
     ]);
     _computeInteractions();
     _report();
-    widget.onFinished?.call(_snapshot());
+    if (_checks.any((c) => c.status == CheckStatus.error) && widget.onFailed != null) {
+      widget.onFailed!();
+    } else {
+      widget.onFinished?.call(_snapshot());
+    }
   }
 
   Future<void> _retry(DrugCheck c) async {

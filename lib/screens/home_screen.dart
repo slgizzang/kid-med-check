@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../logic/models.dart';
@@ -6,7 +8,6 @@ import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
 import '../ui/recall_card.dart';
 import '../ui/summary_card.dart';
-import '../ui/batch_check.dart';
 import '../ui/theme.dart';
 import 'child_edit_screen.dart';
 import 'import_screen.dart';
@@ -41,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _autoTimer?.cancel();
     AppStorage.placesChanged.removeListener(_onPlaces);
     _scroll.dispose();
     super.dispose();
@@ -267,7 +269,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
+          : Stack(children: [
+              Positioned.fill(child: _scrollBody()),
+              _autoChecker(),
+            ]),
+      bottomNavigationBar: _selecting ? _togetherBar() : null,
+      floatingActionButton: _fab(),
+    );
+  }
+
+  Widget _scrollBody() => CustomScrollView(
               controller: _scroll,
               slivers: [
                 SliverToBoxAdapter(child: _header()),
@@ -328,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           letterRecords:
                               _byRecord([for (final h in letterHits(_checkedRecords)) (h.record, h.drug)]),
                           onOpen: (r) => _openResult(context, r),
-                          onCheckAll: _checkAll,
+                          checking: _pending.length,
                         ),
                       if (_selected != null && !_selecting) ...[
                         const SectionTitle('기록 추가'),
@@ -353,9 +364,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-            ),
-      bottomNavigationBar: _selecting ? _togetherBar() : null,
-      floatingActionButton: Column(
+            );
+
+  Widget _fab() => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -375,9 +386,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
+      );
 
   /// 선택 중일 때 아래 고정 버튼: 고른 기록의 약끼리 병용금기 확인
   Widget _togetherBar() {
@@ -562,6 +571,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.only(bottom: 10),
           child: _RecordCard(
             record: r,
+            status: _statusOf(r),
             selecting: _selecting,
             selected: _picked.contains(r.id),
             onTap: _selecting
@@ -586,6 +596,86 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MedRecord> get _checkedRecords =>
       [for (final r in _myRecords) if (r.last != null && r.last!.matches(r.drugs)) r];
 
+  /// 자동 안전 확인: 기록을 추가하거나 불러오면 뒤에서 한 건씩 차례로 확인해 저장한다.
+  /// 이번 실행에서 확인에 실패한(인터넷·키 문제 등) 기록은 다시 시도하지 않는다.
+  final Set<String> _skip = {};
+  Timer? _autoTimer;
+  String? _autoKey;
+
+  bool _fresh(MedRecord r) => r.last != null && r.last!.matches(r.drugs);
+
+  List<MedRecord> get _pending => [
+        for (final r in _myRecords)
+          if (r.drugs.isNotEmpty && !_fresh(r) && !_skip.contains(r.id)) r
+      ];
+
+  Widget _autoChecker() {
+    final person = _selected;
+    final list = person == null || _selecting ? const <MedRecord>[] : _pending;
+    if (list.isEmpty) {
+      _autoTimer?.cancel();
+      _autoKey = null;
+      return const SizedBox.shrink();
+    }
+    final r = list.first;
+    final key = 'auto-${r.id}-${r.drugs.join('|')}';
+    if (_autoKey != key) {
+      _autoKey = key;
+      _autoTimer?.cancel();
+      // 너무 오래 걸리면 이 기록은 건너뛴다 (기록을 열면 직접 확인할 수 있음)
+      _autoTimer = Timer(const Duration(seconds: 60), () {
+        if (mounted) setState(() => _skip.add(r.id));
+      });
+    }
+    return Positioned(
+      left: 0,
+      top: 0,
+      child: Offstage(
+        child: SizedBox(
+          width: 360,
+          height: 640,
+          child: ResultScreen(
+            key: ValueKey(key),
+            child: person!,
+            names: List.of(r.drugs),
+            recordId: r.id,
+            asOf: r.createdAt,
+            letters: Map.of(r.safetyLetters),
+            onFinished: (snap) async {
+              r.last = snap;
+              await AppStorage.saveRecord(r);
+              if (mounted) setState(() {});
+            },
+            onFailed: () {
+              if (mounted) setState(() => _skip.add(r.id));
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 기록 카드의 안전 확인 상태 표시
+  (String, Color)? _statusOf(MedRecord r) {
+    if (r.drugs.isEmpty) return null;
+    if (!_fresh(r)) {
+      return _skip.contains(r.id)
+          ? ('확인 못함', AppColors.sub)
+          : ('확인 중', AppColors.sub);
+    }
+    final s = r.last!;
+    final p = _selected;
+    final hard = s.mixPairs.isNotEmpty ||
+        s.drugs.any((d) =>
+            d.ageRule != null ||
+            (d.preg && (p?.pregnant ?? false)) ||
+            (d.allergy != null && (p?.allergies.isNotEmpty ?? false))) ||
+        matchRecalls([r], _recalls).isNotEmpty;
+    if (hard) return ('확인 필요', const Color(0xFFC62828));
+    if (letterHits([r]).isNotEmpty) return ('주의 알림', const Color(0xFF9A3412));
+    return ('문제없음', const Color(0xFF1E7B3A));
+  }
+
   /// 기록의 안전 확인 결과 화면을 바로 연다 (기록 화면을 거치지 않음). 결과는 기록에 저장.
   Future<void> _openResult(BuildContext ctx, MedRecord r) async {
     final person = _selected;
@@ -608,22 +698,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     await _load();
-  }
-
-  /// 안전 확인을 안 한(또는 약이 바뀐) 기록을 한 번에 확인
-  Future<void> _checkAll() async {
-    final person = _selected;
-    if (person == null) return;
-    final todo = [
-      for (final r in _myRecords)
-        if (r.drugs.isNotEmpty && !(r.last != null && r.last!.matches(r.drugs))) r
-    ];
-    if (todo.isEmpty) return;
-    final n = await runBatchCheck(context, person, todo);
-    await _load();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: KText('기록 $n건의 안전 확인을 마쳤어요.')));
   }
 
   /// 기록을 만드는 두 가지 길: 직접 입력 / 심평원 1년 기록 불러오기
@@ -834,11 +908,15 @@ class _RecordCard extends StatelessWidget {
   const _RecordCard({
     required this.record,
     required this.onTap,
+    this.status,
     this.selecting = false,
     this.selected = false,
   });
 
   final MedRecord record;
+
+  /// 안전 확인 상태 (글자, 색)
+  final (String, Color)? status;
   final VoidCallback onTap;
   final bool selecting;
   final bool selected;
@@ -911,12 +989,33 @@ class _RecordCard extends StatelessWidget {
                     ),
                   ]),
                   const SizedBox(height: 3),
-                  KText(
-                    names.isEmpty
-                        ? '${formatDate(record.createdAt)} · 약 없음'
-                        : '${formatDate(record.createdAt)} · 약 ${names.length}개',
-                    style: const TextStyle(fontSize: 13, color: AppColors.sub),
-                  ),
+                  Row(children: [
+                    Flexible(
+                      child: KText(
+                        names.isEmpty
+                            ? '${formatDate(record.createdAt)} · 약 없음'
+                            : '${formatDate(record.createdAt)} · 약 ${names.length}개',
+                        maxLines: 1,
+                        style: const TextStyle(fontSize: 13, color: AppColors.sub),
+                      ),
+                    ),
+                    if (status case (final label, final color)) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                          switch (label) {
+                            '문제없음' => Icons.check_circle,
+                            '확인 필요' => Icons.error,
+                            '주의 알림' => Icons.info,
+                            _ => Icons.hourglass_top_rounded,
+                          },
+                          size: 14,
+                          color: color),
+                      const SizedBox(width: 3),
+                      Text(label,
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+                    ],
+                  ]),
                   if (names.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     KText(
