@@ -585,7 +585,9 @@ class _RecordScreenState extends State<RecordScreen> {
 
   /// 안전성 서한 표시와 반응 기록 줄
   Widget? _drugSub(String name) {
-    final hit = _recallHits.where((h) => h.drug == name).firstOrNull;
+    // 회수·주의 알림 표시는 안전 확인을 한 뒤에만 (확인 결과와 함께 보이도록)
+    final checked = _r.last != null && _fresh;
+    final hit = checked ? _recallHits.where((h) => h.drug == name).firstOrNull : null;
     if (hit != null) {
       final note = _noteLine(name);
       final r = KText(hit.injected ? '회수된 주사' : '회수된 약',
@@ -599,7 +601,7 @@ class _RecordScreenState extends State<RecordScreen> {
           : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [r, note]);
     }
     final note = _noteLine(name);
-    if (!_r.safetyLetters.containsKey(name)) return note;
+    if (!checked || !_r.safetyLetters.containsKey(name)) return note;
     const letter = KText('식약처 주의 알림 있음',
         maxLines: 1,
         style: TextStyle(fontSize: 12, color: Color(0xFF9A3412), fontWeight: FontWeight.w700));

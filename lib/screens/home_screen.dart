@@ -320,8 +320,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         SafetySummaryCard(
                           records: _myRecords,
                           person: _selected!,
-                          recallCount: matchRecalls(_myRecords, _recalls).length,
-                          letterCount: letterHits(_myRecords).length,
+                          recallCount: matchRecalls(_checkedRecords, _recalls).length,
+                          letterCount: letterHits(_checkedRecords).length,
                           onOpen: (r) => _openResult(context, r),
                           onOpenRecalls: _openRecalls,
                           onOpenLetters: _openLetters,
@@ -570,6 +570,10 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
+  /// 안전 확인을 마친(약이 바뀌지 않은) 기록 — 금기·회수·주의 알림은 이 기록들만 보여준다
+  List<MedRecord> get _checkedRecords =>
+      [for (final r in _myRecords) if (r.last != null && r.last!.matches(r.drugs)) r];
+
   /// 회수된 약 상세 (기록별)
   Future<void> _openRecalls() async {
     await Navigator.push(
@@ -578,7 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (ctx) => AlertListScreen(
           title: '회수된 약',
           child: RecallCard(
-            hits: matchRecalls(_myRecords, _recalls),
+            hits: matchRecalls(_checkedRecords, _recalls),
             showRecord: true,
             onOpen: (h) => _openResult(ctx, h.record),
           ),
@@ -620,7 +624,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (ctx) => AlertListScreen(
           title: '식약처 주의 알림이 있었던 약',
           child: LetterCard(
-            hits: letterHits(_myRecords),
+            hits: letterHits(_checkedRecords),
             onOpen: (h) => _openResult(ctx, h.record),
           ),
         ),

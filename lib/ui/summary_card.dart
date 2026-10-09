@@ -69,9 +69,11 @@ class SafetySummaryCard extends StatelessWidget {
       if (any && person.pregnant) _line('임부금기', pregN, preg, unit: '개'),
       if (any && person.allergies.isNotEmpty)
         _line('알레르기 약물과 같은 성분', allergyN, allergy, unit: '개'),
-      _line('회수된 약', recallCount, const [], unit: '건', onTap: recallCount > 0 ? onOpenRecalls : null),
-      _line('식약처 주의 알림이 있었던 약', letterCount, const [],
-          unit: '건', soft: true, onTap: letterCount > 0 ? onOpenLetters : null),
+      if (any)
+        _line('회수된 약', recallCount, const [], unit: '건', onTap: recallCount > 0 ? onOpenRecalls : null),
+      if (any)
+        _line('식약처 주의 알림이 있었던 약', letterCount, const [],
+            unit: '건', soft: true, onTap: letterCount > 0 ? onOpenLetters : null),
     ];
     return Container(
       width: double.infinity,
