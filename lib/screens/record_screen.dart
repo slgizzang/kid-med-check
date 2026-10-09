@@ -635,7 +635,7 @@ class _RecordScreenState extends State<RecordScreen> {
       color: AppColors.primary,
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        PageTrail(current: 1, onDark: true, recordLabel: _r.otc ? '구입 기록' : '처방 기록'),
+        PageTrail(current: 1, onDark: true),
         const SizedBox(height: 12),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
@@ -674,7 +674,7 @@ class _RecordScreenState extends State<RecordScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
         surfaceTintColor: Colors.transparent,
-        title: KText(_r.otc ? '약국 구입 기록' : '처방 기록',
+        title: KText('복용 기록',
             maxLines: 1,
             style: const TextStyle(
                 fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.onPrimary)),

@@ -456,7 +456,7 @@ class _ResultScreenState extends State<ResultScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: PageTrail(
-                current: 2, recordLabel: widget.origins.isNotEmpty ? '기록 선택' : '처방 기록'),
+                current: 2, recordLabel: widget.origins.isNotEmpty ? '기록 선택' : '복용 기록'),
           ),
           const SizedBox(height: 14),
           const KText('종합 결과',
