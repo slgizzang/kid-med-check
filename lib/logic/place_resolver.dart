@@ -158,12 +158,26 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
   final pNames = {for (final r in todo) if (needP(r)) r.pharmacy};
   final jobs = [for (final n in hNames) (n, false), for (final n in pNames) (n, true)];
   final cand = <(String, bool), List<PlaceHit>>{};
+  // 전국 목록을 빠짐없이 받았는지 (그러면 '주변 같은 이름'도 서버에 다시 묻지 않고 여기서 거리로 거른다)
+  final complete = <(String, bool)>{};
+  Future<List<PlaceHit>> fetchAll(String name, bool pharmacy) async {
+    if (_n(name).length < 2) return const [];
+    try {
+      final raw = await api.searchPlaces(name, pharmacy: pharmacy, rows: 300);
+      if (raw.length < 300) complete.add((name, pharmacy));
+      return raw.where((h) => _n(h.name) == _n(name) && posOf(h) != null).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   // 진행률: 전체 = 이름 조회 수 + 기록 수 (처음에 정해 두고 바꾸지 않음)
   var done = 0;
   final total = jobs.length + todo.length;
-  for (var i = 0; i < jobs.length; i += 4) {
-    final batch = jobs.skip(i).take(4).toList();
-    final got = await Future.wait(batch.map((j) => sameName(api, j.$1, pharmacy: j.$2)));
+  // 이름별 조회는 서로 독립이라 8개씩 동시에
+  for (var i = 0; i < jobs.length; i += 8) {
+    final batch = jobs.skip(i).take(8).toList();
+    final got = await Future.wait(batch.map((j) => fetchAll(j.$1, j.$2)));
     for (var k = 0; k < batch.length; k++) {
       cand[batch[k]] = got[k];
     }
@@ -195,6 +209,13 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
     final k = '${pharmacy ? 'p' : 'h'}|${_n(name)}|${key(anchor)}|${radius.round()}';
     final c = nearCache[k];
     if (c != null) return c;
+    // 전국 같은 이름 목록이 완전하면 거리만 재서 고른다 (네트워크 조회 없음)
+    if (complete.contains((name, pharmacy))) {
+      return nearCache[k] = [
+        for (final h in cand[(name, pharmacy)] ?? const <PlaceHit>[])
+          if (meters(anchor, posOf(h)!) <= radius) h
+      ];
+    }
     final got = await sameNameNear(api, name, anchor, pharmacy: pharmacy, radius: radius);
     return nearCache[k] = got;
   }
@@ -202,7 +223,7 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
   // 한쪽이 정해지면 다른 쪽이 풀릴 수 있으므로 바뀌는 게 없을 때까지 (최대 3바퀴)
   for (var round = 0; round < 3; round++) {
     final before = changed.length;
-    for (final r in todo) {
+    Future<void> step(MedRecord r) async {
       final hn = hospitalNameOf(r);
       // 병원: 같은 이름이 이미 정해졌거나 전국에 한 곳뿐이면
       if (needH(r)) {
@@ -258,6 +279,11 @@ Future<int> fillPlaces(DurApi api, List<MedRecord> records,
         done++;
         onProgress?.call(done, total);
       }
+    }
+
+    // 기록끼리 서로의 결과를 참고하므로 너무 많이 동시에 돌리지 않는다 (6개씩)
+    for (var i = 0; i < todo.length; i += 6) {
+      await Future.wait(todo.skip(i).take(6).map(step));
     }
     if (changed.length == before) break;
   }

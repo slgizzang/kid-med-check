@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dur_api.dart';
 import 'place_resolver.dart' as place;
 import 'dart:convert';
@@ -118,9 +119,15 @@ class AppStorage {
     final list = await records();
     final mine = childId == null ? list : list.where((r) => r.childId == childId).toList();
     final n = await place.fillPlaces(DurApi(await apiKey()), mine, onProgress: onProgress);
-    if (n > 0) await _saveRecords(list);
+    if (n > 0) {
+      await _saveRecords(list);
+      placesChanged.value++;
+    }
     return n;
   }
+
+  /// 병원·약국 위치를 뒤에서 채운 뒤 화면을 다시 그리도록 알리는 값
+  static final placesChanged = ValueNotifier<int>(0);
 
   /// 사용자가 고른 병원·약국을 같은 이름의 다른 기록에도 적용 (아직 위치가 정해지지 않은 것만).
   /// 같은 사람의 기록에서 같은 이름은 같은 곳으로 본다.

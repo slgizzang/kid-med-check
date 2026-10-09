@@ -39,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    AppStorage.placesChanged.removeListener(_onPlaces);
     _scroll.dispose();
     super.dispose();
   }
@@ -57,6 +58,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _scroll.addListener(_onScroll);
     _load();
     _backfillPlaces();
+    AppStorage.placesChanged.addListener(_onPlaces);
+  }
+
+  void _onPlaces() {
+    if (mounted) _load();
   }
 
   /// 예전에 불러온 기록 중 병원·약국 위치가 없는 것을 뒤에서 한 번 채운다 (앱 실행마다 한 번)

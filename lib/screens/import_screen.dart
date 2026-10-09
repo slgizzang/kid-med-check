@@ -114,17 +114,8 @@ class _ImportScreenState extends State<ImportScreen> {
     final v = _visits;
     if (v == null || v.isEmpty) return;
     final (added, skipped) = await AppStorage.importVisits(widget.person.id, v);
-    // 불러온 병원·약국의 위치·주소를 심평원 정보로 바로 채운다 (실손24 연계 확인에 필요)
-    if (mounted) setState(() { _busy = true; _busyText = '병원·약국 위치를 찾는 중…'; });
-    try {
-      await AppStorage.fillPlaces(
-          childId: widget.person.id,
-          onProgress: (d, t) {
-            final pct = t == 0 ? 100 : (d * 100 / t).round().clamp(0, 100);
-            if (mounted) setState(() => _busyText = '병원·약국 위치를 찾는 중… $pct%');
-          });
-    } catch (_) {}
-    if (mounted) setState(() => _busy = false);
+    // 병원·약국 위치·주소(실손24 연계 확인에 필요)는 기다리지 않고 뒤에서 채운다
+    AppStorage.fillPlaces(childId: widget.person.id).catchError((_) => 0);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: KText(skipped > 0
