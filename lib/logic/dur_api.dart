@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:shared_preferences/shared_preferences.dart';
+import 'file_cache.dart';
 
 import 'age_rule.dart';
 import 'drug_name_extractor.dart';
@@ -461,7 +461,8 @@ class DurApi {
   /// 식약처 자료는 자주 바뀌지 않아 7일간 휴대폰에 보관한다. 테스트(가짜 client)에서는 끔.
   static final Map<String, List<Map<String, dynamic>>> _memCache = {};
   static const _cacheTtl = Duration(days: 7);
-  static const _cachePrefix = 'api1:';
+  /// 예전 버전이 설정 저장소에 쓰던 조회 결과 키 앞부분 (앱 시작 때 지운다)
+  static const legacyCachePrefix = 'api1:';
 
   Future<List<Map<String, dynamic>>> _fetchItems(
       String path, Map<String, String> filters, int rows) async {
@@ -481,46 +482,21 @@ class DurApi {
   }
 
   /// 기간이 지난 조회 결과를 휴대폰에서 지운다 (앱을 켤 때 한 번).
-  static Future<void> pruneCache() async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      final now = DateTime.now();
-      for (final k in p.getKeys().where((k) => k.startsWith(_cachePrefix)).toList()) {
-        try {
-          final j = jsonDecode(p.getString(k) ?? '') as Map;
-          final t = DateTime.fromMillisecondsSinceEpoch(j['t'] as int);
-          if (now.difference(t) > _cacheTtl) await p.remove(k);
-        } catch (_) {
-          await p.remove(k);
-        }
-      }
-    } catch (_) {}
-  }
+  static Future<void> pruneCache() => FileCache.prune(_cacheTtl);
 
   static Future<List<Map<String, dynamic>>?> _readDisk(String key) async {
     try {
-      final p = await SharedPreferences.getInstance();
-      final raw = p.getString('$_cachePrefix$key');
+      final raw = await FileCache.read(key, _cacheTtl);
       if (raw == null) return null;
       final j = jsonDecode(raw) as Map;
-      final t = DateTime.fromMillisecondsSinceEpoch(j['t'] as int);
-      if (DateTime.now().difference(t) > _cacheTtl) {
-        await p.remove('$_cachePrefix$key');
-        return null;
-      }
       return (j['i'] as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } catch (_) {
       return null;
     }
   }
 
-  static Future<void> _writeDisk(String key, List<Map<String, dynamic>> items) async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      await p.setString('$_cachePrefix$key',
-          jsonEncode({'t': DateTime.now().millisecondsSinceEpoch, 'i': items}));
-    } catch (_) {}
-  }
+  static Future<void> _writeDisk(String key, List<Map<String, dynamic>> items) =>
+      FileCache.write(key, jsonEncode({'t': DateTime.now().millisecondsSinceEpoch, 'i': items}));
 
   Future<List<Map<String, dynamic>>> _fetchRemote(
       String path, Map<String, String> filters, int rows) async {

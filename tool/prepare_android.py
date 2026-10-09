@@ -142,4 +142,56 @@ else:
     encoding="utf-8",
 )
 
+# 4) MainActivity: 예전 버전이 휴대폰 설정 저장소에 쌓아 둔 큰 조회 결과를 앱 시작 때 지운다.
+#    (값을 앱으로 넘기지 않고 안드로이드 쪽에서 바로 지워야 시작이 멈추지 않는다)
+acts = list((app / "src" / "main").rglob("MainActivity.kt"))
+if not acts:
+    sys.exit("MainActivity.kt 를 찾지 못했습니다.")
+act = acts[0]
+pkg = re.search(r"^package\s+([\w.]+)", act.read_text(encoding="utf-8"), re.M).group(1)
+act.write_text(
+    f"""package {pkg}
+
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+class MainActivity : FlutterActivity() {{
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {{
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pillsafe/prefs")
+            .setMethodCallHandler {{ call, result ->
+                if (call.method == "dropPrefix") {{
+                    val prefix = "flutter." + (call.argument<String>("prefix") ?: "")
+                    Thread {{
+                        var n = 0
+                        try {{
+                            val sp = applicationContext.getSharedPreferences(
+                                "FlutterSharedPreferences", Context.MODE_PRIVATE)
+                            val keys = sp.all.keys.filter {{ it.startsWith(prefix) }}
+                            if (keys.isNotEmpty()) {{
+                                val e = sp.edit()
+                                for (k in keys) e.remove(k)
+                                e.commit()
+                            }}
+                            n = keys.size
+                        }} catch (t: Throwable) {{
+                            n = -1
+                        }}
+                        val done = n
+                        Handler(Looper.getMainLooper()).post {{ result.success(done) }}
+                    }}.start()
+                }} else {{
+                    result.notImplemented()
+                }}
+            }}
+    }}
+}}
+""",
+    encoding="utf-8",
+)
+
 print("android/ 설정 완료")

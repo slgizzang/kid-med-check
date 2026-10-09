@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../logic/dur_api.dart';
 import '../ui/theme.dart';
 import 'home_screen.dart';
 
@@ -18,7 +20,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _slow = true);
+    });
+    Future.wait([Future.delayed(const Duration(seconds: 2)), _cleanStorage()]).then((_) {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 400),
@@ -26,6 +31,21 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
       ));
     });
+  }
+
+  /// 정리가 오래 걸리면 안내를 보여준다
+  bool _slow = false;
+
+  /// 예전 버전이 설정 저장소에 쌓아 둔 큰 식약처 조회 결과를 먼저 지운다.
+  /// 이걸 남겨 두면 저장된 기록을 읽을 때 전부 함께 읽느라 앱이 흰 화면에서 멈춘다.
+  /// 조회 결과는 이제 임시 파일로 보관한다.
+  static Future<void> _cleanStorage() async {
+    try {
+      await const MethodChannel('pillsafe/prefs')
+          .invokeMethod<int>('dropPrefix', {'prefix': DurApi.legacyCachePrefix})
+          .timeout(const Duration(seconds: 60));
+    } catch (_) {}
+    DurApi.pruneCache();
   }
 
   @override
@@ -61,9 +81,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       fontWeight: FontWeight.w700,
                       color: AppColors.brand)),
               const SizedBox(height: 28),
-              Text(kAppTaglineLong,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 15, color: AppColors.sub, height: 1.5)),
+              AnimatedOpacity(
+                opacity: _slow ? 1 : 0,
+                duration: const Duration(milliseconds: 300),
+                child: const Column(children: [
+                  SizedBox(
+                      width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4)),
+                  SizedBox(height: 10),
+                  Text('저장된 자료를 정리하고 있어요',
+                      style: TextStyle(fontSize: 13, color: AppColors.sub)),
+                ]),
+              ),
             ]),
           ),
         ),
