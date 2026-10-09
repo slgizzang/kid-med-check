@@ -1160,6 +1160,8 @@ class _Sources extends StatelessWidget {
     ('의약품안전사용서비스(DUR) 품목·성분 정보', '연령금기, 임부금기, 병용금기'),
     ('의약품개요정보(e약은요)', '효능, 설명서의 사용 연령, 수유부 주의'),
     ('의약품 제품 허가정보', '성분, 전문·일반 구분, 설명서(효능·주의사항)'),
+    ('의약품 회수·판매중지 정보', '회수된 약'),
+    ('심평원 투약이력 · 의약품안전나라 안전성 서한', '식약처 주의 알림'),
   ];
 
   static Widget _fit(String t, TextStyle style) => FittedBox(
@@ -1174,7 +1176,7 @@ class _Sources extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const KText('출처: 식품의약품안전처 공공데이터',
+        const KText('출처: 식품의약품안전처·건강보험심사평가원 공공데이터',
             style: TextStyle(fontSize: 12, color: AppColors.sub, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         // 출처 이름 한 줄, 쓰는 항목은 다음 줄에 (각각 한 줄에 맞춤)
