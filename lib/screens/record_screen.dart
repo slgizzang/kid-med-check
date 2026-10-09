@@ -623,35 +623,76 @@ class _RecordScreenState extends State<RecordScreen> {
         style: const TextStyle(fontSize: 12, color: kNoteFg, fontWeight: FontWeight.w600));
   }
 
+  /// 기록 화면 맨 위: 초록 띠 위에 이 기록이 무엇인지 (누구 · 언제 · 어디)
+  Widget _recordHeader() {
+    final d = _r.createdAt;
+    final dateLabel = '${d.year}년 ${d.month}월 ${d.day}일';
+    final place = _r.otc ? (_r.pharmacy.isNotEmpty ? _r.pharmacy : '') : _place;
+    return Container(
+      width: double.infinity,
+      color: AppColors.primary,
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 18),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+                color: const Color(0x2EFFFFFF), borderRadius: BorderRadius.circular(14)),
+            child: Icon(_r.otc ? Icons.local_pharmacy_outlined : Icons.receipt_long_outlined,
+                color: AppColors.onPrimary, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              KText(place.isNotEmpty ? place : _r.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.onPrimary)),
+              const SizedBox(height: 4),
+              KText(
+                  '$dateLabel ${_r.otc ? '구입' : '처방'} · ${widget.child.name} ${formatAge(widget.child.ageInMonths(_r.createdAt))}',
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 13.5, color: Color(0xE6FFFFFF))),
+            ]),
+          ),
+        ]),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 메인 화면과 헷갈리지 않도록 기록 화면은 위쪽을 초록 띠로 (처방전 한 장을 연 느낌)
     return Scaffold(
       appBar: AppBar(
-        title: GestureDetector(
-          onTap: _rename,
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Flexible(child: KText(_r.title, overflow: TextOverflow.ellipsis)),
-            const SizedBox(width: 6),
-            const Icon(Icons.edit_outlined, size: 18, color: AppColors.sub),
-          ]),
-        ),
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
+        surfaceTintColor: Colors.transparent,
+        title: KText(_r.otc ? '약국 구입 기록' : '처방 기록',
+            maxLines: 1,
+            style: const TextStyle(
+                fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.onPrimary)),
         actions: [
+          IconButton(
+              tooltip: '이름 바꾸기',
+              onPressed: _rename,
+              icon: const Icon(Icons.edit_outlined)),
           IconButton(
               tooltip: '기록 삭제',
               onPressed: _delete,
               icon: const Icon(Icons.delete_outline)),
         ],
       ),
-      body: Stack(
+      body: Column(children: [
+        _recordHeader(),
+        Expanded(
+          child: Stack(
         children: [
           ListView(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
             children: [
-              KText(
-                '${_r.otc ? '약국 구입' : '처방'} · ${widget.child.name} · ${_r.otc ? '구입일' : '처방일'} 기준 ${formatAge(widget.child.ageInMonths(_r.createdAt))} · ${formatDate(_r.createdAt)}',
-                style: const TextStyle(color: AppColors.sub),
-              ),
-              const SizedBox(height: 18),
               RecallCard(hits: _recallHits),
               if (_r.last != null) ...[
                 const SizedBox(height: 4),
@@ -822,6 +863,8 @@ class _RecordScreenState extends State<RecordScreen> {
             ),
         ],
       ),
+        ),
+      ]),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
