@@ -13,7 +13,6 @@ import '../logic/recall.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
 import '../ui/dashboard.dart';
-import '../ui/page_trail.dart';
 import '../ui/place_sheet.dart';
 import '../ui/reaction_sheet.dart';
 import 'confirm_screen.dart';
@@ -633,10 +632,8 @@ class _RecordScreenState extends State<RecordScreen> {
     return Container(
       width: double.infinity,
       color: AppColors.primary,
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        PageTrail(current: 1, onDark: true),
-        const SizedBox(height: 12),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
             width: 44,

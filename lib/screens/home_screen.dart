@@ -6,7 +6,6 @@ import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
 import '../ui/recall_card.dart';
 import '../ui/summary_card.dart';
-import '../ui/page_trail.dart';
 import '../ui/batch_check.dart';
 import '../ui/theme.dart';
 import 'child_edit_screen.dart';
@@ -309,12 +308,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ]),
                       ),
                       const SizedBox(height: 28),
-                      if (_selected != null)
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 8),
-                          child: Align(
-                              alignment: Alignment.centerLeft, child: PageTrail(current: 0)),
-                        ),
                       if (_selected != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 14),
