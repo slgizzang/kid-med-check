@@ -35,6 +35,8 @@ void main() {
     });
     expect(tester.takeException(), isNull);
     expect(find.byType(CustomScrollView), findsWidgets);
+    // 목록이 실제로 화면을 채워야 한다 (크기 0이면 흰 화면)
+    expect(tester.getSize(find.byType(CustomScrollView).first).height, greaterThan(300));
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -64,6 +66,7 @@ void main() {
     expect(appError.value, isNull);
     expect(tester.takeException(), isNull);
     expect(find.byType(HomeScreen), findsOneWidget);
+    expect(tester.getSize(find.byType(CustomScrollView).first).height, greaterThan(300));
     await tester.pumpWidget(const SizedBox());
   });
 

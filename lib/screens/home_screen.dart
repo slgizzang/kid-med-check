@@ -272,7 +272,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Stack(children: [
+          // 자동 안전 확인은 화면 밖(Offstage)에서 돈다. 크기는 목록이 화면을 꽉 채우게 (expand)
+          : Stack(fit: StackFit.expand, children: [
               Positioned.fill(child: _scrollBody()),
               _autoChecker(),
             ]),
@@ -621,7 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (list.isEmpty) {
       _autoTimer?.cancel();
       _autoKey = null;
-      return const SizedBox.shrink();
+      return const Positioned(left: 0, top: 0, child: SizedBox.shrink());
     }
     final r = list.first;
     final key = 'auto-${r.id}-${r.drugs.join('|')}';
