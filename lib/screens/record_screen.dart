@@ -692,37 +692,25 @@ class _RecordScreenState extends State<RecordScreen> {
           ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
             children: [
-              if (_r.last != null) ...[
-                const SizedBox(height: 4),
-                const SectionTitle('지난 확인 결과'),
-                if (!_fresh)
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF4E8),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(children: [
-                      Icon(Icons.refresh, size: 18, color: Color(0xFFB45309)),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: KText('약 목록이나 정보가 바뀌었어요. 아래 "약 안전 확인"을 다시 눌러주세요.',
-                            style: TextStyle(color: Color(0xFF9A3412), fontWeight: FontWeight.w600)),
-                      ),
-                    ]),
+              // 약이 바뀌어 지난 확인 결과가 맞지 않으면 다시 확인하라고만 알린다 (결과 요약은 '자세히 보기'에)
+              if (_r.last != null && !_fresh)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF4E8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ResultDashboard(
-                  snap: _r.last!,
-                  person: widget.child,
-                  showDate: true,
-                  stale: !_fresh,
-                  recalled: {for (final h in _recallHits) h.drug},
-                  letters: _r.safetyLetters.keys.toSet(),
+                  child: const Row(children: [
+                    Icon(Icons.refresh, size: 18, color: Color(0xFFB45309)),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: KText('약 목록이나 정보가 바뀌었어요. 아래 "안전 확인"을 다시 눌러주세요.',
+                          style: TextStyle(color: Color(0xFF9A3412), fontWeight: FontWeight.w600)),
+                    ),
+                  ]),
                 ),
-              ],
-              const SizedBox(height: 26),
+              const SizedBox(height: 10),
               SectionTitle('약 목록',
                   trailing: KText('${_r.drugs.length}개',
                       style: const TextStyle(color: AppColors.sub))),
