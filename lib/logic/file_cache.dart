@@ -8,13 +8,18 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 class FileCache {
-  static Future<Directory>? _dir;
+  static Future<Directory?>? _dir;
 
-  static Future<Directory> _folder() => _dir ??= () async {
-        final base = await getApplicationCacheDirectory();
-        final d = Directory('${base.path}/api1');
-        if (!await d.exists()) await d.create(recursive: true);
-        return d;
+  /// 보관 폴더 (못 쓰면 null — 그때는 보관 없이 매번 조회)
+  static Future<Directory?> _folder() => _dir ??= () async {
+        try {
+          final base = await getApplicationCacheDirectory();
+          final d = Directory('${base.path}/api1');
+          if (!await d.exists()) await d.create(recursive: true);
+          return d;
+        } catch (_) {
+          return null;
+        }
       }();
 
   /// 키 → 파일 이름 (32비트 해시 두 개 + 길이)
@@ -29,7 +34,9 @@ class FileCache {
 
   static Future<String?> read(String key, Duration ttl) async {
     try {
-      final f = File('${(await _folder()).path}/${_name(key)}');
+      final dir = await _folder();
+      if (dir == null) return null;
+      final f = File('${dir.path}/${_name(key)}');
       if (!await f.exists()) return null;
       final age = DateTime.now().difference(await f.lastModified());
       if (age > ttl) {
@@ -44,7 +51,9 @@ class FileCache {
 
   static Future<void> write(String key, String value) async {
     try {
-      final f = File('${(await _folder()).path}/${_name(key)}');
+      final dir = await _folder();
+      if (dir == null) return;
+      final f = File('${dir.path}/${_name(key)}');
       await f.writeAsString(value, flush: false);
     } catch (_) {}
   }
@@ -53,7 +62,9 @@ class FileCache {
   static Future<void> prune(Duration ttl, {int maxBytes = 40 * 1024 * 1024}) async {
     try {
       final files = <(File, DateTime, int)>[];
-      await for (final e in (await _folder()).list()) {
+      final dir = await _folder();
+      if (dir == null) return;
+      await for (final e in dir.list()) {
         if (e is! File) continue;
         final st = await e.stat();
         files.add((e, st.modified, st.size));
