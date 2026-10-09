@@ -31,7 +31,11 @@ class ResultScreen extends StatefulWidget {
       this.title = '안전 확인 결과',
       this.origins = const {},
       this.letters = const {},
-      this.recalls = const {}});
+      this.recalls = const {},
+      this.onFinished});
+
+  /// 모든 약 조회가 끝나면 (오류가 있어도) 한 번 — 여러 기록을 한꺼번에 확인할 때 쓴다
+  final void Function(ResultSnapshot snap)? onFinished;
 
   /// 약 이름 → 식약처 회수 정보 (기록 화면에서 대조한 결과)
   final Map<String, RecallHit> recalls;
@@ -412,6 +416,7 @@ class _ResultScreenState extends State<ResultScreen> {
     ]);
     _computeInteractions();
     _report();
+    widget.onFinished?.call(_snapshot());
   }
 
   Future<void> _retry(DrugCheck c) async {

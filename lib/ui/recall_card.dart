@@ -183,3 +183,16 @@ class LetterCard extends StatelessWidget {
     );
   }
 }
+
+/// 회수된 약 / 주의 알림 상세 화면
+class AlertListScreen extends StatelessWidget {
+  const AlertListScreen({super.key, required this.title, required this.child});
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: KText(title, maxLines: 1)),
+        body: ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 40), children: [child]),
+      );
+}

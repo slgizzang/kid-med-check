@@ -6,6 +6,7 @@ import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
 import '../ui/recall_card.dart';
 import '../ui/summary_card.dart';
+import '../ui/batch_check.dart';
 import '../ui/theme.dart';
 import 'child_edit_screen.dart';
 import 'import_screen.dart';
@@ -322,17 +323,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           recallCount: matchRecalls(_myRecords, _recalls).length,
                           letterCount: letterHits(_myRecords).length,
                           onOpen: _openRecord,
-                        ),
-                      if (_selected != null)
-                        RecallCard(
-                          hits: matchRecalls(_myRecords, _recalls),
-                          showRecord: true,
-                          onOpen: (h) => _openRecord(h.record),
-                        ),
-                      if (_selected != null)
-                        LetterCard(
-                          hits: letterHits(_myRecords),
-                          onOpen: (h) => _openRecord(h.record),
+                          onOpenRecalls: _openRecalls,
+                          onOpenLetters: _openLetters,
+                          onCheckAll: _checkAll,
                         ),
                       if (_selected != null && !_selecting) ...[
                         const SectionTitle('기록 추가'),
@@ -575,6 +568,59 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
     ];
+  }
+
+  /// 회수된 약 상세 (기록별)
+  Future<void> _openRecalls() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => AlertListScreen(
+          title: '회수된 약',
+          child: RecallCard(
+            hits: matchRecalls(_myRecords, _recalls),
+            showRecord: true,
+            onOpen: (h) => Navigator.push(ctx,
+                MaterialPageRoute(builder: (_) => RecordScreen(child: _selected!, record: h.record))),
+          ),
+        ),
+      ),
+    );
+    await _load();
+  }
+
+  /// 식약처 주의 알림이 있었던 약 상세
+  Future<void> _openLetters() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => AlertListScreen(
+          title: '식약처 주의 알림이 있었던 약',
+          child: LetterCard(
+            hits: letterHits(_myRecords),
+            onOpen: (h) => Navigator.push(ctx,
+                MaterialPageRoute(builder: (_) => RecordScreen(child: _selected!, record: h.record))),
+          ),
+        ),
+      ),
+    );
+    await _load();
+  }
+
+  /// 안전 확인을 안 한(또는 약이 바뀐) 기록을 한 번에 확인
+  Future<void> _checkAll() async {
+    final person = _selected;
+    if (person == null) return;
+    final todo = [
+      for (final r in _myRecords)
+        if (r.drugs.isNotEmpty && !(r.last != null && r.last!.matches(r.drugs))) r
+    ];
+    if (todo.isEmpty) return;
+    final n = await runBatchCheck(context, person, todo);
+    await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: KText('기록 $n건의 안전 확인을 마쳤어요.')));
   }
 
   /// 기록을 만드는 두 가지 길: 직접 입력 / 심평원 1년 기록 불러오기
