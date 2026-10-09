@@ -624,28 +624,33 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// 기록을 만드는 두 가지 길: 직접 입력 / 심평원 1년 기록 불러오기
-  Widget _addRow() => IntrinsicHeight(
-        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+  Widget _addRow() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
           Expanded(
             child: _ActionCard(
               icon: Icons.add_rounded,
               title: '직접 추가',
-              sub: '처방약·약국에서 산 약 입력',
               filled: true,
               onTap: _newRecord,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: _ActionCard(
               icon: Icons.download_rounded,
               title: '1년 기록 불러오기',
-              sub: '심평원 투약이력 파일로 한 번에',
               onTap: _openImport,
             ),
           ),
         ]),
-      );
+        const Padding(
+          padding: EdgeInsets.only(top: 8, left: 2),
+          child: KText(
+              '처방약이나 약국에서 산 약은 직접 추가하고, 지난 1년 기록은 심평원 투약이력 파일로 한 번에 불러올 수 있어요.',
+              flow: true,
+              style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.45)),
+        ),
+      ]);
 
   /// 기록을 모아 보는 화면들: 목록 바로 위에 얇게 나란히
   Widget _viewsRow() => Padding(
@@ -1033,47 +1038,36 @@ class _KindOption extends StatelessWidget {
     );
   }
 }
-
 class _ActionCard extends StatelessWidget {
   const _ActionCard(
-      {required this.icon, required this.title, required this.sub, required this.onTap, this.filled = false});
+      {required this.icon, required this.title, required this.onTap, this.filled = false});
   final IconData icon;
   final String title;
-  final String sub;
   final VoidCallback onTap;
   final bool filled;
 
   @override
   Widget build(BuildContext context) {
-    final fg = filled ? AppColors.onPrimary : AppColors.ink;
-    final subFg = filled ? const Color(0xD9FFFFFF) : AppColors.sub;
+    final fg = filled ? AppColors.onPrimary : AppColors.primaryDark;
     return Material(
       color: filled ? AppColors.primary : Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         side: filled ? BorderSide.none : const BorderSide(color: AppColors.line),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: filled ? const Color(0x2EFFFFFF) : AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(icon, size: 22, color: filled ? AppColors.onPrimary : AppColors.primary),
+        child: SizedBox(
+          height: 48,
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 20, color: fg),
+            const SizedBox(width: 6),
+            Flexible(
+              child: KText(title,
+                  maxLines: 1,
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: fg)),
             ),
-            const SizedBox(height: 10),
-            KText(title,
-                maxLines: 1,
-                style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: fg)),
-            const SizedBox(height: 2),
-            KText(sub, flow: true, style: TextStyle(fontSize: 12, color: subFg, height: 1.35)),
           ]),
         ),
       ),
@@ -1081,7 +1075,6 @@ class _ActionCard extends StatelessWidget {
   }
 }
 
-/// 얇은 직사각형 버튼 (복용 리포트·반응 기록)
 class _SlimButton extends StatelessWidget {
   const _SlimButton(
       {required this.icon, required this.tint, required this.label, required this.onTap, this.badge = 0});
