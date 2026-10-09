@@ -5,6 +5,7 @@ import '../logic/recall.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
 import '../ui/recall_card.dart';
+import '../ui/summary_card.dart';
 import '../ui/theme.dart';
 import 'child_edit_screen.dart';
 import 'import_screen.dart';
@@ -313,6 +314,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               maxLines: 1,
                               style: const TextStyle(
                                   fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.ink)),
+                        ),
+                      if (_selected != null)
+                        SafetySummaryCard(
+                          records: _myRecords,
+                          person: _selected!,
+                          recallCount: matchRecalls(_myRecords, _recalls).length,
+                          letterCount: letterHits(_myRecords).length,
+                          onOpen: _openRecord,
                         ),
                       if (_selected != null)
                         RecallCard(
