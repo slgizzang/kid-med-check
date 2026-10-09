@@ -1,8 +1,7 @@
 name: Build APK
 
+# 저장(push)할 때마다 빌드하지 않고, 요청할 때만 수동으로 빌드한다
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
