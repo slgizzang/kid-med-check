@@ -14,7 +14,6 @@ import '../logic/storage.dart';
 import '../ui/theme.dart';
 import '../ui/dashboard.dart';
 import '../ui/place_sheet.dart';
-import '../ui/recall_card.dart';
 import '../ui/reaction_sheet.dart';
 import 'confirm_screen.dart';
 import 'result_screen.dart';
@@ -693,7 +692,6 @@ class _RecordScreenState extends State<RecordScreen> {
           ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
             children: [
-              RecallCard(hits: _recallHits),
               if (_r.last != null) ...[
                 const SizedBox(height: 4),
                 const SectionTitle('지난 확인 결과'),
