@@ -329,9 +329,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           person: _selected!,
                           recallCount: matchRecalls(_checkedRecords, _recalls).length,
                           letterCount: letterHits(_checkedRecords).length,
+                          recallRecords: {
+                            for (final h in matchRecalls(_checkedRecords, _recalls)) h.record
+                          }.toList(),
+                          letterRecords: {for (final h in letterHits(_checkedRecords)) h.record}.toList(),
                           onOpen: (r) => _openResult(context, r),
-                          onOpenRecalls: _openRecalls,
-                          onOpenLetters: _openLetters,
                           onCheckAll: _checkAll,
                         ),
                       if (_selected != null && !_selecting) ...[
@@ -581,24 +583,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MedRecord> get _checkedRecords =>
       [for (final r in _myRecords) if (r.last != null && r.last!.matches(r.drugs)) r];
 
-  /// 회수된 약 상세 (기록별)
-  Future<void> _openRecalls() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (ctx) => AlertListScreen(
-          title: '회수된 약',
-          child: RecallCard(
-            hits: matchRecalls(_checkedRecords, _recalls),
-            showRecord: true,
-            onOpen: (h) => _openResult(ctx, h.record),
-          ),
-        ),
-      ),
-    );
-    await _load();
-  }
-
   /// 기록의 안전 확인 결과 화면을 바로 연다 (기록 화면을 거치지 않음). 결과는 기록에 저장.
   Future<void> _openResult(BuildContext ctx, MedRecord r) async {
     final person = _selected;
@@ -617,23 +601,6 @@ class _HomeScreenState extends State<HomeScreen> {
             r.last = snap;
             AppStorage.saveRecord(r);
           },
-        ),
-      ),
-    );
-    await _load();
-  }
-
-  /// 식약처 주의 알림이 있었던 약 상세
-  Future<void> _openLetters() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (ctx) => AlertListScreen(
-          title: '식약처 주의 알림이 있었던 약',
-          child: LetterCard(
-            hits: letterHits(_checkedRecords),
-            onOpen: (h) => _openResult(ctx, h.record),
-          ),
         ),
       ),
     );

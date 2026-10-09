@@ -11,6 +11,8 @@ class SafetySummaryCard extends StatelessWidget {
     required this.person,
     this.recallCount = 0,
     this.letterCount = 0,
+    this.recallRecords = const [],
+    this.letterRecords = const [],
     this.onOpen,
     this.onOpenRecalls,
     this.onOpenLetters,
@@ -28,6 +30,10 @@ class SafetySummaryCard extends StatelessWidget {
   final ChildProfile person;
   final int recallCount;
   final int letterCount;
+
+  /// 회수된 약 / 주의 알림이 있는 기록 (누르면 그 기록의 안전 확인 결과로)
+  final List<MedRecord> recallRecords;
+  final List<MedRecord> letterRecords;
 
   /// 금기가 있는 기록을 누르면 연다
   final ValueChanged<MedRecord>? onOpen;
@@ -69,11 +75,9 @@ class SafetySummaryCard extends StatelessWidget {
       if (any && person.pregnant) _line('임부금기', pregN, preg, unit: '개'),
       if (any && person.allergies.isNotEmpty)
         _line('알레르기 약물과 같은 성분', allergyN, allergy, unit: '개'),
+      if (any) _line('회수된 약', recallCount, recallRecords, unit: '건'),
       if (any)
-        _line('회수된 약', recallCount, const [], unit: '건', onTap: recallCount > 0 ? onOpenRecalls : null),
-      if (any)
-        _line('식약처 주의 알림이 있었던 약', letterCount, const [],
-            unit: '건', soft: true, onTap: letterCount > 0 ? onOpenLetters : null),
+        _line('식약처 주의 알림이 있었던 약', letterCount, letterRecords, unit: '건', soft: true),
     ];
     return Container(
       width: double.infinity,
