@@ -61,11 +61,14 @@ class SafetySummaryCard extends StatelessWidget {
         allergyN += al;
       }
     }
+    // 하나도 확인하지 않았으면 금기 '없음'이라고 말하지 않는다 (확인 전)
+    final any = checked.isNotEmpty;
     final lines = <Widget>[
-      _line('연령금기', ageN, age, unit: '개'),
-      _line('병용금기(함께 먹으면 안 되는 조합)', mixN, mix, unit: '쌍'),
-      if (person.pregnant) _line('임부금기', pregN, preg, unit: '개'),
-      if (person.allergies.isNotEmpty) _line('알레르기 약물과 같은 성분', allergyN, allergy, unit: '개'),
+      if (any) _line('연령금기', ageN, age, unit: '개'),
+      if (any) _line('병용금기(함께 먹으면 안 되는 조합)', mixN, mix, unit: '쌍'),
+      if (any && person.pregnant) _line('임부금기', pregN, preg, unit: '개'),
+      if (any && person.allergies.isNotEmpty)
+        _line('알레르기 약물과 같은 성분', allergyN, allergy, unit: '개'),
       _line('회수된 약', recallCount, const [], unit: '건', onTap: recallCount > 0 ? onOpenRecalls : null),
       _line('식약처 주의 알림이 있었던 약', letterCount, const [],
           unit: '건', soft: true, onTap: letterCount > 0 ? onOpenLetters : null),
@@ -99,8 +102,18 @@ class SafetySummaryCard extends StatelessWidget {
         ...lines,
         if (unchecked > 0) ...[
           const SizedBox(height: 8),
-          KText('아직 확인하지 않았거나 약이 바뀐 기록 $unchecked건은 위 결과에 빠져 있어요.',
-              flow: true, style: const TextStyle(fontSize: 12, color: AppColors.sub, height: 1.45)),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E8), borderRadius: BorderRadius.circular(12)),
+            child: KText(
+                any
+                    ? '안전 확인을 안 했거나 약이 바뀐 기록 $unchecked건은 위 결과에 빠져 있어요. 아래 기록 카드를 눌러 안전 확인을 하거나, 바로 아래 버튼으로 한 번에 확인하세요.'
+                    : '아직 안전 확인한 기록이 없어요. 아래 기록 카드를 눌러 안전 확인을 하거나, 바로 아래 버튼으로 한 번에 확인하세요.',
+                flow: true,
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFF9A3412), height: 1.45)),
+          ),
           if (onCheckAll != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -109,7 +122,7 @@ class SafetySummaryCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onCheckAll,
                   icon: const Icon(Icons.shield_outlined, size: 20),
-                  label: KText('확인 안 된 기록 $unchecked건 한 번에 확인', maxLines: 1),
+                  label: KText('전체 안전 확인 ($unchecked건)', maxLines: 1),
                 ),
               ),
             ),
