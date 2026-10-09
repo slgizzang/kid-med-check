@@ -474,7 +474,12 @@ class _ResultScreenState extends State<ResultScreen> {
               ]),
             )
           else
-            ResultDashboard(snap: _snapshot(), person: widget.child, ageMonths: _age),
+            ResultDashboard(
+                snap: _snapshot(),
+                person: widget.child,
+                ageMonths: _age,
+                recalled: widget.recalls.keys.toSet(),
+                letters: widget.letters.keys.toSet()),
           const SizedBox(height: 28),
           KText('약별 결과 · ${_checks.length}개',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black54)),

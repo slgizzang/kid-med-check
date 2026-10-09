@@ -718,6 +718,8 @@ class _RecordScreenState extends State<RecordScreen> {
                   person: widget.child,
                   showDate: true,
                   stale: !_fresh,
+                  recalled: {for (final h in _recallHits) h.drug},
+                  letters: _r.safetyLetters.keys.toSet(),
                 ),
               ],
               const SizedBox(height: 26),
@@ -794,7 +796,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 const Padding(
                   padding: EdgeInsets.only(top: 8, left: 4),
                   child: KText('약을 먹고 설사·발진 같은 반응이 있었다면 "반응 기록"을 눌러 적어두세요.',
-                      style: TextStyle(fontSize: 12, color: AppColors.sub)),
+                      flow: true, style: TextStyle(fontSize: 12, color: AppColors.sub)),
                 ),
               if (_r.drugs.length >= 2)
                 Align(

@@ -22,10 +22,18 @@ class ResultDashboard extends StatelessWidget {
     this.stale = false,
     this.showDate = false,
     this.ageMonths,
+    this.recalled = const {},
+    this.letters = const {},
   });
 
   /// 확인 기준 나이(개월). 없으면 스냅샷에 저장된 나이, 그것도 없으면 오늘 나이.
   final int? ageMonths;
+
+  /// 식약처 회수 목록에 오른 약 / 주의 알림(안전성 서한)이 있었던 약 (기록의 약 이름)
+  final Set<String> recalled;
+  final Set<String> letters;
+
+  bool _extra(DrugSnap d) => recalled.contains(d.query) || letters.contains(d.query);
 
   final ResultSnapshot snap;
   final ChildProfile person;
@@ -37,7 +45,7 @@ class ResultDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final age = ageMonths ?? snap.ageMonths ?? person.ageInMonths();
-    final flagged = snap.drugs.where((d) => d.hasAny).toList();
+    final flagged = snap.drugs.where((d) => d.hasAny || _extra(d)).toList();
     final pn = snap.pregnant || snap.nursing;
     final tiles = <Widget>[
       _Tile(label: '연령금기', count: snap.ageCount, icon: Icons.child_care),
@@ -128,7 +136,7 @@ class ResultDashboard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: _red, fontWeight: FontWeight.w600)),
               ),
-            if (!snap.drugs.any((d) => d.hasAlert))
+            if (!snap.drugs.any((d) => d.hasAlert || _extra(d)))
               const _Line(ok: true, text: '확인한 약 모두 주의할 점 없음'),
             if (flagged.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -137,7 +145,9 @@ class ResultDashboard extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.sub)),
               const SizedBox(height: 6),
-              for (final d in flagged) _DrugRow(d),
+              for (final d in flagged)
+                _DrugRow(d,
+                    recalled: recalled.contains(d.query), letter: letters.contains(d.query)),
             ],
             if (flagged.any((d) => d.labelNote != null && !d.isDanger)) ...[
               const SizedBox(height: 10),
@@ -244,7 +254,9 @@ class _Line extends StatelessWidget {
 }
 
 class _DrugRow extends StatelessWidget {
-  const _DrugRow(this.d);
+  const _DrugRow(this.d, {this.recalled = false, this.letter = false});
+  final bool recalled;
+  final bool letter;
 
   final DrugSnap d;
 
@@ -258,6 +270,8 @@ class _DrugRow extends StatelessWidget {
       if (d.mixWith.isNotEmpty) const _Chip('병용금기', danger: true),
       if (d.nursing) const _Chip('수유부 주의', danger: false),
       if (d.labelNote != null) const _Chip('사용 연령 확인', danger: false),
+      if (recalled) const _Chip('회수된 약', danger: true),
+      if (letter) const _Chip('식약처 주의 알림', danger: false),
       if (d.needsPick) const _Chip('약 선택 필요', danger: false, gray: true),
       if (d.reaction != null) const _Chip('지난 반응 기록', danger: false, note: true),
     ];
