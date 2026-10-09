@@ -668,7 +668,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const Padding(
           padding: EdgeInsets.only(top: 8, left: 2),
           child: KText(
-              '처방약이나 약국에서 산 약은 직접 추가하고, 지난 1년 기록은 심평원 투약이력 파일로 한 번에 불러올 수 있어요.',
+              '지난 1년 처방 기록을 심평원 투약이력 파일로 한 번에 불러올 수 있어요.',
               flow: true,
               style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.45)),
         ),
