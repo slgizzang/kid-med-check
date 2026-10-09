@@ -14,6 +14,7 @@ import '../logic/recall.dart';
 import '../logic/snapshot.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart';
+import '../ui/page_trail.dart';
 import '../ui/reaction_sheet.dart';
 import '../ui/theme.dart';
 
@@ -452,6 +453,12 @@ class _ResultScreenState extends State<ResultScreen> {
         padding: EdgeInsets.fromLTRB(
             16, 16, 16, 40 + MediaQuery.of(context).padding.bottom),
         children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: PageTrail(
+                current: 2, recordLabel: widget.origins.isNotEmpty ? '기록 선택' : '처방 기록'),
+          ),
+          const SizedBox(height: 14),
           const KText('종합 결과',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black54)),
           const SizedBox(height: 8),
