@@ -580,13 +580,35 @@ class _HomeScreenState extends State<HomeScreen> {
           child: RecallCard(
             hits: matchRecalls(_myRecords, _recalls),
             showRecord: true,
-            onOpen: (h) => Navigator.push(ctx,
-                MaterialPageRoute(builder: (_) => RecordScreen(child: _selected!, record: h.record))),
+            onOpen: (h) => _openResult(ctx, h.record),
           ),
         ),
       ),
     );
     await _load();
+  }
+
+  /// 기록의 안전 확인 결과 화면을 바로 연다 (기록 화면을 거치지 않음). 결과는 기록에 저장.
+  Future<void> _openResult(BuildContext ctx, MedRecord r) async {
+    final person = _selected;
+    if (person == null) return;
+    await Navigator.push(
+      ctx,
+      MaterialPageRoute(
+        builder: (_) => ResultScreen(
+          child: person,
+          names: List.of(r.drugs),
+          recordId: r.id,
+          asOf: r.createdAt,
+          letters: Map.of(r.safetyLetters),
+          recalls: {for (final h in matchRecalls([r], _recalls)) h.drug: h},
+          onSnapshot: (snap) {
+            r.last = snap;
+            AppStorage.saveRecord(r);
+          },
+        ),
+      ),
+    );
   }
 
   /// 식약처 주의 알림이 있었던 약 상세
@@ -598,8 +620,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: '식약처 주의 알림이 있었던 약',
           child: LetterCard(
             hits: letterHits(_myRecords),
-            onOpen: (h) => Navigator.push(ctx,
-                MaterialPageRoute(builder: (_) => RecordScreen(child: _selected!, record: h.record))),
+            onOpen: (h) => _openResult(ctx, h.record),
           ),
         ),
       ),
