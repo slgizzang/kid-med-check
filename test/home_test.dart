@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kid_med_check/logic/models.dart';
 import 'package:kid_med_check/logic/recall.dart';
+import 'package:kid_med_check/main.dart';
 import 'package:kid_med_check/screens/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,6 +35,35 @@ void main() {
     });
     expect(tester.takeException(), isNull);
     expect(find.byType(CustomScrollView), findsWidgets);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('앱 시작: 시작 화면 다음에 홈이 뜬다', (tester) async {
+    final kid = ChildProfile(id: 'c1', name: '하진', birthDate: DateTime(2020, 1, 1));
+    SharedPreferences.setMockInitialValues({
+      'children': jsonEncode([kid.toJson()]),
+      'selectedChildId': 'c1',
+      'records': jsonEncode([
+        for (var i = 0; i < 40; i++)
+          MedRecord(
+              id: 'r$i',
+              childId: 'c1',
+              title: '${i % 12 + 1}월 ${i % 28 + 1}일 처방',
+              createdAt: DateTime(2026, i % 12 + 1, i % 28 + 1),
+              drugs: ['타이레놀정500밀리그램', '아모잘탄정5/50밀리그램', '세프트리악손주1g'],
+              safetyLetters: i == 3 ? {'타이레놀정500밀리그램': '안전성서한'} : null).toJson()
+      ]),
+    });
+    await tester.runAsync(() async {
+      await tester.pumpWidget(const KidMedCheckApp());
+      for (var i = 0; i < 40; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await tester.pump();
+      }
+    });
+    expect(appError.value, isNull);
+    expect(tester.takeException(), isNull);
+    expect(find.byType(HomeScreen), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

@@ -637,7 +637,12 @@ class _HomeScreenState extends State<HomeScreen> {
       left: 0,
       top: 0,
       child: Offstage(
-        child: SizedBox(
+        child: TickerMode(
+          enabled: false,
+          child: HeroMode(
+            enabled: false,
+            child: ExcludeSemantics(
+              child: SizedBox(
           width: 360,
           height: 640,
           child: ResultScreen(
@@ -657,6 +662,9 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ),
+      ),
+      ),
+      ),
       ),
     );
   }
