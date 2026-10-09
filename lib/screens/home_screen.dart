@@ -336,11 +336,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                       maxLines: 1),
                                 )),
                       ..._recordList(),
-                      if (_selected != null && !_selecting && _myRecords.isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        const SectionTitle('모아보기'),
-                        _viewsCard(),
-                      ],
                       const SizedBox(height: 20),
                       _notice(),
                     ]),
@@ -525,6 +520,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final allPicked = list.isNotEmpty && list.every((r) => _picked.contains(r.id));
     return [
+      if (!_selecting) _viewsRow(),
       if (_selecting)
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -590,34 +586,32 @@ class _HomeScreenState extends State<HomeScreen> {
         ]),
       );
 
-  /// 기록을 모아 보는 화면들
-  Widget _viewsCard() => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: Column(children: [
-          _ViewRow(
-            icon: Icons.insights_outlined,
-            tint: kPastelTeal,
-            title: '복용 리포트',
-            sub: '자주 먹은 약·계열, 반응 요약',
-            onTap: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => ReportScreen(person: _selected!))),
+  /// 기록을 모아 보는 화면들: 목록 바로 위에 얇게 나란히
+  Widget _viewsRow() => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(children: [
+          Expanded(
+            child: _SlimButton(
+              icon: Icons.insights_outlined,
+              tint: kPastelTeal,
+              label: '복용 리포트',
+              onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => ReportScreen(person: _selected!))),
+            ),
           ),
-          const Divider(height: 1, indent: 64, color: AppColors.line),
-          _ViewRow(
-            icon: Icons.edit_note,
-            tint: kPastelLavender,
-            title: '반응 기록 모아보기',
-            sub: '약을 먹고 생긴 증상 기록',
-            badge: _reactionCount[_selectedId] ?? 0,
-            onTap: () async {
-              await Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => ReactionListScreen(person: _selected!)));
-              await _load();
-            },
+          const SizedBox(width: 8),
+          Expanded(
+            child: _SlimButton(
+              icon: Icons.edit_note,
+              tint: kPastelLavender,
+              label: '반응 기록',
+              badge: _reactionCount[_selectedId] ?? 0,
+              onTap: () async {
+                await Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => ReactionListScreen(person: _selected!)));
+                await _load();
+              },
+            ),
           ),
         ]),
       );
@@ -1024,56 +1018,49 @@ class _ActionCard extends StatelessWidget {
   }
 }
 
-/// 모아보기 한 줄
-class _ViewRow extends StatelessWidget {
-  const _ViewRow(
-      {required this.icon,
-      required this.tint,
-      required this.title,
-      required this.sub,
-      required this.onTap,
-      this.badge = 0});
+/// 얇은 직사각형 버튼 (복용 리포트·반응 기록)
+class _SlimButton extends StatelessWidget {
+  const _SlimButton(
+      {required this.icon, required this.tint, required this.label, required this.onTap, this.badge = 0});
   final IconData icon;
   final (Color, Color) tint;
-  final String title;
-  final String sub;
+  final String label;
   final VoidCallback onTap;
   final int badge;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(color: tint.$1, borderRadius: BorderRadius.circular(11)),
-              child: Icon(icon, size: 20, color: tint.$2),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                KText(title,
+  Widget build(BuildContext context) => Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.line),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: SizedBox(
+            height: 44,
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon, size: 18, color: tint.$2),
+              const SizedBox(width: 6),
+              Flexible(
+                child: KText(label,
                     maxLines: 1,
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink)),
-                KText(sub, maxLines: 1, style: const TextStyle(fontSize: 12, color: AppColors.sub)),
-              ]),
-            ),
-            if (badge > 0)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                margin: const EdgeInsets.only(right: 4),
-                decoration: BoxDecoration(color: kNoteBg, borderRadius: BorderRadius.circular(10)),
-                child: Text('$badge',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kNoteFg)),
+                        fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.ink)),
               ),
-            const Icon(Icons.chevron_right, color: AppColors.sub),
-          ]),
+              if (badge > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                  decoration: BoxDecoration(color: kNoteBg, borderRadius: BorderRadius.circular(10)),
+                  child: Text('$badge',
+                      style: const TextStyle(
+                          fontSize: 11.5, fontWeight: FontWeight.w700, color: kNoteFg)),
+                ),
+              ],
+            ]),
+          ),
         ),
       );
 }
-
