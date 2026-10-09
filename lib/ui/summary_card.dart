@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../logic/models.dart';
+import '../logic/recall.dart' show recallRecordLabel;
 import 'theme.dart';
 
 /// 메인 화면: 이 복용자의 모든 기록을 모아 본 안전 요약 (지난 확인 결과 기준)
@@ -31,9 +32,9 @@ class SafetySummaryCard extends StatelessWidget {
   final int recallCount;
   final int letterCount;
 
-  /// 회수된 약 / 주의 알림이 있는 기록 (누르면 그 기록의 안전 확인 결과로)
-  final List<MedRecord> recallRecords;
-  final List<MedRecord> letterRecords;
+  /// 회수된 약 / 주의 알림이 있는 기록과 해당 약 이름 (누르면 그 기록의 안전 확인 결과로)
+  final List<(MedRecord, String)> recallRecords;
+  final List<(MedRecord, String)> letterRecords;
 
   /// 금기가 있는 기록을 누르면 연다
   final ValueChanged<MedRecord>? onOpen;
@@ -43,28 +44,30 @@ class SafetySummaryCard extends StatelessWidget {
     if (records.isEmpty) return const SizedBox.shrink();
     final checked = [for (final r in records) if (r.last != null && r.last!.matches(r.drugs)) r];
     final unchecked = records.where((r) => r.drugs.isNotEmpty && !checked.contains(r)).length;
-    final age = <MedRecord>[], mix = <MedRecord>[], preg = <MedRecord>[], allergy = <MedRecord>[];
+    // 항목마다 (기록, 해당 약) 목록
+    final age = <(MedRecord, String)>[], mix = <(MedRecord, String)>[];
+    final preg = <(MedRecord, String)>[], allergy = <(MedRecord, String)>[];
     var ageN = 0, mixN = 0, pregN = 0, allergyN = 0;
     for (final r in checked) {
       final s = r.last!;
-      final a = s.drugs.where((d) => d.ageRule != null).length;
-      final p = s.drugs.where((d) => d.preg).length;
-      final al = s.drugs.where((d) => d.allergy != null).length;
-      if (a > 0) {
-        age.add(r);
-        ageN += a;
+      final a = [for (final d in s.drugs) if (d.ageRule != null) d.title];
+      final p = [for (final d in s.drugs) if (d.preg) d.title];
+      final al = [for (final d in s.drugs) if (d.allergy != null) d.title];
+      if (a.isNotEmpty) {
+        age.add((r, a.join(', ')));
+        ageN += a.length;
       }
       if (s.mixPairs.isNotEmpty) {
-        mix.add(r);
+        mix.add((r, s.mixPairs.join(' / ')));
         mixN += s.mixPairs.length;
       }
-      if (p > 0) {
-        preg.add(r);
-        pregN += p;
+      if (p.isNotEmpty) {
+        preg.add((r, p.join(', ')));
+        pregN += p.length;
       }
-      if (al > 0) {
-        allergy.add(r);
-        allergyN += al;
+      if (al.isNotEmpty) {
+        allergy.add((r, al.join(', ')));
+        allergyN += al.length;
       }
     }
     // 하나도 확인하지 않았으면 금기 '없음'이라고 말하지 않는다 (확인 전)
@@ -137,7 +140,7 @@ class SafetySummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _line(String label, int n, List<MedRecord> recs,
+  Widget _line(String label, int n, List<(MedRecord, String)> recs,
       {required String unit, bool soft = false, VoidCallback? onTap}) {
     final ok = n == 0;
     final fg = ok
@@ -160,17 +163,25 @@ class SafetySummaryCard extends StatelessWidget {
             if (onTap != null) Icon(Icons.chevron_right, size: 20, color: fg),
           ]),
         ),
-        for (final r in recs.take(3))
+        // 해당 기록을 작은 목록으로 모두 (누르면 그 기록의 안전 확인 결과)
+        for (final (r, what) in recs)
           InkWell(
             onTap: onOpen == null ? null : () => onOpen!(r),
             child: Padding(
-              padding: const EdgeInsets.only(left: 26, top: 2),
+              padding: const EdgeInsets.only(left: 26, top: 3, bottom: 1),
               child: Row(children: [
                 Expanded(
-                  child: KText(r.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.sub)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    KText(recallRecordLabel(r),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: AppColors.ink, fontWeight: FontWeight.w600)),
+                    KText(what,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.sub)),
+                  ]),
                 ),
                 if (onOpen != null) const Icon(Icons.chevron_right, size: 18, color: AppColors.sub),
               ]),

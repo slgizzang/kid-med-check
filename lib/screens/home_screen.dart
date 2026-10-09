@@ -329,10 +329,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           person: _selected!,
                           recallCount: matchRecalls(_checkedRecords, _recalls).length,
                           letterCount: letterHits(_checkedRecords).length,
-                          recallRecords: {
-                            for (final h in matchRecalls(_checkedRecords, _recalls)) h.record
-                          }.toList(),
-                          letterRecords: {for (final h in letterHits(_checkedRecords)) h.record}.toList(),
+                          recallRecords: _byRecord([
+                            for (final h in matchRecalls(_checkedRecords, _recalls)) (h.record, h.drug)
+                          ]),
+                          letterRecords:
+                              _byRecord([for (final h in letterHits(_checkedRecords)) (h.record, h.drug)]),
                           onOpen: (r) => _openResult(context, r),
                           onCheckAll: _checkAll,
                         ),
@@ -577,6 +578,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
     ];
+  }
+
+  /// (기록, 약) 목록을 기록별로 묶는다: 같은 기록의 약 이름은 이어 붙여 한 줄로
+  List<(MedRecord, String)> _byRecord(List<(MedRecord, String)> items) {
+    final m = <MedRecord, List<String>>{};
+    for (final (r, d) in items) {
+      (m[r] ??= []).add(d);
+    }
+    return [for (final e in m.entries) (e.key, e.value.toSet().join(', '))];
   }
 
   /// 안전 확인을 마친(약이 바뀌지 않은) 기록 — 금기·회수·주의 알림은 이 기록들만 보여준다
