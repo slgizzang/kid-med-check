@@ -322,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           person: _selected!,
                           recallCount: matchRecalls(_myRecords, _recalls).length,
                           letterCount: letterHits(_myRecords).length,
-                          onOpen: _openRecord,
+                          onOpen: (r) => _openResult(context, r),
                           onOpenRecalls: _openRecalls,
                           onOpenLetters: _openLetters,
                           onCheckAll: _checkAll,
@@ -609,6 +609,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+    await _load();
   }
 
   /// 식약처 주의 알림이 있었던 약 상세
