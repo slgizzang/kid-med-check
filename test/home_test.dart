@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kid_med_check/logic/models.dart';
+import 'package:kid_med_check/logic/recall.dart';
 import 'package:kid_med_check/screens/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,5 +35,31 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(CustomScrollView), findsWidgets);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  test('회수 대조: 기록 300건 × 회수 1500건을 기록마다 따로 대조해도 빠르다', () {
+    final recalls = [
+      for (var i = 0; i < 1500; i++)
+        Recall(product: '테스트약$i정10밀리그람(성분)', date: DateTime(2026, 6, 10))
+    ];
+    final recs = [
+      for (var i = 0; i < 300; i++)
+        MedRecord(
+            id: 'r$i',
+            childId: 'c',
+            title: 't',
+            createdAt: DateTime(2026, 6, 1),
+            drugs: ['테스트약$i정10밀리그램', '다른약$i'])
+    ];
+    final sw = Stopwatch()..start();
+    var n = 0;
+    for (var k = 0; k < 3; k++) {
+      for (final r in recs) {
+        n += matchRecalls([r], recalls).length;
+      }
+    }
+    sw.stop();
+    expect(n, 900);
+    expect(sw.elapsedMilliseconds, lessThan(1500));
   });
 }

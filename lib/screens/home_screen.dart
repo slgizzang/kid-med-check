@@ -61,6 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _scroll.addListener(_onScroll);
     _load();
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _autoReady = true);
+    });
     _backfillPlaces();
     AppStorage.placesChanged.addListener(_onPlaces);
   }
@@ -599,6 +602,9 @@ class _HomeScreenState extends State<HomeScreen> {
   /// 자동 안전 확인: 기록을 추가하거나 불러오면 뒤에서 한 건씩 차례로 확인해 저장한다.
   /// 이번 실행에서 확인에 실패한(인터넷·키 문제 등) 기록은 다시 시도하지 않는다.
   final Set<String> _skip = {};
+
+  /// 첫 화면이 다 뜬 뒤에 자동 확인을 시작한다
+  bool _autoReady = false;
   Timer? _autoTimer;
   String? _autoKey;
 
@@ -611,7 +617,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _autoChecker() {
     final person = _selected;
-    final list = person == null || _selecting ? const <MedRecord>[] : _pending;
+    final list = person == null || _selecting || !_autoReady ? const <MedRecord>[] : _pending;
     if (list.isEmpty) {
       _autoTimer?.cancel();
       _autoKey = null;

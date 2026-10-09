@@ -105,18 +105,38 @@ class RecallHit {
 /// 기록과 회수 목록 대조. 이름이 정확히 같은 제품만, 회수일이 처방·구입일 이후(같은 날 포함)이고
 /// 처방약은 6개월, 직접 산 약은 2년 안에 나온 것만.
 /// 회수가 먼저 있었으면 그 뒤에 받은 약은 회수 대상 제조번호가 아니므로 알리지 않는다.
-List<RecallHit> matchRecalls(List<MedRecord> records, List<Recall> recalls) {
+/// 회수 목록의 이름 색인 (목록마다 한 번만 만든다 — 화면을 그릴 때마다 1천여 건을 다시 정리하지 않도록)
+final _recallIndex = Expando<Map<String, List<Recall>>>();
+
+/// 약 이름 → 비교용 이름 (같은 이름을 여러 번 정리하지 않도록)
+final _keyMemo = <String, String>{};
+String _keyOf(String name) {
+  if (_keyMemo.length > 20000) _keyMemo.clear();
+  return _keyMemo[name] ??= recallKey(name);
+}
+
+Map<String, List<Recall>> _indexOf(List<Recall> recalls) {
+  if (recalls.isEmpty) return const {};
+  final hit = _recallIndex[recalls];
+  if (hit != null) return hit;
   final byKey = <String, List<Recall>>{};
   for (final r in recalls) {
     final k = recallKey(r.product);
     if (k.length >= 2) (byKey[k] ??= []).add(r);
   }
+  _recallIndex[recalls] = byKey;
+  return byKey;
+}
+
+List<RecallHit> matchRecalls(List<MedRecord> records, List<Recall> recalls) {
+  final byKey = _indexOf(recalls);
+  if (byKey.isEmpty) return const [];
   final out = <RecallHit>[];
   for (final rec in records) {
     for (final d in rec.drugs) {
       // 주사제는 병원에서 이미 맞은 약이라 반납할 약이 없다 → 조용한 안내로 따로 표시
       final injected = isInjection(d);
-      for (final r in byKey[recallKey(d)] ?? const <Recall>[]) {
+      for (final r in byKey[_keyOf(d)] ?? const <Recall>[]) {
         final when = r.date;
         final day = DateTime(rec.createdAt.year, rec.createdAt.month, rec.createdAt.day);
         if (when == null || when.isBefore(day)) continue;
