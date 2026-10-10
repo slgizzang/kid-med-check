@@ -389,7 +389,8 @@ class _RecordScreenState extends State<RecordScreen> {
     final noPharm = _r.inHouse || _r.pharmacy.isEmpty;
     final p = noPharm ? null : _silson[true]?.state;
     const on = SilsonState.enabled, off = SilsonState.notEnabled;
-    const docs = '진료비 영수증·세부내역서·처방전을 받아 보험사 앱으로 청구하세요.';
+    // 문장마다 줄을 바꾸고, 긴 문장은 뜻이 끊기지 않는 곳에서 미리 줄을 나눈다
+    const docs = '진료비 영수증·세부내역서·처방전을 받아\n보험사 앱으로 청구하세요.';
     // (제목, 설명, 단계: 0 좋음 / 1 일부 / 2 서류 필요)
     final (String, String, int)? g = checking || _place.isEmpty
         ? null
@@ -400,19 +401,19 @@ class _RecordScreenState extends State<RecordScreen> {
                 0
               )
             : h == on && p == off
-                ? ('병원비만 서류 없이 청구 가능', '약국은 실손24 미연계예요. 약값은 약국 영수증과 처방전(환자 보관용)을 받아 보험사 앱으로 청구하세요.', 1)
+                ? ('병원비만 서류 없이 청구 가능', '약국은 실손24 미연계예요.\n약값은 약국 영수증과 처방전(환자 보관용)을 받아\n보험사 앱으로 청구하세요.', 1)
                 : h == on
                     ? ('병원비는 서류 없이 청구 가능', '약국은 연계 여부를 아직 확인하지 못했어요.', 1)
                     : h == off
                         ? (
                             '서류 준비 필요',
                             noPharm
-                                ? '실손24 미연계 병원이에요. $docs'
+                                ? '실손24 미연계 병원이에요.\n$docs'
                                 : p == on
-                                    ? '약국만 실손24에 연계돼 있어 병원 서류가 필요해요. 진료비 영수증·세부내역서·처방전을 받아 실손24 또는 보험사 앱으로 청구하세요.'
+                                    ? '약국만 실손24에 연계돼 있어\n병원 서류가 필요해요.\n진료비 영수증·세부내역서·처방전을 받아\n실손24 또는 보험사 앱으로 청구하세요.'
                                     : p == off
-                                        ? '병원·약국 모두 실손24 미연계예요. $docs'
-                                        : '실손24 미연계 병원이에요. $docs',
+                                        ? '병원·약국 모두 실손24 미연계예요.\n$docs'
+                                        : '실손24 미연계 병원이에요.\n$docs',
                             2
                           )
                         : null;
