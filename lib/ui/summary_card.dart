@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/models.dart';
 import '../logic/recall.dart' show recallRecordLabel;
+import 'dashboard.dart' show SafetyTiles;
 import 'theme.dart';
 
 /// 메인 화면: 이 복용자의 모든 기록을 모아 본 안전 요약 (지난 확인 결과 기준)
@@ -50,7 +51,10 @@ class SafetySummaryCard extends StatelessWidget {
     for (final r in checked) {
       final s = r.last!;
       final a = [for (final d in s.drugs) if (d.ageRule != null) d.title];
-      final p = [for (final d in s.drugs) if (d.preg) d.title];
+      final p = [
+        for (final d in s.drugs)
+          if ((d.preg && person.pregnant) || (d.nursing && person.nursing)) d.title
+      ];
       final al = [for (final d in s.drugs) if (d.allergy != null) d.title];
       if (a.isNotEmpty) {
         age.add((r, a.join(', ')));
@@ -60,7 +64,7 @@ class SafetySummaryCard extends StatelessWidget {
         mix.add((r, s.mixPairs.join(' / ')));
         mixN += s.mixPairs.length;
       }
-      if (p.isNotEmpty && person.pregnant) {
+      if (p.isNotEmpty) {
         preg.add((r, p.join(', ')));
         pregN += p.length;
       }
@@ -69,7 +73,8 @@ class SafetySummaryCard extends StatelessWidget {
         allergyN += al.length;
       }
     }
-    final hard = ageN + mixN + pregN + allergyN + recallCount;
+    // 수유부 주의만 있으면 금기가 아니라 주의(주황)로 본다
+    final hard = ageN + mixN + (person.pregnant ? pregN : 0) + allergyN + recallCount;
     final issues = hard + letterCount;
     final busy = checking > 0;
     // 결론 한 줄: 문제가 있으면 그 항목만, 없으면 '문제없어요'
@@ -96,7 +101,7 @@ class SafetySummaryCard extends StatelessWidget {
     final lines = <Widget>[
       if (ageN > 0) _line('연령금기', ageN, age, unit: '개'),
       if (mixN > 0) _line('함께 먹으면 안 되는 조합', mixN, mix, unit: '쌍'),
-      if (pregN > 0) _line('임부금기', pregN, preg, unit: '개'),
+      if (pregN > 0) _line('임부·수유부 금기', pregN, preg, unit: '개', soft: !person.pregnant),
       if (allergyN > 0) _line('알레르기 약물과 같은 성분', allergyN, allergy, unit: '개'),
       if (recallCount > 0) _line('회수된 약', recallCount, recallRecords, unit: '건'),
       if (letterCount > 0)
@@ -130,6 +135,19 @@ class SafetySummaryCard extends StatelessWidget {
           padding: const EdgeInsets.only(left: 34, top: 2),
           child: KText(sub, style: const TextStyle(fontSize: 12.5, color: AppColors.sub)),
         ),
+        // 전체 기록 대시보드 (안전 확인 결과 화면과 같은 구성)
+        if (checked.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          SafetyTiles(
+            age: ageN,
+            preg: pregN,
+            pregApplicable: person.pregnant || person.nursing,
+            pregSoft: !person.pregnant,
+            mix: mixN,
+            recall: recallCount,
+            letter: letterCount,
+          ),
+        ],
         if (lines.isNotEmpty) ...[
           const SizedBox(height: 8),
           const Divider(height: 1, color: AppColors.line),

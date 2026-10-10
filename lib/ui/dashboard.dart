@@ -47,17 +47,10 @@ class ResultDashboard extends StatelessWidget {
     final age = ageMonths ?? snap.ageMonths ?? person.ageInMonths();
     final flagged = snap.drugs.where((d) => d.hasAny || _extra(d)).toList();
     final pn = snap.pregnant || snap.nursing;
-    final tiles = <Widget>[
-      _Tile(label: '연령금기', count: snap.ageCount, icon: Icons.child_care),
-      _Tile(
-        label: '임부·수유부 금기',
-        count: snap.pregCount,
-        icon: Icons.pregnant_woman,
-        notApplicable: !pn,
-      ),
-      _Tile(label: '병용금기', count: snap.mixPairs.length, icon: Icons.compare_arrows),
-    ];
-
+    final recallN = snap.drugs.where((d) => recalled.contains(d.query)).length;
+    final letterN = snap.drugs.where((d) => letters.contains(d.query)).length;
+    final pregHit = snap.pregnant ? snap.pregCount : 0;
+    final nurseHit = snap.nursing ? snap.nursingCount : 0;
     return Opacity(
       opacity: stale ? 0.55 : 1,
       child: Container(
@@ -89,15 +82,15 @@ class ResultDashboard extends StatelessWidget {
                     style: const TextStyle(fontSize: 12, color: AppColors.sub)),
               ),
             const SizedBox(height: 12),
-            // 항목별 타일
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < tiles.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  Expanded(child: tiles[i]),
-                ],
-              ],
+            // 항목별 타일 (메인 화면 전체 요약과 같은 구성)
+            SafetyTiles(
+              age: snap.ageCount,
+              preg: pregHit + nurseHit,
+              pregApplicable: pn,
+              pregSoft: pregHit == 0,
+              mix: snap.mixPairs.length,
+              recall: recallN,
+              letter: letterN,
             ),
             const SizedBox(height: 14),
             // 항목마다 없어도 "없음"을 풀어서 명시
@@ -174,17 +167,81 @@ class ResultDashboard extends StatelessWidget {
       '${d.month}/${d.day} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 }
 
+/// 안전 확인 항목 타일 5개: 연령금기 · 임부·수유부 금기 · 병용금기 / 회수된 약 · 식약처 주의 알림.
+/// 안전 확인 결과 화면과 메인 화면 전체 요약이 같은 모양을 쓴다.
+class SafetyTiles extends StatelessWidget {
+  const SafetyTiles({
+    super.key,
+    required this.age,
+    required this.preg,
+    required this.mix,
+    required this.recall,
+    required this.letter,
+    this.pregApplicable = true,
+    this.pregSoft = false,
+  });
+
+  final int age, preg, mix, recall, letter;
+
+  /// 임신·수유 중이 아니면 '대상 아님'
+  final bool pregApplicable;
+
+  /// 수유부 주의만 있을 때 (금기가 아닌 주의라 주황)
+  final bool pregSoft;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget row(List<Widget> tiles) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(child: tiles[i]),
+            ],
+          ],
+        );
+    return Column(children: [
+      row([
+        _Tile(label: '연령금기', count: age, icon: Icons.child_care),
+        _Tile(
+            label: '임부·수유부 금기',
+            count: preg,
+            icon: Icons.pregnant_woman,
+            notApplicable: !pregApplicable,
+            soft: pregSoft),
+        _Tile(label: '병용금기', count: mix, unit: '쌍', icon: Icons.compare_arrows),
+      ]),
+      const SizedBox(height: 8),
+      row([
+        _Tile(label: '회수된 약', count: recall, unit: '건', icon: Icons.assignment_return_outlined),
+        _Tile(
+            label: '식약처 주의 알림',
+            count: letter,
+            unit: '건',
+            icon: Icons.campaign_outlined,
+            soft: true),
+      ]),
+    ]);
+  }
+}
+
 class _Tile extends StatelessWidget {
   const _Tile({
     required this.label,
     required this.count,
     required this.icon,
+    this.unit = '개',
     this.notApplicable = false,
+    this.soft = false,
   });
 
   final String label;
   final int count;
   final IconData icon;
+  final String unit;
+
+  /// 금기가 아닌 주의 항목 (있으면 빨강 대신 주황)
+  final bool soft;
 
   /// 복용자에게 해당 없는 항목 (예: 아이의 임부·수유부 금기)
   final bool notApplicable;
@@ -192,8 +249,12 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hit = count > 0 && !notApplicable;
-    final fg = notApplicable ? const Color(0xFF8A9691) : (hit ? _red : _green);
-    final bg = notApplicable ? const Color(0xFFF1F4F3) : (hit ? _redBg : _greenBg);
+    final fg = notApplicable
+        ? const Color(0xFF8A9691)
+        : (hit ? (soft ? _orange : _red) : _green);
+    final bg = notApplicable
+        ? const Color(0xFFF1F4F3)
+        : (hit ? (soft ? _orangeBg : _redBg) : _greenBg);
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
@@ -218,7 +279,7 @@ class _Tile extends StatelessWidget {
                   ? Text('대상 아님',
                       style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 14))
                   : hit
-                      ? Text('$count개',
+                      ? Text('$count$unit',
                           style: TextStyle(
                               color: fg, fontWeight: FontWeight.w800, fontSize: 22))
                       : Icon(Icons.check_rounded, color: fg, size: 28),

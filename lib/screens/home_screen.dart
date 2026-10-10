@@ -44,7 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _autoTimer?.cancel();
+    for (final t in _autoTimers.values) {
+      t.cancel();
+    }
     AppStorage.placesChanged.removeListener(_onPlaces);
     _scroll.dispose();
     super.dispose();
@@ -77,13 +79,21 @@ class _HomeScreenState extends State<HomeScreen> {
   /// 예전에 불러온 기록 중 병원·약국 위치가 없는 것을 뒤에서 한 번 채운다 (앱 실행마다 한 번)
   static bool _backfilled = false;
   Future<void> _backfillPlaces() async {
-    if (_backfilled) return;
+    if (_backfilled) {
+      _placesReady = true;
+      return;
+    }
     _backfilled = true;
     try {
       final n = await AppStorage.fillPlaces();
       if (n > 0 && mounted) await _load();
     } catch (_) {}
+    _placesReady = true;
+    _runSilson();
   }
+
+  /// 병원·약국 위치 채우기가 끝났는지 (실손24 연계는 위치까지 안 뒤에 한 번에 확인해야 정확하고 한꺼번에 나온다)
+  bool _placesReady = false;
 
   Future<void> _load() async {
     final children = await AppStorage.children();
@@ -278,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // 자동 안전 확인은 화면 밖(Offstage)에서 돈다. 크기는 목록이 화면을 꽉 채우게 (expand)
           : Stack(fit: StackFit.expand, children: [
               Positioned.fill(child: _scrollBody()),
-              _autoChecker(),
+              ..._autoCheckers(),
             ]),
       bottomNavigationBar: _selecting ? _togetherBar() : null,
       floatingActionButton: _fab(),
@@ -613,8 +623,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// 첫 화면이 다 뜬 뒤에 자동 확인을 시작한다
   bool _autoReady = false;
-  Timer? _autoTimer;
-  String? _autoKey;
 
   bool _fresh(MedRecord r) => r.last != null && r.last!.matches(r.drugs);
 
@@ -623,58 +631,69 @@ class _HomeScreenState extends State<HomeScreen> {
           if (r.drugs.isNotEmpty && !_fresh(r) && !_skip.contains(r.id)) r
       ];
 
-  Widget _autoChecker() {
+  /// 동시에 확인하는 기록 수 (식약처 서버에 한꺼번에 너무 많이 묻지 않을 만큼)
+  static const _autoParallel = 3;
+  final Map<String, Timer> _autoTimers = {};
+
+  List<Widget> _autoCheckers() {
     final person = _selected;
-    final list = person == null || _selecting || !_autoReady ? const <MedRecord>[] : _pending;
-    if (list.isEmpty) {
-      _autoTimer?.cancel();
-      _autoKey = null;
-      return const Positioned(left: 0, top: 0, child: SizedBox.shrink());
+    final list = person == null || _selecting || !_autoReady
+        ? const <MedRecord>[]
+        : _pending.take(_autoParallel).toList();
+    String keyOf(MedRecord r) => 'auto-${r.id}-${r.drugs.join('|')}';
+    final keys = {for (final r in list) keyOf(r)};
+    for (final k in _autoTimers.keys.where((k) => !keys.contains(k)).toList()) {
+      _autoTimers.remove(k)?.cancel();
     }
-    final r = list.first;
-    final key = 'auto-${r.id}-${r.drugs.join('|')}';
-    if (_autoKey != key) {
-      _autoKey = key;
-      _autoTimer?.cancel();
+    final out = <Widget>[];
+    for (final r in list) {
+      final key = keyOf(r);
       // 너무 오래 걸리면 이 기록은 건너뛴다 (기록을 열면 직접 확인할 수 있음)
-      _autoTimer = Timer(const Duration(seconds: 60), () {
-        if (mounted) setState(() => _skip.add(r.id));
-      });
-    }
-    return Positioned(
-      left: 0,
-      top: 0,
-      child: Offstage(
-        child: TickerMode(
-          enabled: false,
-          child: HeroMode(
+      _autoTimers.putIfAbsent(
+          key,
+          () => Timer(const Duration(seconds: 60), () {
+                if (mounted) setState(() => _skip.add(r.id));
+              }));
+      out.add(Positioned(
+        left: 0,
+        top: 0,
+        child: Offstage(
+          child: TickerMode(
             enabled: false,
-            child: ExcludeSemantics(
-              child: SizedBox(
-          width: 360,
-          height: 640,
-          child: ResultScreen(
-            key: ValueKey(key),
-            child: person!,
-            names: List.of(r.drugs),
-            recordId: r.id,
-            asOf: r.createdAt,
-            letters: Map.of(r.safetyLetters),
-            onFinished: (snap) async {
-              r.last = snap;
-              await AppStorage.saveRecord(r);
-              if (mounted) setState(() {});
-            },
-            onFailed: () {
-              if (mounted) setState(() => _skip.add(r.id));
-            },
+            child: HeroMode(
+              enabled: false,
+              child: ExcludeSemantics(
+                child: SizedBox(
+                  width: 360,
+                  height: 640,
+                  child: ResultScreen(
+                    key: ValueKey(key),
+                    child: person!,
+                    names: List.of(r.drugs),
+                    recordId: r.id,
+                    asOf: r.createdAt,
+                    letters: Map.of(r.safetyLetters),
+                    onFinished: (snap) async {
+                      r.last = snap;
+                      // 확인 결과만 저장된 기록에 옮겨 적는다 (그사이 바뀐 다른 내용을 덮어쓰지 않도록)
+                      await AppStorage.saveSnapshot(r.id, snap);
+                      for (final x in _records.where((x) => x.id == r.id)) {
+                        x.last = snap;
+                      }
+                      if (mounted) setState(() {});
+                    },
+                    onFailed: () {
+                      if (mounted) setState(() => _skip.add(r.id));
+                    },
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
-      ),
-      ),
-      ),
-      ),
-    );
+      ));
+    }
+    return out;
   }
 
   /// 기록 카드의 실손보험 청구 표시 (청구를 아직 안 한 것만)
@@ -704,7 +723,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _runSilson() async {
-    if (_silsonRunning || !kShowSilson24) return;
+    if (_silsonRunning || !kShowSilson24 || !_placesReady) return;
     final cutoff = DateTime.now().subtract(const Duration(days: 365 * 3));
     final todo = [for (final r in _records) if (_needsSilson(r, cutoff)) r];
     if (todo.isEmpty) {

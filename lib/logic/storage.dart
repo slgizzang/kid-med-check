@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 import 'reaction.dart';
+import 'snapshot.dart';
 import 'hira_import.dart';
 
 /// 빌드할 때 --dart-define=DUR_API_KEY=... 로 넣은 기본 키 (없으면 빈 문자열)
@@ -93,6 +94,17 @@ class AppStorage {
       list.add(r);
     }
     await _saveRecords(list);
+  }
+
+  /// 안전 확인 결과만 저장 (그사이 다른 곳에서 바뀐 내용은 그대로 둔다)
+  static Future<void> saveSnapshot(String id, ResultSnapshot snap) async {
+    final list = await records();
+    var hit = false;
+    for (final r in list.where((x) => x.id == id)) {
+      r.last = snap;
+      hit = true;
+    }
+    if (hit) await _saveRecords(list);
   }
 
   /// 실손24 연계 결과만 한 번에 저장 (그사이 다른 곳에서 바뀐 내용은 그대로 둔다)
