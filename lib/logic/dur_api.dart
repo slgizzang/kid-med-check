@@ -59,6 +59,31 @@ class DurApi {
     final q = name.trim();
     final near = lat != null && lon != null;
     if (q.length < 2 && !near) return const [];
+    final path = pharmacy ? _pharmPath : _hospPath;
+    List<PlaceHit> toHits(List<Map<String, dynamic>> items) => items
+        .map((j) => PlaceHit.fromJson(j, fromLat: lat, fromLon: lon))
+        .where((p) => p.name.isNotEmpty)
+        .toList();
+
+    // 다른 지역의 병원·약국: "강남 아이사랑소아과", "역삼동 소아과", "서울 강남구 역삼동"처럼
+    // 지역(주소)을 붙여 찾으면 이름으로 찾은 뒤 주소로 골라낸다
+    final pq = splitPlaceQuery(q);
+    if (pq.regions.isNotEmpty || pq.dong != null) {
+      final base = <String, String>{'_type': 'json'};
+      if (pq.name.length >= 2) base['yadmNm'] = pq.name;
+      var hits = <PlaceHit>[];
+      if (pq.dong != null) {
+        hits = toHits(await _fetchItems(path, {...base, 'emdongNm': pq.dong!}, 100));
+      }
+      if (hits.isEmpty && base.containsKey('yadmNm')) {
+        hits = toHits(await _fetchItems(path, base, 100));
+      }
+      final picked = hits.where((h) => pq.regions.every((r) => addrHasRegion(h.addr, r))).toList();
+      final out = picked.isNotEmpty ? picked : hits;
+      if (near) out.sort((a, b) => (a.meters ?? 1e12).compareTo(b.meters ?? 1e12));
+      return out;
+    }
+
     final filters = <String, String>{'_type': 'json'};
     if (q.length >= 2) filters['yadmNm'] = q;
     if (near && q.length < 2) {
@@ -67,11 +92,7 @@ class DurApi {
       filters['yPos'] = lat.toStringAsFixed(3);
       filters['radius'] = '$radius';
     }
-    final items = await _fetchItems(pharmacy ? _pharmPath : _hospPath, filters, rows);
-    final hits = items
-        .map((j) => PlaceHit.fromJson(j, fromLat: lat, fromLon: lon))
-        .where((p) => p.name.isNotEmpty)
-        .toList();
+    final hits = toHits(await _fetchItems(path, filters, rows));
     if (near) {
       hits.sort((a, b) => (a.meters ?? 1e12).compareTo(b.meters ?? 1e12));
     }
@@ -979,4 +1000,67 @@ class MixPair {
   final String a;
   final String b;
   final String reason;
+}
+
+
+/// 병원·약국 검색어를 이름과 지역으로 나눈다.
+/// "강남구 아이사랑소아과" → 이름 "아이사랑소아과", 지역 ["강남구"]
+/// "역삼동 소아과" → 이름 "소아과", 동 "역삼동"
+/// "서울 강남구 역삼동" → 이름 없음, 동 "역삼동", 지역 ["서울", "강남구"]
+class PlaceQuery {
+  const PlaceQuery(this.name, this.regions, this.dong);
+  final String name;
+  final List<String> regions;
+  final String? dong;
+}
+
+final _placeNameRe = RegExp(r'(의원|병원|약국|클리닉|센터|보건소|보건지소|과)$');
+final _dongRe = RegExp(r'^[가-힣0-9]{1,8}(동|읍|면|가)$');
+final _regionRe = RegExp(r'(특별시|광역시|특별자치시|특별자치도|도|시|군|구|동|읍|면|로|길)$');
+const _sido = {
+  '서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '경기', '강원', '충북', '충남',
+  '전북', '전남', '경북', '경남', '제주'
+};
+
+PlaceQuery splitPlaceQuery(String q) {
+  final parts = q.trim().split(RegExp(r'\s+')).where((x) => x.isNotEmpty).toList();
+  if (parts.length < 2) {
+    // "역삼동"처럼 동 이름만 쓰면 그 동네의 병원·약국
+    final one = q.trim();
+    if (_dongRe.hasMatch(one) && !_placeNameRe.hasMatch(one)) return PlaceQuery('', const [], one);
+    return PlaceQuery(one, const [], null);
+  }
+  // 이름: 의원·약국 등으로 끝나는 말 (없으면 지역처럼 보이지 않는 말)
+  var name = '';
+  for (final p in parts.reversed) {
+    if (_placeNameRe.hasMatch(p) && !_dongRe.hasMatch(p)) {
+      name = p;
+      break;
+    }
+  }
+  if (name.isEmpty) {
+    final others = parts.where((p) => !_regionRe.hasMatch(p) && !_sido.contains(p)).toList();
+    if (others.isNotEmpty) name = others.join(' ');
+  }
+  String? dong;
+  final regions = <String>[];
+  for (final p in parts) {
+    if (name.split(' ').contains(p)) continue;
+    if (dong == null && _dongRe.hasMatch(p) && !_placeNameRe.hasMatch(p)) {
+      dong = p;
+    } else {
+      regions.add(p);
+    }
+  }
+  return PlaceQuery(name, regions, dong);
+}
+
+/// 주소에 지역 이름이 들어 있는지 ("강남" ↔ "서울특별시 강남구 …", "서울" ↔ "서울특별시")
+bool addrHasRegion(String addr, String region) {
+  final a = addr.replaceAll(RegExp(r'\s'), '');
+  final r = region.replaceAll(RegExp(r'\s'), '');
+  if (r.isEmpty) return true;
+  if (a.contains(r)) return true;
+  final stem = r.replaceFirst(RegExp(r'(특별시|광역시|특별자치시|특별자치도|시|도|군|구)$'), '');
+  return stem.length >= 2 && a.contains(stem);
 }

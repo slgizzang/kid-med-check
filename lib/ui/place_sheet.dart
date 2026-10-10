@@ -121,7 +121,8 @@ class _PlaceSheetState extends State<_PlaceSheet> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-            child: KText('이름 일부만 입력해도 비슷한 $_what을 가까운 순으로 보여줘요.',
+            child: KText('이름 일부만 입력해도 가까운 순으로 보여줘요. 다른 지역이면 "강남구 아이사랑소아과"처럼 지역을 붙이거나 "역삼동"처럼 동 이름으로 찾아보세요.',
+                flow: true,
                 style: const TextStyle(fontSize: 13, color: AppColors.sub)),
           ),
           Padding(
