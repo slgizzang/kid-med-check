@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/models.dart';
 import '../logic/recall.dart';
+import '../logic/result_cache.dart';
 import '../logic/silson24.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
@@ -704,6 +705,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     recordId: r.id,
                     asOf: r.createdAt,
                     letters: Map.of(r.safetyLetters),
+                    onChecks: (checks) => ResultCache.put(r, person!, checks),
                     onFinished: (snap) async {
                       r.last = snap;
                       // 확인 결과만 저장된 기록에 옮겨 적는다 (그사이 바뀐 다른 내용을 덮어쓰지 않도록)
@@ -815,6 +817,8 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => ResultScreen(
           child: person,
           record: r,
+          reuse: ResultCache.get(r, person),
+          onChecks: (checks) => ResultCache.put(r, person, checks),
           names: List.of(r.drugs),
           recordId: r.id,
           asOf: r.createdAt,

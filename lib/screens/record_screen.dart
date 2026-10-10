@@ -10,6 +10,7 @@ import '../logic/silson24.dart';
 import '../logic/dur_api.dart';
 import '../logic/reaction.dart';
 import '../logic/recall.dart';
+import '../logic/result_cache.dart';
 import '../logic/storage.dart';
 import '../ui/theme.dart';
 import '../ui/dashboard.dart';
@@ -40,21 +41,6 @@ class _RecordScreenState extends State<RecordScreen> {
   bool _busy = false;
 
   Future<void> _save() => AppStorage.saveRecord(_r);
-
-  /// 마지막으로 확인한 결과 (앱이 켜져 있는 동안). 약 목록·복용자 정보가 같으면 다시 조회하지 않는다.
-  static final Map<String, (String, List<DrugCheck>)> _resultCache = {};
-
-  String get _signature {
-    final c = widget.child;
-    return [
-      ..._r.drugs,
-      '#${c.birthDate.toIso8601String()}',
-      '${c.ageInMonths(_r.createdAt)}',
-      '${c.pregnant}',
-      '${c.nursing}',
-      ...c.allergies,
-    ].join('|');
-  }
 
   /// 지난 결과가 지금 목록·정보와 같은지
   bool get _fresh =>
@@ -555,8 +541,8 @@ class _RecordScreenState extends State<RecordScreen> {
           asOf: _r.createdAt,
           letters: Map.of(_r.safetyLetters),
           recalls: {for (final h in _recallHits) h.drug: h},
-          reuse: _resultCache[_r.id]?.$1 == _signature ? _resultCache[_r.id]!.$2 : null,
-          onChecks: (checks) => _resultCache[_r.id] = (_signature, checks),
+          reuse: ResultCache.get(_r, widget.child),
+          onChecks: (checks) => ResultCache.put(_r, widget.child, checks),
           onSnapshot: (snap) {
             _r.last = snap;
             _save();
