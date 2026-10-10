@@ -129,11 +129,7 @@ class SafetySummaryCard extends StatelessWidget {
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.line),
-      ),
+      decoration: softCard(radius: 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         KText('${person.name}님 약 안전 점검',
             maxLines: 1,
@@ -141,16 +137,23 @@ class SafetySummaryCard extends StatelessWidget {
                 fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.sub)),
         const SizedBox(height: 6),
         Row(children: [
-          Icon(icon, color: fg, size: 26),
-          const SizedBox(width: 8),
+          // 결론 아이콘: 연한 원 배경 위에
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: fg.withAlpha(24), shape: BoxShape.circle),
+            child: Icon(icon, color: fg, size: 24),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: KText(head,
                 maxLines: 1,
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: fg)),
+                style: TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.w800, color: fg, letterSpacing: -0.3)),
           ),
         ]),
         Padding(
-          padding: const EdgeInsets.only(left: 34, top: 2),
+          padding: const EdgeInsets.only(left: 52, top: 2),
           child: KText(sub, style: const TextStyle(fontSize: 12.5, color: AppColors.sub)),
         ),
         // 전체 기록 대시보드 (안전 확인 결과 화면과 같은 구성)

@@ -61,11 +61,7 @@ class ResultDashboard extends StatelessWidget {
       opacity: stale ? 0.55 : 1,
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.line),
-        ),
+        decoration: softCard(radius: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -403,13 +399,17 @@ class _NoteTile extends StatelessWidget {
     // 금기 타일과 같은 규칙: 없으면 초록, 있으면 빨강
     final hit = count > 0;
     final fg = hit ? _red : _green;
-    return GestureDetector(
+    return Material(
+      color: hit ? _redBg : _greenBg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+      borderRadius: BorderRadius.circular(14),
       onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen),
       child: Container(
       padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
       decoration: BoxDecoration(
-        color: hit ? _redBg : _greenBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: fg.withAlpha(28)),
       ),
       child: Column(children: [
         SizedBox(
@@ -425,7 +425,7 @@ class _NoteTile extends StatelessWidget {
         Text(hit ? '$count건' : '없음',
             style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 17)),
       ]),
-    ));
+    )));
   }
 }
 
@@ -464,13 +464,28 @@ class _Tile extends StatelessWidget {
     // 모든 타일 같은 규칙: 해당 없음은 회색, 없으면 초록, 있으면 빨강
     final fg = notApplicable ? const Color(0xFF8A9691) : (hit ? _red : _green);
     final bg = notApplicable ? const Color(0xFFF1F4F3) : (hit ? _redBg : _greenBg);
-    return GestureDetector(
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+      borderRadius: BorderRadius.circular(18),
       onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen),
       child: Container(
-      padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: fg.withAlpha(28)),
+      ),
       child: Column(
         children: [
+          // 항목 아이콘 (동그란 배지)
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: Colors.white.withAlpha(200), shape: BoxShape.circle),
+            child: Icon(icon, size: 19, color: fg),
+          ),
+          const SizedBox(height: 6),
           // 위: 항목 이름 (좁으면 두 줄) + 눌러서 설명을 볼 수 있다는 작은 표시
           SizedBox(
             height: 40,
@@ -510,7 +525,7 @@ class _Tile extends StatelessWidget {
           ),
         ],
       ),
-    ));
+    )));
   }
 }
 

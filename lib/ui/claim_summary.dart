@@ -29,11 +29,7 @@ class ClaimSummaryCard extends StatelessWidget {
         width: double.infinity,
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.line),
-        ),
+        decoration: softCard(radius: 18),
         child: const Row(children: [
           SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.2)),
           SizedBox(width: 10),
@@ -49,11 +45,7 @@ class ClaimSummaryCard extends StatelessWidget {
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.line),
-      ),
+      decoration: softCard(radius: 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const KText('실손보험 청구',
             maxLines: 1,

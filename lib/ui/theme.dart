@@ -31,6 +31,16 @@ class AppColors {
   static const line = Color(0xFFE8EBEE);
 }
 
+/// 흰 카드 공통 모양: 아주 옅은 테두리 + 부드러운 그림자 (선만 있는 상자보다 덜 딱딱하게)
+BoxDecoration softCard({double radius = 20, Color color = Colors.white}) => BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: const Color(0xFFEEF0F3)),
+      boxShadow: const [
+        BoxShadow(color: Color(0x0D1B2733), blurRadius: 18, offset: Offset(0, 6)),
+      ],
+    );
+
 const kAppName = '필세이프';
 
 /// 실손24 청구 안내 (네이버 지도·토스 연계가 열리면 true로 다시 켠다).
@@ -72,13 +82,27 @@ ThemeData buildTheme() {
     ),
     cardTheme: CardThemeData(
       color: Colors.white,
-      elevation: 0,
+      elevation: 2,
+      shadowColor: const Color(0x331B2733),
+      surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: AppColors.line),
+        side: const BorderSide(color: Color(0xFFEEF0F3)),
       ),
     ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      titleTextStyle: const TextStyle(
+          fontFamily: 'Pretendard',
+          fontSize: 19,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
+          color: AppColors.ink),
+    ),
+    dividerTheme: const DividerThemeData(color: Color(0xFFEEF0F3), thickness: 1),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(54),
