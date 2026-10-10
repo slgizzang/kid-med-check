@@ -211,17 +211,58 @@ class SafetyTiles extends StatelessWidget {
             soft: pregSoft),
         _Tile(label: '병용금기', count: mix, unit: '쌍', icon: Icons.compare_arrows),
       ]),
-      const SizedBox(height: 8),
+      // 회수·주의 알림은 복용 금기가 아니라 참고 사항 — 한 단계 낮게(작고 옅게) 보여준다
+      const SizedBox(height: 12),
+      const Align(
+        alignment: Alignment.centerLeft,
+        child: KText('아래는 복용 금기가 아니에요. 복용할 때 참고하세요.',
+            maxLines: 1, style: TextStyle(fontSize: 12, color: AppColors.sub)),
+      ),
+      const SizedBox(height: 6),
       row([
-        _Tile(label: '회수된 약', count: recall, unit: '건', icon: Icons.assignment_return_outlined),
-        _Tile(
-            label: '식약처 주의 알림',
-            count: letter,
-            unit: '건',
-            icon: Icons.campaign_outlined,
-            soft: true),
+        _NoteTile(label: '회수된 약', count: recall, icon: Icons.assignment_return_outlined),
+        _NoteTile(label: '식약처 주의 알림', count: letter, icon: Icons.campaign_outlined),
       ]),
     ]);
+  }
+}
+
+/// 참고 사항 타일 (회수·주의 알림): 금기 타일보다 작고 옅게, 한 줄로
+class _NoteTile extends StatelessWidget {
+  const _NoteTile({required this.label, required this.count, required this.icon});
+  final String label;
+  final int count;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final hit = count > 0;
+    final fg = hit ? _orange : const Color(0xFF6B7A75);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: hit ? _orangeBg : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: hit ? _orangeBg : AppColors.line),
+      ),
+      child: Row(children: [
+        Icon(icon, size: 16, color: fg),
+        const SizedBox(width: 6),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(label,
+                maxLines: 1,
+                style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12.5)),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(hit ? '$count건' : '없음',
+            style: TextStyle(
+                color: fg, fontWeight: hit ? FontWeight.w800 : FontWeight.w600, fontSize: 13)),
+      ]),
+    );
   }
 }
 

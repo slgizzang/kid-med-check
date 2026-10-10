@@ -74,8 +74,8 @@ class SafetySummaryCard extends StatelessWidget {
       }
     }
     // 수유부 주의만 있으면 금기가 아니라 주의(주황)로 본다
-    final hard = ageN + mixN + (person.pregnant ? pregN : 0) + allergyN + recallCount;
-    final issues = hard + letterCount;
+    final hard = ageN + mixN + (person.pregnant ? pregN : 0) + allergyN;
+    final issues = hard + letterCount + recallCount + (person.pregnant ? 0 : pregN);
     final busy = checking > 0;
     // 결론 한 줄: 문제가 있으면 그 항목만, 없으면 '문제없어요'
     final IconData icon;
@@ -103,7 +103,7 @@ class SafetySummaryCard extends StatelessWidget {
       if (mixN > 0) _line('함께 먹으면 안 되는 조합', mixN, mix, unit: '쌍'),
       if (pregN > 0) _line('임부·수유부 금기', pregN, preg, unit: '개', soft: !person.pregnant),
       if (allergyN > 0) _line('알레르기 약물과 같은 성분', allergyN, allergy, unit: '개'),
-      if (recallCount > 0) _line('회수된 약', recallCount, recallRecords, unit: '건'),
+      if (recallCount > 0) _line('회수된 약', recallCount, recallRecords, unit: '건', soft: true),
       if (letterCount > 0)
         _line('식약처 주의 알림이 있었던 약', letterCount, letterRecords, unit: '건', soft: true),
     ];
