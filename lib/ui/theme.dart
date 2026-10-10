@@ -37,7 +37,7 @@ BoxDecoration softCard({double radius = 20, Color color = Colors.white}) => BoxD
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(color: const Color(0xFFEEF0F3)),
       boxShadow: const [
-        BoxShadow(color: Color(0x0D1B2733), blurRadius: 18, offset: Offset(0, 6)),
+        BoxShadow(color: Color(0x0A1B2733), blurRadius: 12, offset: Offset(0, 2)),
       ],
     );
 
@@ -82,8 +82,8 @@ ThemeData buildTheme() {
     ),
     cardTheme: CardThemeData(
       color: Colors.white,
-      elevation: 2,
-      shadowColor: const Color(0x331B2733),
+      elevation: 1,
+      shadowColor: const Color(0x141B2733),
       surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
