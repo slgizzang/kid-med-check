@@ -12,6 +12,11 @@ const _orangeBg = Color(0xFFFFF4E8);
 const _green = Color(0xFF1E7B3A);
 const _greenBg = Color(0xFFEAF6EE);
 const kNoteFg = Color(0xFF2B5B9E);
+// 대시보드 타일 색: 바탕은 중립 회색, 결과 글자만 색으로 (화려한 면 색 대신)
+const _tileBg = Color(0xFFF4F6F8);
+const _alert = Color(0xFFE5484D);
+const _alertBg = Color(0xFFFFF0F0);
+const _okInk = Color(0xFF12805C);
 const kNoteBg = Color(0xFFEAF1FB);
 
 /// 확인 결과 대시보드: 항목별 타일 + 확인이 필요한 약 목록 + 병용금기 조합
@@ -208,37 +213,52 @@ class SafetyTiles extends StatelessWidget {
             items: lists['병용금기'] ?? const [],
             onOpen: onOpen, count: mix, unit: '쌍', icon: Icons.compare_arrows, info: _infoMix),
       ]),
-      // 회수·주의 알림은 복용 금기가 아니라 참고 사항 — 한 단계 낮게(작고 옅게) 보여준다
-      const SizedBox(height: 12),
+      // 회수·주의 알림·사용 연령은 복용 금기가 아니라 참고 사항 — 한 묶음으로 작게
+      const SizedBox(height: 14),
       const Align(
         alignment: Alignment.centerLeft,
-        child: KText('아래는 복용 금기가 아니에요. 복용할 때 참고하세요.',
-            maxLines: 1, style: TextStyle(fontSize: 12, color: AppColors.sub)),
+        child: KText('참고 사항 · 복용 금기는 아니에요',
+            maxLines: 1,
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.sub)),
       ),
-      const SizedBox(height: 6),
-      row([
-        _NoteTile(
-            label: '회수된 약',
-            items: lists['회수된 약'] ?? const [],
-            onOpen: onOpen,
-            count: recall,
-            icon: Icons.assignment_return_outlined,
-            info: _infoRecall),
-        _NoteTile(
-            label: '식약처 주의 알림',
-            items: lists['식약처 주의 알림'] ?? const [],
-            onOpen: onOpen,
-            count: letter,
-            icon: Icons.campaign_outlined,
-            info: _infoLetter),
-        _NoteTile(
-            label: '사용 연령 확인',
-            items: lists['사용 연령 확인'] ?? const [],
-            onOpen: onOpen,
-            count: label,
-            icon: Icons.menu_book_outlined,
-            info: _infoLabel),
-      ]),
+      const SizedBox(height: 8),
+      Container(
+        decoration: BoxDecoration(color: _tileBg, borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(
+              child: _NoteTile(
+                  label: '회수된 약',
+                  items: lists['회수된 약'] ?? const [],
+                  onOpen: onOpen,
+                  count: recall,
+                  icon: Icons.assignment_return_outlined,
+                  info: _infoRecall),
+            ),
+            const VerticalDivider(width: 1, thickness: 1, indent: 14, endIndent: 14, color: Color(0xFFE3E6EA)),
+            Expanded(
+              child: _NoteTile(
+                  label: '식약처 주의 알림',
+                  items: lists['식약처 주의 알림'] ?? const [],
+                  onOpen: onOpen,
+                  count: letter,
+                  icon: Icons.campaign_outlined,
+                  info: _infoLetter),
+            ),
+            const VerticalDivider(width: 1, thickness: 1, indent: 14, endIndent: 14, color: Color(0xFFE3E6EA)),
+            Expanded(
+              child: _NoteTile(
+                  label: '사용 연령 확인',
+                  items: lists['사용 연령 확인'] ?? const [],
+                  onOpen: onOpen,
+                  count: label,
+                  icon: Icons.menu_book_outlined,
+                  info: _infoLabel),
+            ),
+          ]),
+        ),
+      ),
     ]);
   }
 }
@@ -396,36 +416,29 @@ class _NoteTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 금기 타일과 같은 규칙: 없으면 초록, 있으면 빨강
     final hit = count > 0;
-    final fg = hit ? _red : _green;
-    return Material(
-      color: hit ? _redBg : _greenBg,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-      borderRadius: BorderRadius.circular(14),
+    return InkWell(
       onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen),
-      child: Container(
-      padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: fg.withAlpha(28)),
-      ),
-      child: Column(children: [
-        SizedBox(
-          height: 36,
-          child: Center(
-            child: Text(ka(label),
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 14, height: 1.25)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 14, 10, 14),
+        child: Column(children: [
+          SizedBox(
+            height: 34,
+            child: Center(
+              child: Text(ka(label),
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: AppColors.sub, fontWeight: FontWeight.w600, fontSize: 13, height: 1.3)),
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(hit ? '$count건' : '없음',
-            style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 17)),
-      ]),
-    )));
+          const SizedBox(height: 6),
+          Text(hit ? '$count건' : '없음',
+              style: TextStyle(
+                  color: hit ? _alert : _okInk, fontWeight: FontWeight.w800, fontSize: 17)),
+        ]),
+      ),
+    );
   }
 }
 
@@ -461,71 +474,49 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hit = count > 0 && !notApplicable;
-    // 모든 타일 같은 규칙: 해당 없음은 회색, 없으면 초록, 있으면 빨강
-    final fg = notApplicable ? const Color(0xFF8A9691) : (hit ? _red : _green);
-    final bg = notApplicable ? const Color(0xFFF1F4F3) : (hit ? _redBg : _greenBg);
+    // 해당 없음은 회색, 없으면 차분한 초록 글자, 있으면 연한 빨강 바탕 + 빨간 글자
+    final valueColor = notApplicable ? const Color(0xFF9AA3AD) : (hit ? _alert : _okInk);
     return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(18),
+      color: hit ? _alertBg : _tileBg,
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen),
-      child: Container(
-      padding: const EdgeInsets.fromLTRB(8, 12, 8, 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: fg.withAlpha(28)),
-      ),
-      child: Column(
-        children: [
-          // 항목 아이콘 (동그란 배지)
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(color: Colors.white.withAlpha(200), shape: BoxShape.circle),
-            child: Icon(icon, size: 19, color: fg),
-          ),
-          const SizedBox(height: 6),
-          // 위: 항목 이름 (좁으면 두 줄) + 눌러서 설명을 볼 수 있다는 작은 표시
-          SizedBox(
-            height: 40,
-            child: Center(
-              child: Text.rich(
-                TextSpan(children: [
-                  TextSpan(text: ka(label)),
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 2),
-                      child: Icon(Icons.info_outline_rounded, size: 14, color: fg.withAlpha(180)),
-                    ),
-                  ),
-                ]),
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 15, height: 1.25),
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 10, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(icon, size: 18, color: hit ? _alert : const Color(0xFF8B95A1)),
+              const Spacer(),
+              Icon(Icons.info_outline_rounded, size: 15, color: const Color(0xFFB0B8C1)),
+            ]),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 36,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Text(ka(label),
+                    maxLines: 2,
+                    style: TextStyle(
+                        color: hit ? _alert : const Color(0xFF4E5968),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        height: 1.3)),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          // 아래: 결과
-          SizedBox(
-            height: 30,
-            child: Center(
-              child: notApplicable
-                  ? Text('대상 아님',
-                      style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 16))
-                  : hit
-                      ? Text('$count$unit',
-                          style: TextStyle(
-                              color: fg, fontWeight: FontWeight.w800, fontSize: 24))
-                      : Text('없음',
-                          style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 20)),
+            const SizedBox(height: 4),
+            Text(
+              notApplicable ? '대상 아님' : (hit ? '$count$unit' : '없음'),
+              style: TextStyle(
+                  color: valueColor,
+                  fontWeight: FontWeight.w800,
+                  fontSize: notApplicable ? 16 : 22,
+                  letterSpacing: -0.3),
             ),
-          ),
-        ],
+          ]),
+        ),
       ),
-    )));
+    );
   }
 }
 
