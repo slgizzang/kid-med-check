@@ -66,6 +66,14 @@ class AppStorage {
     await p.setString(_kSelected, id);
   }
 
+  /// 기록 목록을 읽고-고치고-쓰는 작업을 한 번에 하나씩 (동시에 하면 서로의 변경을 덮어쓴다)
+  static Future<void> _chain = Future.value();
+  static Future<T> _locked<T>(Future<T> Function() f) {
+    final run = _chain.then((_) => f());
+    _chain = run.then((_) {}, onError: (_) {});
+    return run;
+  }
+
   static Future<List<MedRecord>> records() async {
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_kRecords);
@@ -86,6 +94,7 @@ class AppStorage {
   }
 
   static Future<void> saveRecord(MedRecord r) async {
+    return _locked(() async {
     final list = await records();
     final i = list.indexWhere((x) => x.id == r.id);
     if (i >= 0) {
@@ -94,10 +103,12 @@ class AppStorage {
       list.add(r);
     }
     await _saveRecords(list);
+    });
   }
 
   /// 안전 확인 결과만 저장 (그사이 다른 곳에서 바뀐 내용은 그대로 둔다)
   static Future<void> saveSnapshot(String id, ResultSnapshot snap) async {
+    return _locked(() async {
     final list = await records();
     var hit = false;
     for (final r in list.where((x) => x.id == id)) {
@@ -105,10 +116,12 @@ class AppStorage {
       hit = true;
     }
     if (hit) await _saveRecords(list);
+    });
   }
 
   /// 실손24 연계 결과만 한 번에 저장 (그사이 다른 곳에서 바뀐 내용은 그대로 둔다)
   static Future<void> saveSilson(List<MedRecord> changed) async {
+    return _locked(() async {
     if (changed.isEmpty) return;
     final byId = {for (final r in changed) r.id: r};
     final list = await records();
@@ -120,15 +133,18 @@ class AppStorage {
         ..silsonP = c.silsonP;
     }
     await _saveRecords(list);
+    });
   }
 
   static Future<void> deleteRecord(String id) async {
+    return _locked(() async {
     final list = await records();
     for (final r in list.where((x) => x.id == id)) {
       _deletePhotos(r);
     }
     list.removeWhere((x) => x.id == id);
     await _saveRecords(list);
+    });
   }
 
   /// 기록을 지울 때 찍어둔 사진 파일도 지운다
@@ -143,11 +159,31 @@ class AppStorage {
   /// 병원·약국 위치가 없는 기록에 심평원 정보로 위치·주소·코드를 채워 저장한다.
   /// [childId]를 주면 그 복용자 기록만. 바뀐 기록 수를 돌려준다.
   static Future<int> fillPlaces({String? childId, void Function(int, int)? onProgress}) async {
+    // 위치 찾기는 오래 걸리므로 복사본으로 하고, 저장할 때는 최신 기록에 위치 정보만 옮겨 적는다
+    // (그사이 저장된 안전 확인·실손24 결과를 옛 목록으로 덮어쓰지 않도록)
     final list = await records();
     final mine = childId == null ? list : list.where((r) => r.childId == childId).toList();
     final n = await place.fillPlaces(DurApi(await apiKey()), mine, onProgress: onProgress);
     if (n > 0) {
-      await _saveRecords(list);
+      await _locked(() async {
+        final byId = {for (final r in mine) r.id: r};
+        final fresh = await records();
+        for (final r in fresh) {
+          final c = byId[r.id];
+          if (c == null) continue;
+          r
+            ..hospital = c.hospital
+            ..hospitalAddr = c.hospitalAddr
+            ..hospitalCode = c.hospitalCode
+            ..hospitalPos = c.hospitalPos
+            ..pharmacy = c.pharmacy
+            ..pharmacyAddr = c.pharmacyAddr
+            ..pharmacyCode = c.pharmacyCode
+            ..pharmacyPos = c.pharmacyPos
+            ..inHouse = c.inHouse;
+        }
+        await _saveRecords(fresh);
+      });
       placesChanged.value++;
     }
     return n;
@@ -160,6 +196,7 @@ class AppStorage {
   /// 같은 사람의 기록에서 같은 이름은 같은 곳으로 본다.
   static Future<int> applyPlace(String childId, String name,
       {required bool pharmacy, required PlaceHit hit}) async {
+    return _locked(() async {
     String n(String x) => x.replaceAll(RegExp(r'\s'), '');
     final list = await records();
     var count = 0;
@@ -182,10 +219,12 @@ class AppStorage {
     }
     if (count > 0) await _saveRecords(list);
     return count;
+    });
   }
 
   /// 불러온 처방을 기록으로 저장. 이미 불러온 것은 건너뛴다. (새로 만든 수, 건너뛴 수)
   static Future<(int, int)> importVisits(String childId, List<ImportedVisit> visits) async {
+    return _locked(() async {
     final list = await records();
     final have = {
       for (final r in list)
@@ -234,10 +273,12 @@ class AppStorage {
     }
     await _saveRecords(list);
     return (added, skipped);
+    });
   }
 
   /// 아이를 지우면 그 아이의 기록(처방·반응)도 지운다.
   static Future<void> deleteRecordsOfChild(String childId) async {
+    return _locked(() async {
     final list = await records();
     for (final r in list.where((x) => x.childId == childId)) {
       _deletePhotos(r);
@@ -247,6 +288,7 @@ class AppStorage {
     final notes = await _allReactions();
     notes.removeWhere((x) => x.childId == childId);
     await _saveReactions(notes);
+    });
   }
 
   static Future<List<ReactionNote>> _allReactions() async {

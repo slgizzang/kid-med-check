@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kid_med_check/logic/models.dart';
 import 'package:kid_med_check/logic/recall.dart';
+import 'package:kid_med_check/logic/snapshot.dart';
+import 'package:kid_med_check/logic/storage.dart';
 import 'package:kid_med_check/main.dart';
 import 'package:kid_med_check/screens/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -117,5 +119,33 @@ void main() {
     expect(rec(h: 'off', p: 'on').claimLevel, 2);
     final back = MedRecord.fromJson(rec(h: 'on', p: 'off').toJson());
     expect((back.silsonH, back.silsonP), ('on', 'off'));
+  });
+
+  test('기록 저장: 동시에 저장해도 안전 확인 결과와 실손24 결과가 서로 지워지지 않는다', () async {
+    SharedPreferences.setMockInitialValues({});
+    final recs = [
+      for (var i = 0; i < 5; i++)
+        MedRecord(id: 'r$i', childId: 'c', title: 't', createdAt: DateTime(2026, 9, 1), drugs: ['약$i'])
+    ];
+    for (final r in recs) {
+      await AppStorage.saveRecord(r);
+    }
+    final snap = ResultSnapshot(
+        at: DateTime(2026, 9, 2), drugs: const [], mixPairs: const [], pregnant: false, nursing: false);
+    final copies = [
+      for (final r in recs)
+        MedRecord(id: r.id, childId: 'c', title: 't', createdAt: r.createdAt, drugs: r.drugs)
+          ..silsonH = 'on'
+    ];
+    await Future.wait([
+      for (final r in recs) AppStorage.saveSnapshot(r.id, snap),
+      AppStorage.saveSilson(copies),
+    ]);
+    final saved = await AppStorage.records();
+    expect(saved.length, 5);
+    for (final r in saved) {
+      expect(r.last, isNotNull);
+      expect(r.silsonH, 'on');
+    }
   });
 }
