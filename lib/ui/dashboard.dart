@@ -364,7 +364,8 @@ class _Tile extends StatelessWidget {
                       ? Text('$count$unit',
                           style: TextStyle(
                               color: fg, fontWeight: FontWeight.w800, fontSize: 24))
-                      : Icon(Icons.check_rounded, color: fg, size: 28),
+                      : Text('없음',
+                          style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 20)),
             ),
           ),
         ],
