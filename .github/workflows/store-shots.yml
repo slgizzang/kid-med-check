@@ -1,0 +1,41 @@
+name: store-shots
+
+# 플레이 스토어용 화면 캡처 (예시 데이터) → store-shots 브랜치에 올림
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: 캡처
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter test test_store 2>&1 | tee shots.log
+      - name: 실패 보고
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo '```'; grep -E "Error|error|Exception" -A4 shots.log | head -n 80; echo '---'; tail -n 60 shots.log; echo '```'; } > fail.md
+          gh issue create --repo "${{ github.repository }}" --title "스토어 캡처 실패" --body-file fail.md
+      - name: 올리기
+        if: always()
+        run: |
+          ls -la build/store || true
+          git config user.name ci; git config user.email ci@users.noreply.github.com
+          git checkout --orphan store-shots
+          git rm -rfq --cached . >/dev/null
+          git add -f build/store/*.png shots.log 2>/dev/null || true
+          git commit -qm "store shots" && git push -f origin store-shots || true
