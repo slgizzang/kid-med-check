@@ -67,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _scroll.addListener(_onScroll);
     _load();
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(milliseconds: 800), () {
       if (mounted) setState(() => _autoReady = true);
     });
     _backfillPlaces();
@@ -666,7 +666,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ];
 
   /// 동시에 확인하는 기록 수 (식약처 서버에 한꺼번에 너무 많이 묻지 않을 만큼)
-  static const _autoParallel = 5;
+  static const _autoParallel = 6;
   final Map<String, Timer> _autoTimers = {};
 
   List<Widget> _autoCheckers() {

@@ -511,6 +511,7 @@ class DurApi {
   /// 조회 결과 캐시 (같은 약을 다시 확인할 때 서버를 다시 부르지 않음).
   /// 식약처 자료는 자주 바뀌지 않아 7일간 휴대폰에 보관한다. 테스트(가짜 client)에서는 끔.
   static final Map<String, List<Map<String, dynamic>>> _memCache = {};
+  static final Map<String, Future<List<Map<String, dynamic>>>> _inFlight = {};
   static const _cacheTtl = Duration(days: 7);
   /// 예전 버전이 설정 저장소에 쓰던 조회 결과 키 앞부분 (앱 시작 때 지운다)
   static const legacyCachePrefix = 'api1:';
@@ -518,18 +519,26 @@ class DurApi {
   Future<List<Map<String, dynamic>>> _fetchItems(
       String path, Map<String, String> filters, int rows) async {
     final cacheKey = '$path?${(filters.entries.toList()..sort((a, b) => a.key.compareTo(b.key))).map((e) => '${e.key}=${e.value}').join('&')}&n=$rows';
-    if (_useCache) {
-      final hit = _memCache[cacheKey];
-      if (hit != null) return hit;
+    if (!_useCache) return _fetchRemote(path, filters, rows);
+    final hit = _memCache[cacheKey];
+    if (hit != null) return hit;
+    // 같은 조회가 이미 진행 중이면 (여러 기록에 같은 약이 있을 때) 그 결과를 함께 기다린다
+    final running = _inFlight[cacheKey];
+    if (running != null) return running;
+    final f = () async {
       final saved = await _readDisk(cacheKey);
       if (saved != null) return _memCache[cacheKey] = saved;
-    }
-    final result = await _fetchRemote(path, filters, rows);
-    if (_useCache) {
+      final result = await _fetchRemote(path, filters, rows);
       _memCache[cacheKey] = result;
       _writeDisk(cacheKey, result);
+      return result;
+    }();
+    _inFlight[cacheKey] = f;
+    try {
+      return await f;
+    } finally {
+      _inFlight.remove(cacheKey);
     }
-    return result;
   }
 
   /// 기간이 지난 조회 결과를 휴대폰에서 지운다 (앱을 켤 때 한 번).
