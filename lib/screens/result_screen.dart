@@ -12,6 +12,7 @@ import '../logic/models.dart';
 import '../logic/reaction.dart';
 import '../logic/recall.dart';
 import '../logic/snapshot.dart';
+import '../logic/dose.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart';
 import '../ui/record_header.dart';
@@ -858,7 +859,7 @@ class _CheckCard extends StatelessWidget {
               KText(check.error ?? ''),
               TextButton(onPressed: onRetry, child: const KText('다시 시도')),
             ],
-            _InfoView(check: check),
+            _InfoView(check: check, age: age),
             if (groups.isNotEmpty) ...[
               const SizedBox(height: 12),
               if (groups.length > 1)
@@ -1085,9 +1086,12 @@ class _IngredientView extends StatelessWidget {
 
 /// 어떤 약인지 간단한 설명
 class _InfoView extends StatelessWidget {
-  const _InfoView({required this.check});
+  const _InfoView({required this.check, required this.age});
 
   final DrugCheck check;
+
+  /// 복용자 나이(개월) — 설명서 용량 중 이 나이에 맞는 것만 보여준다
+  final int age;
 
   static String _firstSentences(String text, int maxLen) {
     if (text.length <= maxLen) return text;
@@ -1176,6 +1180,7 @@ class _InfoView extends StatelessWidget {
           row('구분', etc.isEmpty ? '정보 없음' : etc, bold: true),
           row('효능', efficacy),
           row('성분', ingredient.isEmpty ? '정보 없음' : ingredient),
+          if (doseFor(info.usage, age) case final dose?) row('용량', dose),
         ],
       ),
     );
@@ -1188,8 +1193,8 @@ class _Sources extends StatelessWidget {
 
   static const _items = [
     ('의약품안전사용서비스(DUR) 품목·성분 정보', '연령금기, 임부금기, 병용금기'),
-    ('의약품개요정보(e약은요)', '효능, 설명서의 사용 연령, 수유부 주의'),
-    ('의약품 제품 허가정보', '성분, 전문·일반 구분, 설명서(효능·주의사항)'),
+    ('의약품개요정보(e약은요)', '효능, 용량, 설명서의 사용 연령, 수유부 주의'),
+    ('의약품 제품 허가정보', '성분, 전문·일반 구분, 설명서(효능·용량·주의사항)'),
     ('의약품 회수·판매중지 정보', '회수된 약'),
     ('심평원 투약이력 · 의약품안전나라 안전성 서한', '식약처 주의 알림'),
   ];
