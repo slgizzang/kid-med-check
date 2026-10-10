@@ -270,16 +270,16 @@ class _NoteTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 금기 타일과 같은 규칙: 없으면 초록, 있으면 빨강
     final hit = count > 0;
-    final fg = hit ? _orange : const Color(0xFF6B7A75);
+    final fg = hit ? _red : _green;
     return GestureDetector(
       onTap: () => _showInfo(context, label, info),
       child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: hit ? _orangeBg : Colors.white,
+        color: hit ? _redBg : _greenBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: hit ? _orangeBg : AppColors.line),
       ),
       child: Row(children: [
         Icon(icon, size: 16, color: fg),
@@ -330,12 +330,9 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hit = count > 0 && !notApplicable;
-    final fg = notApplicable
-        ? const Color(0xFF8A9691)
-        : (hit ? (soft ? _orange : _red) : _green);
-    final bg = notApplicable
-        ? const Color(0xFFF1F4F3)
-        : (hit ? (soft ? _orangeBg : _redBg) : _greenBg);
+    // 모든 타일 같은 규칙: 해당 없음은 회색, 없으면 초록, 있으면 빨강
+    final fg = notApplicable ? const Color(0xFF8A9691) : (hit ? _red : _green);
+    final bg = notApplicable ? const Color(0xFFF1F4F3) : (hit ? _redBg : _greenBg);
     return GestureDetector(
       onTap: () => _showInfo(context, label, info),
       child: Container(
