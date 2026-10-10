@@ -247,21 +247,37 @@ class SafetyTiles extends StatelessWidget {
   }
 }
 
-const _infoAge = '이 나이에는 쓰면 안 된다고 식약처가 정한 약이에요 (DUR 특정연령대 금기). '
-    '해당하는 약이 있으면 임의로 끊지 말고 처방한 의사나 약사에게 먼저 확인하세요.';
-const _infoPreg = '임신 중에 먹으면 태아에게 해로울 수 있어 쓰지 않도록 정한 약(임부금기)과, '
-    '수유 중에 주의가 필요한 약이에요. 임신·수유 중으로 등록한 복용자에게만 확인해요.';
-const _infoMix = '함께 먹으면 부작용이 커지거나 약효가 달라져서 같이 쓰면 안 된다고 정한 약의 조합이에요 (DUR 병용금기).';
-const _infoRecall = '품질 문제 등으로 제조사나 식약처가 회수한 약이에요. 회수는 보통 특정 제조번호만 해당하고 복용 금기는 아니에요. '
-    '집에 남은 약이 있으면 약국에서 회수 대상인지 확인하세요.';
-const _infoLetter = '새로 알려진 부작용 등을 식약처가 의사·약사에게 알린 안전성 서한이 있었던 약이에요. '
-    '복용 금기는 아니고 참고 정보예요.';
-
-const _infoLabel = '약 설명서에 적힌 사용 연령보다 어린 경우예요. 연령금기는 아니고, '
-    '사용 연령 전이라도 의사 판단으로 처방될 수 있어요. 궁금하면 처방한 의사나 약사에게 물어보세요.';
+// 설명은 문장 하나씩 줄을 나눠 보여준다 (이어 쓰면 문장 중간에서 어색하게 끊긴다)
+const _infoAge = [
+  '이 나이에 쓰면 안 된다고 식약처가 정한 약이에요.',
+  '해당하는 약이 있으면 임의로 끊지 말고 의사나 약사에게 먼저 확인하세요.',
+];
+const _infoPreg = [
+  '임신 중에 먹으면 태아에게 해로울 수 있는 약(임부금기)이에요.',
+  '수유 중에 주의가 필요한 약도 함께 알려줘요.',
+  '임신·수유 중으로 등록한 복용자만 해당돼요.',
+];
+const _infoMix = [
+  '함께 먹으면 부작용이 커지거나 약효가 달라질 수 있는 약의 조합이에요.',
+  '같이 처방됐다면 의사나 약사에게 확인하세요.',
+];
+const _infoRecall = [
+  '품질 문제 등으로 제조사나 식약처가 회수한 약이에요.',
+  '보통 특정 제조번호만 해당하고, 복용 금기는 아니에요.',
+  '남은 약이 있으면 약국에서 회수 대상인지 확인하세요.',
+];
+const _infoLetter = [
+  '새로 알려진 부작용 등을 식약처가 의사·약사에게 알린 약이에요.',
+  '복용 금기는 아니고 참고 정보예요.',
+];
+const _infoLabel = [
+  '약 설명서에 적힌 사용 연령보다 어린 경우예요.',
+  '연령금기는 아니고, 의사 판단으로 처방될 수 있어요.',
+  '궁금하면 의사나 약사에게 물어보세요.',
+];
 
 /// 타일을 누르면 이 항목이 무엇인지 짧게 알려준다
-void _showInfo(BuildContext context, String title, String body,
+void _showInfo(BuildContext context, String title, List<String> body,
     {List<(MedRecord, String)> items = const [], ValueChanged<MedRecord>? onOpen}) {
   showDialog<void>(
     context: context,
@@ -271,7 +287,11 @@ void _showInfo(BuildContext context, String title, String body,
         width: double.maxFinite,
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            KText(body, flow: true, style: const TextStyle(fontSize: 15, height: 1.55)),
+            for (var i = 0; i < body.length; i++)
+              Padding(
+                padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
+                child: KText(body[i], style: const TextStyle(fontSize: 15, height: 1.5)),
+              ),
             if (items.isNotEmpty) ...[
               const SizedBox(height: 14),
               const Divider(height: 1),
@@ -372,7 +392,7 @@ class _NoteTile extends StatelessWidget {
   final String label;
   final int count;
   final IconData icon;
-  final String info;
+  final List<String> info;
 
   @override
   Widget build(BuildContext context) {
@@ -419,7 +439,7 @@ class _Tile extends StatelessWidget {
   });
 
   /// 눌렀을 때 보여줄 설명
-  final String info;
+  final List<String> info;
   final List<(MedRecord, String)> items;
   final ValueChanged<MedRecord>? onOpen;
 
