@@ -400,7 +400,7 @@ Widget _outlineTile(
   return Container(
     decoration: BoxDecoration(
       borderRadius: r,
-      boxShadow: [BoxShadow(color: accent.withAlpha(28), blurRadius: 14, offset: const Offset(0, 5))],
+      boxShadow: [BoxShadow(color: accent.withAlpha(18), blurRadius: 10, spreadRadius: -2, offset: const Offset(0, 3))],
     ),
     child: Material(
       color: Colors.white,
