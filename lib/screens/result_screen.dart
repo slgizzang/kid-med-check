@@ -781,6 +781,20 @@ class _CheckCard extends StatelessWidget {
       icon = Icons.dangerous_outlined;
       label = check.hasMix ? '병용금기' : '임부금기';
     }
+    // 오른쪽 위 표시는 문제가 있을 때만 (금기·회수·식약처 알림 등). '…없음'은 보여주지 않는다
+    final fine = label.endsWith('없음');
+    var showChip = !fine;
+    if (fine && recall != null) {
+      showChip = true;
+      bg = const Color(0xFFFDE7E7);
+      fg = const Color(0xFFC62828);
+      label = '회수된 약';
+    } else if (fine && letter != null) {
+      showChip = true;
+      bg = const Color(0xFFFDE7E7);
+      fg = const Color(0xFFC62828);
+      label = '식약처 주의 알림';
+    }
     // 사용자에게 해당하는 연령금기만 보여준다 (해당 없는 건 설명하지 않음)
     final groups = _IngredientGroup.from(check.rows, age)
         .where((g) => g.applies == true || (g.applies == null && !adult))
@@ -827,6 +841,7 @@ class _CheckCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (showChip)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
