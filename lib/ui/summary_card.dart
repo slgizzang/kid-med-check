@@ -83,6 +83,15 @@ class SafetySummaryCard extends StatelessWidget {
       }
     }
     // 수유부 주의만 있으면 금기가 아니라 주의(주황)로 본다
+    // 사용 연령 확인(금기 아님)이 있는 기록과 약
+    final labelList = <(MedRecord, String)>[
+      for (final r in checked)
+        if (r.last!.drugs.where((d) => d.labelNote != null && !d.isDanger).isNotEmpty)
+          (
+            r,
+            r.last!.drugs.where((d) => d.labelNote != null && !d.isDanger).map((d) => d.title).join(', ')
+          )
+    ];
     final hard = ageN + mixN + (person.pregnant ? pregN : 0) + allergyN;
     final issues = hard + letterCount + recallCount + (person.pregnant ? 0 : pregN);
     final busy = checking > 0;
@@ -155,11 +164,16 @@ class SafetySummaryCard extends StatelessWidget {
             mix: mixN,
             recall: recallCount,
             letter: letterCount,
-            label: [
-              for (final r in checked)
-                for (final d in r.last!.drugs)
-                  if (d.labelNote != null && !d.isDanger) d
-            ].length,
+            label: labelList.fold(0, (n, e) => n + e.$2.split(', ').length),
+            lists: {
+              '연령금기': age,
+              '임부·수유부 금기': preg,
+              '병용금기': mix,
+              '회수된 약': recallRecords,
+              '식약처 주의 알림': letterRecords,
+              '사용 연령 확인': labelList,
+            },
+            onOpen: onOpen,
           ),
         ],
         if (lines.isNotEmpty) ...[

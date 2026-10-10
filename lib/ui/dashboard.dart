@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../logic/models.dart';
+import '../logic/recall.dart' show recallRecordLabel;
 import '../logic/snapshot.dart';
 import 'theme.dart';
 
@@ -160,6 +161,8 @@ class SafetyTiles extends StatelessWidget {
     required this.recall,
     required this.letter,
     this.label = 0,
+    this.lists = const {},
+    this.onOpen,
     this.pregApplicable = true,
     this.pregSoft = false,
   });
@@ -168,6 +171,10 @@ class SafetyTiles extends StatelessWidget {
 
   /// 설명서상 사용 연령 전인 약 (금기 아님)
   final int label;
+
+  /// 항목 이름 → 해당 기록 목록 (메인 화면 전체 요약에서만). 설명 창 아래에 보여주고 누르면 그 기록으로.
+  final Map<String, List<(MedRecord, String)>> lists;
+  final ValueChanged<MedRecord>? onOpen;
 
   /// 임신·수유 중이 아니면 '대상 아님'
   final bool pregApplicable;
@@ -188,16 +195,22 @@ class SafetyTiles extends StatelessWidget {
         );
     return Column(children: [
       row([
-        _Tile(label: '연령금기', count: age, icon: Icons.child_care, info: _infoAge),
+        _Tile(label: '연령금기',
+            items: lists['연령금기'] ?? const [],
+            onOpen: onOpen, count: age, icon: Icons.child_care, info: _infoAge),
         _Tile(
             label: '임부·수유부 금기',
+            items: lists['임부·수유부 금기'] ?? const [],
+            onOpen: onOpen,
             count: preg,
             icon: Icons.pregnant_woman,
             notApplicable: !pregApplicable,
             soft: pregSoft,
             info: _infoPreg),
         _Tile(
-            label: '병용금기', count: mix, unit: '쌍', icon: Icons.compare_arrows, info: _infoMix),
+            label: '병용금기',
+            items: lists['병용금기'] ?? const [],
+            onOpen: onOpen, count: mix, unit: '쌍', icon: Icons.compare_arrows, info: _infoMix),
       ]),
       // 회수·주의 알림은 복용 금기가 아니라 참고 사항 — 한 단계 낮게(작고 옅게) 보여준다
       const SizedBox(height: 12),
@@ -210,16 +223,22 @@ class SafetyTiles extends StatelessWidget {
       row([
         _NoteTile(
             label: '회수된 약',
+            items: lists['회수된 약'] ?? const [],
+            onOpen: onOpen,
             count: recall,
             icon: Icons.assignment_return_outlined,
             info: _infoRecall),
         _NoteTile(
             label: '식약처 주의 알림',
+            items: lists['식약처 주의 알림'] ?? const [],
+            onOpen: onOpen,
             count: letter,
             icon: Icons.campaign_outlined,
             info: _infoLetter),
         _NoteTile(
             label: '사용 연령 확인',
+            items: lists['사용 연령 확인'] ?? const [],
+            onOpen: onOpen,
             count: label,
             icon: Icons.menu_book_outlined,
             info: _infoLabel),
@@ -242,21 +261,114 @@ const _infoLabel = '약 설명서에 적힌 사용 연령보다 어린 경우예
     '사용 연령 전이라도 의사 판단으로 처방될 수 있어요. 궁금하면 처방한 의사나 약사에게 물어보세요.';
 
 /// 타일을 누르면 이 항목이 무엇인지 짧게 알려준다
-void _showInfo(BuildContext context, String title, String body) {
+void _showInfo(BuildContext context, String title, String body,
+    {List<(MedRecord, String)> items = const [], ValueChanged<MedRecord>? onOpen}) {
   showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: KText(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-      content: KText(body, flow: true, style: const TextStyle(fontSize: 15, height: 1.55)),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const KText('확인'))],
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            KText(body, flow: true, style: const TextStyle(fontSize: 15, height: 1.55)),
+            if (items.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              KText('해당 기록 ${items.length}건',
+                  maxLines: 1,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.ink)),
+              const SizedBox(height: 4),
+              _InfoList(items: items, onOpen: onOpen == null
+                  ? null
+                  : (r) {
+                      Navigator.pop(ctx);
+                      onOpen(r);
+                    }),
+            ],
+          ]),
+        ),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const KText('닫기'))],
     ),
   );
+}
+
+/// 설명 창 안의 해당 기록 목록: 3건이 넘으면 접어 두고 펼쳐 본다. 누르면 그 기록의 안전 확인 결과로.
+class _InfoList extends StatefulWidget {
+  const _InfoList({required this.items, this.onOpen});
+  final List<(MedRecord, String)> items;
+  final ValueChanged<MedRecord>? onOpen;
+
+  @override
+  State<_InfoList> createState() => _InfoListState();
+}
+
+class _InfoListState extends State<_InfoList> {
+  static const _folded = 3;
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = widget.items;
+    final more = items.length > _folded;
+    final shown = !more || _open ? items : items.take(_folded).toList();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (final (r, what) in shown)
+        InkWell(
+          onTap: widget.onOpen == null ? null : () => widget.onOpen!(r),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  KText(recallRecordLabel(r),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.ink)),
+                  KText(what,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12.5, color: AppColors.sub)),
+                ]),
+              ),
+              if (widget.onOpen != null)
+                const Icon(Icons.chevron_right, size: 20, color: AppColors.sub),
+            ]),
+          ),
+        ),
+      if (more)
+        InkWell(
+          onTap: () => setState(() => _open = !_open),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(children: [
+              KText(_open ? '접기' : '${items.length - _folded}건 더 보기',
+                  maxLines: 1,
+                  style: const TextStyle(
+                      fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.primaryDark)),
+              Icon(_open ? Icons.expand_less : Icons.expand_more,
+                  size: 20, color: AppColors.primaryDark),
+            ]),
+          ),
+        ),
+    ]);
+  }
 }
 
 /// 참고 사항 타일 (회수·주의 알림): 금기 타일보다 작고 옅게, 한 줄로
 class _NoteTile extends StatelessWidget {
   const _NoteTile(
-      {required this.label, required this.count, required this.icon, required this.info});
+      {required this.label,
+      required this.count,
+      required this.icon,
+      required this.info,
+      this.items = const [],
+      this.onOpen});
+  final List<(MedRecord, String)> items;
+  final ValueChanged<MedRecord>? onOpen;
   final String label;
   final int count;
   final IconData icon;
@@ -268,7 +380,7 @@ class _NoteTile extends StatelessWidget {
     final hit = count > 0;
     final fg = hit ? _red : _green;
     return GestureDetector(
-      onTap: () => _showInfo(context, label, info),
+      onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen),
       child: Container(
       padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
       decoration: BoxDecoration(
@@ -302,10 +414,14 @@ class _Tile extends StatelessWidget {
     this.notApplicable = false,
     this.soft = false,
     required this.info,
+    this.items = const [],
+    this.onOpen,
   });
 
   /// 눌렀을 때 보여줄 설명
   final String info;
+  final List<(MedRecord, String)> items;
+  final ValueChanged<MedRecord>? onOpen;
 
   final String label;
   final int count;
@@ -325,7 +441,7 @@ class _Tile extends StatelessWidget {
     final fg = notApplicable ? const Color(0xFF8A9691) : (hit ? _red : _green);
     final bg = notApplicable ? const Color(0xFFF1F4F3) : (hit ? _redBg : _greenBg);
     return GestureDetector(
-      onTap: () => _showInfo(context, label, info),
+      onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen),
       child: Container(
       padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),

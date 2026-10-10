@@ -16,6 +16,7 @@ import '../logic/dose.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart';
 import '../ui/record_header.dart';
+import '../ui/sources_note.dart';
 import '../ui/reaction_sheet.dart';
 import '../ui/theme.dart';
 
@@ -536,7 +537,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 onRetry: () => _retry(c),
                 onPick: (name) => _pick(c, name)),
           const SizedBox(height: 16),
-          const _Sources(),
+          const SourcesNote(),
         ],
       );
     // 기록에서 열었으면 기록 화면과 같은 초록 띠로 어느 병원·언제 처방인지 보여준다
@@ -1211,47 +1212,3 @@ class _InfoView extends StatelessWidget {
   }
 }
 
-/// 화면 맨 아래 출처 (항목마다 한 줄씩, 어색하게 끊기지 않도록)
-class _Sources extends StatelessWidget {
-  const _Sources();
-
-  static const _items = [
-    ('의약품안전사용서비스(DUR) 품목·성분 정보', '연령금기, 임부금기, 병용금기'),
-    ('의약품개요정보(e약은요)', '효능, 용량, 설명서의 사용 연령, 수유부 주의'),
-    ('의약품 제품 허가정보', '성분, 전문·일반 구분, 설명서(효능·용량·주의사항)'),
-    ('의약품 회수·판매중지 정보', '회수된 약'),
-    ('심평원 투약이력 · 의약품안전나라 안전성 서한', '식약처 주의 알림'),
-  ];
-
-  static Widget _fit(String t, TextStyle style) => FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Text(t, maxLines: 1, softWrap: false, style: style),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    const small = TextStyle(fontSize: 12, color: AppColors.sub, height: 1.5);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const KText('출처: 식품의약품안전처·건강보험심사평가원 공공데이터',
-            style: TextStyle(fontSize: 12, color: AppColors.sub, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        // 출처 이름 한 줄, 쓰는 항목은 다음 줄에 (각각 한 줄에 맞춤)
-        for (final (name, use) in _items) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: _fit('· $name', small),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 10),
-            child: _fit(': $use', small),
-          ),
-        ],
-        const SizedBox(height: 8),
-        const KText('이 앱은 참고용이며 의학적 판단을 대신하지 않아요.', style: small),
-      ],
-    );
-  }
-}

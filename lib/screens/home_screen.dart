@@ -9,6 +9,7 @@ import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
 import '../ui/recall_card.dart';
 import '../ui/claim_summary.dart';
+import '../ui/sources_note.dart';
 import '../ui/summary_card.dart';
 import '../ui/theme.dart';
 import 'child_edit_screen.dart';
@@ -888,35 +889,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ]),
       );
 
-  Widget _notice() => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.mint,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: const Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.info_outline, color: AppColors.sub, size: 20),
-            SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _OneLine('출처:', bold: true),
-                  _OneLine('의약품안전사용서비스(DUR)'),
-                  _OneLine('e약은요'),
-                  _OneLine('의약품 제품 허가정보'),
-                  _OneLine('식약처 의약품 회수·판매중지 정보'),
-                  _OneLine('심평원 투약이력 (안전성 서한)'),
-                  SizedBox(height: 6),
-                  _OneLine('경고가 나와도 임의로 끊지 말고 약사·의사와 상의하세요.'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
+  Widget _notice() => const SourcesNote();
 }
 
 class _ChildCard extends StatelessWidget {
@@ -1220,25 +1193,6 @@ class _EmptyBox extends StatelessWidget {
           borderRadius: BorderRadius.circular(18), onTap: onTap, child: box),
     );
   }
-}
-
-const _noticeStyle = TextStyle(fontSize: 12, color: Color(0xFF4E5968), height: 1.45);
-
-/// 한 줄에 다 들어가게 (화면이 좁으면 글자를 살짝 줄임)
-class _OneLine extends StatelessWidget {
-  const _OneLine(this.text, {this.bold = false});
-  final String text;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) => FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Text(text,
-            maxLines: 1,
-            softWrap: false,
-            style: bold ? _noticeStyle.copyWith(fontWeight: FontWeight.w700) : _noticeStyle),
-      );
 }
 
 /// 약국 구입약(일반의약품) 색
