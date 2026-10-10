@@ -5,9 +5,12 @@ import 'theme.dart';
 
 /// 메인 화면: 실손24로 서류 없이 바로 청구할 수 있는 기록을 한눈에 (아직 청구 안 한 것, 청구 기한 3년 안)
 class ClaimSummaryCard extends StatelessWidget {
-  const ClaimSummaryCard({super.key, required this.records, this.onOpen});
+  const ClaimSummaryCard({super.key, required this.records, this.onOpen, this.checking = false});
 
   final List<MedRecord> records;
+
+  /// 실손24 연계를 아직 확인 중이면 결과 대신 '확인 중'만 보여준다 (다 끝나면 한 번에)
+  final bool checking;
   final ValueChanged<MedRecord>? onOpen;
 
   static const _maxRows = 5;
@@ -21,6 +24,28 @@ class ClaimSummaryCard extends StatelessWidget {
     ];
     final all = [for (final r in recent) if (r.claimLevel == 0 && !r.fullyClaimed) r];
     final hospOnly = [for (final r in recent) if (r.claimLevel == 1 && !r.claimed) r];
+    if (checking) {
+      final any = recent.any((r) => !r.fullyClaimed && r.hospitalName.isNotEmpty);
+      if (!any) return const SizedBox.shrink();
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: const Row(children: [
+          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.2)),
+          SizedBox(width: 10),
+          Expanded(
+            child: KText('실손24 서류 없이 청구 가능한 기록을 찾고 있어요',
+                maxLines: 1, style: TextStyle(fontSize: 13.5, color: AppColors.sub)),
+          ),
+        ]),
+      );
+    }
     if (all.isEmpty && hospOnly.isEmpty) return const SizedBox.shrink();
     return Container(
       width: double.infinity,

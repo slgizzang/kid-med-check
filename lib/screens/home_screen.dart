@@ -65,7 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _load();
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _autoReady = true);
-      _runSilson();
     });
     _backfillPlaces();
     AppStorage.placesChanged.addListener(_onPlaces);
@@ -108,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _loading = false;
     });
     _loadRecalls(key);
-    if (_autoReady) _runSilson();
+    _runSilson();
   }
 
   /// 식약처 회수 목록 (하루 한 번 받음)
@@ -350,7 +349,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           checking: _pending.length,
                         ),
                       if (_selected != null && kShowSilson24)
-                        ClaimSummaryCard(records: _myRecords, onOpen: _openRecord),
+                        ClaimSummaryCard(
+                            records: _myRecords, checking: !_silsonDone, onOpen: _openRecord),
                       if (_selected != null && !_selecting) ...[
                         const SectionTitle('기록 추가'),
                         _addRow(),
@@ -679,7 +679,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// 기록 카드의 실손보험 청구 표시 (청구를 아직 안 한 것만)
   (String, Color, Color)? _claimChip(MedRecord r) {
-    if (!kShowSilson24 || r.otc) return null;
+    if (!kShowSilson24 || r.otc || !_silsonDone) return null;
     if (r.fullyClaimed && r.claimLevel != null) {
       return ('실손 청구 완료', AppColors.sub, const Color(0xFFF1F3F5));
     }
@@ -690,50 +690,47 @@ class _HomeScreenState extends State<HomeScreen> {
     };
   }
 
-  /// 실손24 연계 여부를 뒤에서 기록마다 확인해 기록에 적는다 (청구 기한 3년 안, 아직 청구 안 한 것만)
+  /// 실손24 연계 여부를 뒤에서 한꺼번에 확인해 기록에 적는다 (청구 기한 3년 안, 아직 청구 안 한 것만).
+  /// 확인이 다 끝난 뒤에 한 번에 보여준다 (하나씩 올라오면 헷갈리므로).
   bool _silsonRunning = false;
+  bool _silsonDone = false;
   final Set<String> _silsonTried = {};
+
+  bool _needsSilson(MedRecord r, DateTime cutoff) {
+    if (r.otc || r.fullyClaimed || _silsonTried.contains(r.id)) return false;
+    if (!r.createdAt.isAfter(cutoff) || r.hospitalName.isEmpty) return false;
+    final needPharm = r.silsonH == 'on' && !r.inHouse && r.pharmacy.isNotEmpty && r.silsonP.isEmpty;
+    return r.silsonH.isEmpty || needPharm;
+  }
 
   Future<void> _runSilson() async {
     if (_silsonRunning || !kShowSilson24) return;
+    final cutoff = DateTime.now().subtract(const Duration(days: 365 * 3));
+    final todo = [for (final r in _records) if (_needsSilson(r, cutoff)) r];
+    if (todo.isEmpty) {
+      if (!_silsonDone && mounted) setState(() => _silsonDone = true);
+      return;
+    }
     _silsonRunning = true;
+    if (mounted) setState(() => _silsonDone = false);
     try {
-      while (mounted) {
-        final cutoff = DateTime.now().subtract(const Duration(days: 365 * 3));
-        MedRecord? next;
-        for (final r in _records) {
-          if (r.otc || r.fullyClaimed || _silsonTried.contains(r.id)) continue;
-          if (!r.createdAt.isAfter(cutoff) || r.hospitalName.isEmpty) continue;
-          final needPharm =
-              r.silsonH == 'on' && !r.inHouse && r.pharmacy.isNotEmpty && r.silsonP.isEmpty;
-          if (r.silsonH.isEmpty || needPharm) {
-            next = r;
-            break;
-          }
-        }
-        if (next == null) break;
-        _silsonTried.add(next.id);
-        final changed = await updateRecordSilson(next)
-            .timeout(const Duration(seconds: 40), onTimeout: () => false);
-        if (!changed) continue;
-        // 그사이 다른 곳에서 바뀐 내용을 덮어쓰지 않도록 저장된 기록에 연계 결과만 옮겨 적는다
-        final saved = (await AppStorage.records()).where((x) => x.id == next!.id);
-        if (saved.isNotEmpty) {
-          final cur = saved.first
-            ..silsonH = next.silsonH
-            ..silsonP = next.silsonP;
-          await AppStorage.saveRecord(cur);
-        }
-        for (final x in _records.where((x) => x.id == next!.id)) {
+      _silsonTried.addAll(todo.map((r) => r.id));
+      final changed = await updateRecordsSilson(todo);
+      await AppStorage.saveSilson(changed);
+      // 그사이 목록을 다시 읽었으면 새 목록의 같은 기록에도 옮겨 적는다
+      final byId = {for (final c in changed) c.id: c};
+      for (final x in _records) {
+        final c = byId[x.id];
+        if (c != null) {
           x
-            ..silsonH = next.silsonH
-            ..silsonP = next.silsonP;
+            ..silsonH = c.silsonH
+            ..silsonP = c.silsonP;
         }
-        if (mounted) setState(() {});
       }
     } catch (_) {
     } finally {
       _silsonRunning = false;
+      if (mounted) setState(() => _silsonDone = true);
     }
   }
 

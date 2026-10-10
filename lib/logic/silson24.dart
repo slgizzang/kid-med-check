@@ -419,3 +419,79 @@ Future<bool> updateRecordSilson(MedRecord r, {Silson24? api}) async {
   }
   return changed;
 }
+
+
+/// 여러 기록의 실손24 연계를 한꺼번에 확인한다.
+/// 같은 병원·약국은 한 번만 묻고(기록이 많아도 실제 조회는 기관 수만큼), 여러 곳을 동시에 묻는다.
+/// 연계 결과가 바뀐 기록을 돌려준다.
+Future<List<MedRecord>> updateRecordsSilson(List<MedRecord> recs,
+    {Silson24? api, int parallel = 6}) async {
+  final s = api ?? Silson24();
+  final changed = <MedRecord>{};
+  String pos((double, double)? p) =>
+      p == null ? '' : '${p.$1.toStringAsFixed(4)},${p.$2.toStringAsFixed(4)}';
+
+  Future<void> pool<T>(List<T> items, Future<void> Function(T) f) async {
+    var i = 0;
+    Future<void> worker() async {
+      while (i < items.length) {
+        final it = items[i++];
+        try {
+          await f(it).timeout(const Duration(seconds: 30));
+        } catch (_) {}
+      }
+    }
+
+    await Future.wait([for (var k = 0; k < parallel; k++) worker()]);
+  }
+
+  // 1) 병원
+  final byHosp = <String, List<MedRecord>>{};
+  for (final r in recs) {
+    if (r.otc || r.silsonH.isNotEmpty) continue;
+    final n = r.hospitalName;
+    if (n.isEmpty) continue;
+    (byHosp['$n|${r.hospitalAddr}|${r.hospitalCode}|${pos(r.hospitalPos)}'] ??= []).add(r);
+  }
+  await pool(byHosp.values.toList(), (List<MedRecord> group) async {
+    final r = group.first;
+    final c = await s.check(r.hospitalName,
+        pharmacy: false,
+        addr: r.hospitalAddr,
+        code: r.hospitalCode,
+        at: r.hospitalPos,
+        near: r.pharmacyPos);
+    final v = silsonStateCode(c.state);
+    if (v.isEmpty) return;
+    for (final x in group) {
+      x.silsonH = v;
+      changed.add(x);
+    }
+  });
+
+  // 2) 약국 (병원이 연계된 기록만 — 병원이 미연계면 어차피 서류가 필요하다)
+  final byPharm = <String, List<MedRecord>>{};
+  for (final r in recs) {
+    if (r.otc || r.silsonH != 'on' || r.inHouse || r.pharmacy.isEmpty || r.silsonP.isNotEmpty) {
+      continue;
+    }
+    (byPharm['${r.pharmacy}|${r.pharmacyAddr}|${r.pharmacyCode}|${pos(r.pharmacyPos)}'] ??= [])
+        .add(r);
+  }
+  await pool(byPharm.values.toList(), (List<MedRecord> group) async {
+    final r = group.first;
+    final c = await s.check(r.pharmacy,
+        pharmacy: true,
+        addr: r.pharmacyAddr,
+        code: r.pharmacyCode,
+        at: r.pharmacyPos,
+        near: r.hospitalPos);
+    final v = silsonStateCode(c.state);
+    if (v.isEmpty) return;
+    for (final x in group) {
+      x.silsonP = v;
+      changed.add(x);
+    }
+  });
+  return changed.toList();
+}

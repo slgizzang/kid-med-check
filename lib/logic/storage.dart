@@ -95,6 +95,21 @@ class AppStorage {
     await _saveRecords(list);
   }
 
+  /// 실손24 연계 결과만 한 번에 저장 (그사이 다른 곳에서 바뀐 내용은 그대로 둔다)
+  static Future<void> saveSilson(List<MedRecord> changed) async {
+    if (changed.isEmpty) return;
+    final byId = {for (final r in changed) r.id: r};
+    final list = await records();
+    for (final r in list) {
+      final c = byId[r.id];
+      if (c == null) continue;
+      r
+        ..silsonH = c.silsonH
+        ..silsonP = c.silsonP;
+    }
+    await _saveRecords(list);
+  }
+
   static Future<void> deleteRecord(String id) async {
     final list = await records();
     for (final r in list.where((x) => x.id == id)) {
