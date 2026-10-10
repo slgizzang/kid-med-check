@@ -92,45 +92,26 @@ class ResultDashboard extends StatelessWidget {
               recall: recallN,
               letter: letterN,
             ),
-            const SizedBox(height: 14),
-            // 항목마다 없어도 "없음"을 풀어서 명시
-            if (age < 19 * 12)
-              _Line(
-                ok: snap.ageCount == 0,
-                text: snap.ageCount == 0
-                    ? '이 나이에 먹으면 안 되는 약(연령금기) 없음'
-                    : '이 나이에 먹으면 안 되는 약(연령금기) ${snap.ageCount}개',
-              ),
-            if (snap.allergies.isNotEmpty)
-              _Line(
-                ok: snap.allergyCount == 0,
-                text: snap.allergyCount == 0
-                    ? '알레르기 약물(${snap.allergies.join(', ')})과 같은 성분 없음'
-                    : '알레르기 약물과 같은 성분 ${snap.allergyCount}개',
-              ),
-            if (snap.pregnant)
-              _Line(
-                ok: snap.pregCount == 0,
-                text: snap.pregCount == 0
-                    ? '임신 중 먹으면 안 되는 약(임부금기) 없음'
-                    : '임신 중 먹으면 안 되는 약(임부금기) ${snap.pregCount}개',
-              ),
-            _Line(
-              ok: snap.mixPairs.isEmpty,
-              text: snap.mixPairs.isEmpty
-                  ? '함께 먹으면 안 되는 조합(병용금기) 없음'
-                  : '함께 먹으면 안 되는 조합(병용금기) ${snap.mixPairs.length}개',
-            ),
-            for (final p in snap.mixPairs)
+            // 결과는 위 타일로 보여주므로 '…없음' 같은 문장은 쓰지 않는다. 문제가 있을 때만 무엇인지 짧게
+            if (snap.allergyCount > 0)
               Padding(
-                padding: const EdgeInsets.only(left: 28, top: 2),
-                child: KText(p,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _red, fontWeight: FontWeight.w600)),
+                padding: const EdgeInsets.only(top: 12),
+                child: _Line(ok: false, text: '알레르기 약물과 같은 성분 ${snap.allergyCount}개'),
               ),
-            if (!snap.drugs.any((d) => d.hasAlert || _extra(d)))
-              const _Line(ok: true, text: '확인한 약 모두 주의할 점 없음'),
+            if (snap.mixPairs.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const KText('함께 먹으면 안 되는 조합',
+                  maxLines: 1,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.sub)),
+              for (final p in snap.mixPairs)
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: KText(p,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: _red, fontWeight: FontWeight.w600)),
+                ),
+            ],
             if (flagged.isNotEmpty) ...[
               const SizedBox(height: 14),
               const KText('확인이 필요한 약',
@@ -202,14 +183,16 @@ class SafetyTiles extends StatelessWidget {
         );
     return Column(children: [
       row([
-        _Tile(label: '연령금기', count: age, icon: Icons.child_care),
+        _Tile(label: '연령금기', count: age, icon: Icons.child_care, info: _infoAge),
         _Tile(
             label: '임부·수유부 금기',
             count: preg,
             icon: Icons.pregnant_woman,
             notApplicable: !pregApplicable,
-            soft: pregSoft),
-        _Tile(label: '병용금기', count: mix, unit: '쌍', icon: Icons.compare_arrows),
+            soft: pregSoft,
+            info: _infoPreg),
+        _Tile(
+            label: '병용금기', count: mix, unit: '쌍', icon: Icons.compare_arrows, info: _infoMix),
       ]),
       // 회수·주의 알림은 복용 금기가 아니라 참고 사항 — 한 단계 낮게(작고 옅게) 보여준다
       const SizedBox(height: 12),
@@ -220,25 +203,59 @@ class SafetyTiles extends StatelessWidget {
       ),
       const SizedBox(height: 6),
       row([
-        _NoteTile(label: '회수된 약', count: recall, icon: Icons.assignment_return_outlined),
-        _NoteTile(label: '식약처 주의 알림', count: letter, icon: Icons.campaign_outlined),
+        _NoteTile(
+            label: '회수된 약',
+            count: recall,
+            icon: Icons.assignment_return_outlined,
+            info: _infoRecall),
+        _NoteTile(
+            label: '식약처 주의 알림',
+            count: letter,
+            icon: Icons.campaign_outlined,
+            info: _infoLetter),
       ]),
     ]);
   }
 }
 
+const _infoAge = '이 나이에는 쓰면 안 된다고 식약처가 정한 약이에요 (DUR 특정연령대 금기). '
+    '해당하는 약이 있으면 임의로 끊지 말고 처방한 의사나 약사에게 먼저 확인하세요.';
+const _infoPreg = '임신 중에 먹으면 태아에게 해로울 수 있어 쓰지 않도록 정한 약(임부금기)과, '
+    '수유 중에 주의가 필요한 약이에요. 임신·수유 중으로 등록한 복용자에게만 확인해요.';
+const _infoMix = '함께 먹으면 부작용이 커지거나 약효가 달라져서 같이 쓰면 안 된다고 정한 약의 조합이에요 (DUR 병용금기).';
+const _infoRecall = '품질 문제 등으로 제조사나 식약처가 회수한 약이에요. 회수는 보통 특정 제조번호만 해당하고 복용 금기는 아니에요. '
+    '집에 남은 약이 있으면 약국에서 회수 대상인지 확인하세요.';
+const _infoLetter = '새로 알려진 부작용 등을 식약처가 의사·약사에게 알린 안전성 서한이 있었던 약이에요. '
+    '복용 금기는 아니고 참고 정보예요.';
+
+/// 타일을 누르면 이 항목이 무엇인지 짧게 알려준다
+void _showInfo(BuildContext context, String title, String body) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: KText(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+      content: KText(body, flow: true, style: const TextStyle(fontSize: 15, height: 1.55)),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const KText('확인'))],
+    ),
+  );
+}
+
 /// 참고 사항 타일 (회수·주의 알림): 금기 타일보다 작고 옅게, 한 줄로
 class _NoteTile extends StatelessWidget {
-  const _NoteTile({required this.label, required this.count, required this.icon});
+  const _NoteTile(
+      {required this.label, required this.count, required this.icon, required this.info});
   final String label;
   final int count;
   final IconData icon;
+  final String info;
 
   @override
   Widget build(BuildContext context) {
     final hit = count > 0;
     final fg = hit ? _orange : const Color(0xFF6B7A75);
-    return Container(
+    return GestureDetector(
+      onTap: () => _showInfo(context, label, info),
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: hit ? _orangeBg : Colors.white,
@@ -262,7 +279,7 @@ class _NoteTile extends StatelessWidget {
             style: TextStyle(
                 color: fg, fontWeight: hit ? FontWeight.w800 : FontWeight.w600, fontSize: 13)),
       ]),
-    );
+    ));
   }
 }
 
@@ -274,7 +291,11 @@ class _Tile extends StatelessWidget {
     this.unit = '개',
     this.notApplicable = false,
     this.soft = false,
+    required this.info,
   });
+
+  /// 눌렀을 때 보여줄 설명
+  final String info;
 
   final String label;
   final int count;
@@ -296,19 +317,25 @@ class _Tile extends StatelessWidget {
     final bg = notApplicable
         ? const Color(0xFFF1F4F3)
         : (hit ? (soft ? _orangeBg : _redBg) : _greenBg);
-    return Container(
+    return GestureDetector(
+      onTap: () => _showInfo(context, label, info),
+      child: Container(
       padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
       child: Column(
         children: [
-          // 위: 항목 이름 (한 줄)
+          // 위: 항목 이름 (한 줄) + 눌러서 설명을 볼 수 있다는 작은 표시
           SizedBox(
             height: 18,
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(label,
-                  maxLines: 1,
-                  style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 13)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(label,
+                    maxLines: 1,
+                    style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 13)),
+                const SizedBox(width: 2),
+                Icon(Icons.info_outline_rounded, size: 13, color: fg.withAlpha(180)),
+              ]),
             ),
           ),
           const SizedBox(height: 8),
@@ -328,7 +355,7 @@ class _Tile extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
