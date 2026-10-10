@@ -68,6 +68,36 @@ class DurApi {
     // 다른 지역의 병원·약국: "강남 아이사랑소아과", "역삼동 소아과", "서울 강남구 역삼동"처럼
     // 지역(주소)을 붙여 찾으면 이름으로 찾은 뒤 주소로 골라낸다
     final pq = splitPlaceQuery(q);
+    // "플러스이비인 천안"처럼 이름을 다 안 쓰고 지역(접미사 없는 지명)을 붙이면 어느 쪽이 이름인지
+    // 알 수 없으므로, 낱말마다 이름으로 찾아 보고 나머지 낱말이 주소에 들어 있는 결과를 고른다
+    final words = q.split(RegExp(r'\s+')).where((x) => x.length >= 2).toList();
+    final clearName = words.any((w) => _placeNameRe.hasMatch(w) && !_dongRe.hasMatch(w));
+    if (words.length >= 2 && !clearName && pq.dong == null) {
+      final tries = await Future.wait([
+        for (var i = 0; i < words.length; i++)
+          _fetchItems(path, {'_type': 'json', 'yadmNm': words[i]}, 100)
+              .then((items) {
+                final rest = [for (var j = 0; j < words.length; j++) if (j != i) words[j]];
+                final all = toHits(items);
+                return (all, all.where((h) => rest.every((r) => addrHasRegion(h.addr, r))).toList());
+              })
+              .catchError((_) => (<PlaceHit>[], <PlaceHit>[])),
+      ]);
+      var best = <PlaceHit>[];
+      for (final (_, picked) in tries) {
+        if (picked.length > best.length) best = picked;
+      }
+      if (best.isEmpty) {
+        // 지역으로 걸러지는 게 없으면 가장 긴 낱말(이름일 가능성이 큰 쪽)로 찾은 결과
+        var longest = 0;
+        for (var i = 1; i < words.length; i++) {
+          if (words[i].length > words[longest].length) longest = i;
+        }
+        best = tries[longest].$1;
+      }
+      if (near) best.sort((a, b) => (a.meters ?? 1e12).compareTo(b.meters ?? 1e12));
+      return best;
+    }
     if (pq.regions.isNotEmpty || pq.dong != null) {
       final base = <String, String>{'_type': 'json'};
       if (pq.name.length >= 2) base['yadmNm'] = pq.name;
