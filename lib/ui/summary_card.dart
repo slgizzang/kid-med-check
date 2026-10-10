@@ -104,7 +104,7 @@ class SafetySummaryCard extends StatelessWidget {
       icon = hard > 0 ? Icons.error : Icons.info;
       fg = hard > 0 ? const Color(0xFFC62828) : const Color(0xFF9A3412);
       head = '확인할 약이 있어요';
-      sub = '아래 기록을 누르면 자세한 내용을 볼 수 있어요';
+      sub = '빨간 칸을 누르면 해당 기록을 볼 수 있어요';
     } else if (checked.isEmpty) {
       icon = Icons.hourglass_top_rounded;
       fg = AppColors.sub;
@@ -116,14 +116,9 @@ class SafetySummaryCard extends StatelessWidget {
       head = '문제없어요';
       sub = '확인한 기록 ${checked.length}건 모두 금기·회수된 약 없음';
     }
+    // 해당 기록 목록은 각 타일을 누르면 설명 아래에 나온다. 타일이 없는 알레르기만 여기 보여준다.
     final lines = <Widget>[
-      if (ageN > 0) _line('연령금기', ageN, age, unit: '개'),
-      if (mixN > 0) _line('함께 먹으면 안 되는 조합', mixN, mix, unit: '쌍'),
-      if (pregN > 0) _line('임부·수유부 금기', pregN, preg, unit: '개', soft: !person.pregnant),
       if (allergyN > 0) _line('알레르기 약물과 같은 성분', allergyN, allergy, unit: '개'),
-      if (recallCount > 0) _line('회수된 약', recallCount, recallRecords, unit: '건', soft: true),
-      if (letterCount > 0)
-        _line('식약처 주의 알림이 있었던 약', letterCount, letterRecords, unit: '건', soft: true),
     ];
     return Container(
       width: double.infinity,
