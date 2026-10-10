@@ -276,27 +276,24 @@ class _NoteTile extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showInfo(context, label, info),
       child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
       decoration: BoxDecoration(
         color: hit ? _redBg : _greenBg,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(children: [
-        Icon(icon, size: 16, color: fg),
-        const SizedBox(width: 6),
-        Expanded(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(label,
-                maxLines: 1,
-                style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12.5)),
+      child: Column(children: [
+        SizedBox(
+          height: 36,
+          child: Center(
+            child: Text(ka(label),
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 14, height: 1.25)),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(height: 4),
         Text(hit ? '$count건' : '없음',
-            style: TextStyle(
-                color: fg, fontWeight: hit ? FontWeight.w800 : FontWeight.w600, fontSize: 13)),
+            style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 17)),
       ]),
     ));
   }
@@ -340,18 +337,25 @@ class _Tile extends StatelessWidget {
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
       child: Column(
         children: [
-          // 위: 항목 이름 (한 줄) + 눌러서 설명을 볼 수 있다는 작은 표시
+          // 위: 항목 이름 (좁으면 두 줄) + 눌러서 설명을 볼 수 있다는 작은 표시
           SizedBox(
-            height: 18,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(label,
-                    maxLines: 1,
-                    style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 13)),
-                const SizedBox(width: 2),
-                Icon(Icons.info_outline_rounded, size: 13, color: fg.withAlpha(180)),
-              ]),
+            height: 40,
+            child: Center(
+              child: Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: ka(label)),
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 2),
+                      child: Icon(Icons.info_outline_rounded, size: 14, color: fg.withAlpha(180)),
+                    ),
+                  ),
+                ]),
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 15, height: 1.25),
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -361,11 +365,11 @@ class _Tile extends StatelessWidget {
             child: Center(
               child: notApplicable
                   ? Text('대상 아님',
-                      style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 14))
+                      style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 16))
                   : hit
                       ? Text('$count$unit',
                           style: TextStyle(
-                              color: fg, fontWeight: FontWeight.w800, fontSize: 22))
+                              color: fg, fontWeight: FontWeight.w800, fontSize: 24))
                       : Icon(Icons.check_rounded, color: fg, size: 28),
             ),
           ),
