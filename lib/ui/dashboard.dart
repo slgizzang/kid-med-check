@@ -224,6 +224,12 @@ class SafetyTiles extends StatelessWidget {
             icon: Icons.menu_book_outlined,
             info: _infoLabel),
       ]),
+      const SizedBox(height: 6),
+      const Align(
+        alignment: Alignment.centerLeft,
+        child: KText('사용 연령이 실제 나이보다 높아도 의사 판단에 의해 처방될 수 있어요. (연령금기 ≠ 사용 연령)',
+            flow: true, style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.45)),
+      ),
     ]);
   }
 }
