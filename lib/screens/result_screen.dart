@@ -138,7 +138,31 @@ class _ResultScreenState extends State<ResultScreen> {
     _report();
   }
 
+  /// 연령금기 자료 조회 + 성분별 공식 연령 기준 적용 (실패하면 오류로 표시)
+  Future<void> _ageRows(DurApi api, DrugCheck c, ProductHit best) async {
+    try {
+      final rows = await api.searchAgeTaboo(best.searchName);
+      c.rows = rows
+          .where((r) =>
+              DrugNameExtractor.toSearchName(ProductHit(fullName: r.itemName).displayName) ==
+              best.searchName)
+          .toList();
+      c.matchedQuery = best.searchName;
+      // 식약처 DUR 성분정보의 공식 연령 기준(AGE_BASE)을 우선 적용한다.
+      await Future.wait(c.rows.where((r) => r.ingrCode.isNotEmpty).map((r) async {
+        final base = await api.ingredientAgeBase(r.ingrCode);
+        if (base.isNotEmpty) r.applyAgeBase(base);
+      }));
+      c.evaluate(_age);
+    } catch (e) {
+      c.status = CheckStatus.error;
+      c.error = '$e';
+    }
+    if (mounted) setState(() {});
+  }
+
   Future<void> _lookup(DurApi api, DrugCheck c) async {
+    Future<void> rowsDone = Future.value();
     try {
       c.rows = const [];
       c.matchedQuery = null;
@@ -165,19 +189,8 @@ class _ResultScreenState extends State<ResultScreen> {
         if (mounted) setState(() {});
         return;
       }
-      final rows = await api.searchAgeTaboo(best.searchName);
-      c.rows = rows
-          .where((r) =>
-              DrugNameExtractor.toSearchName(ProductHit(fullName: r.itemName).displayName) ==
-              best.searchName)
-          .toList();
-      c.matchedQuery = best.searchName;
-      // 식약처 DUR 성분정보의 공식 연령 기준(AGE_BASE)을 우선 적용한다.
-      await Future.wait(c.rows.where((r) => r.ingrCode.isNotEmpty).map((r) async {
-        final base = await api.ingredientAgeBase(r.ingrCode);
-        if (base.isNotEmpty) r.applyAgeBase(base);
-      }));
-      c.evaluate(_age);
+      // 연령금기 조회는 아래 약 설명 조회와 동시에 진행한다 (차례로 기다리면 느림)
+      rowsDone = _ageRows(api, c, best);
     } catch (e) {
       c.status = CheckStatus.error;
       c.error = '$e';
@@ -187,7 +200,10 @@ class _ResultScreenState extends State<ResultScreen> {
     // 3) 약 설명: 구분(전문/일반)·효능·성분을 항상 같은 형식으로.
     //    e약은요(효능)와 DUR 품목정보(구분·성분·분류)를 같은 제품끼리 합친다.
     final picked = c.best;
-    if (picked == null) return;
+    if (picked == null) {
+      await rowsDone;
+      return;
+    }
     // 임부금기·병용금기는 약 이름만 있으면 되므로 설명을 모으는 동안 미리 조회
     final pregF = widget.child.pregnant ? api.pregnancyTaboo(picked) : null;
     final mixF = api.mixTaboo(picked);
@@ -201,6 +217,7 @@ class _ResultScreenState extends State<ResultScreen> {
       final permit = await api.permitInfo(best);
       if (permit != null) best = best.fillFrom(permit);
     }
+    await rowsDone;
     var className = best.className;
     if (className.isEmpty) {
       for (final r in c.rows) {

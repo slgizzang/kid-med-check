@@ -632,7 +632,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ];
 
   /// 동시에 확인하는 기록 수 (식약처 서버에 한꺼번에 너무 많이 묻지 않을 만큼)
-  static const _autoParallel = 3;
+  static const _autoParallel = 5;
   final Map<String, Timer> _autoTimers = {};
 
   List<Widget> _autoCheckers() {
