@@ -14,6 +14,7 @@ import '../logic/storage.dart';
 import '../ui/theme.dart';
 import '../ui/dashboard.dart';
 import '../ui/place_sheet.dart';
+import '../ui/record_header.dart';
 import '../ui/reaction_sheet.dart';
 import 'confirm_screen.dart';
 import 'result_screen.dart';
@@ -546,6 +547,7 @@ class _RecordScreenState extends State<RecordScreen> {
       MaterialPageRoute(
         builder: (_) => ResultScreen(
           child: widget.child,
+          record: _r,
           names: List.of(_r.drugs),
           recordId: _r.id,
           asOf: _r.createdAt,
@@ -625,43 +627,7 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 
   /// 기록 화면 맨 위: 초록 띠 위에 이 기록이 무엇인지 (누구 · 언제 · 어디)
-  Widget _recordHeader() {
-    final d = _r.createdAt;
-    final dateLabel = '${d.year}년 ${d.month}월 ${d.day}일';
-    final place = _r.otc ? (_r.pharmacy.isNotEmpty ? _r.pharmacy : '') : _place;
-    return Container(
-      width: double.infinity,
-      color: AppColors.primary,
-      padding: const EdgeInsets.fromLTRB(20, 2, 20, 18),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-                color: const Color(0x2EFFFFFF), borderRadius: BorderRadius.circular(14)),
-            child: Icon(_r.otc ? Icons.local_pharmacy_outlined : Icons.receipt_long_outlined,
-                color: AppColors.onPrimary, size: 24),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              KText(place.isNotEmpty ? place : _r.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.onPrimary)),
-              const SizedBox(height: 4),
-              KText(
-                  '$dateLabel ${_r.otc ? '구입' : '처방'} · ${widget.child.name} ${formatAge(widget.child.ageInMonths(_r.createdAt))}',
-                  maxLines: 2,
-                  style: const TextStyle(fontSize: 13.5, color: Color(0xE6FFFFFF))),
-            ]),
-          ),
-        ]),
-      ]),
-    );
-  }
+  Widget _recordHeader() => RecordHeader(record: _r, person: widget.child);
 
   @override
   Widget build(BuildContext context) {

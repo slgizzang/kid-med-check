@@ -700,6 +700,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) => ResultScreen(
           child: person,
+          record: r,
           names: List.of(r.drugs),
           recordId: r.id,
           asOf: r.createdAt,

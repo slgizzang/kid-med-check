@@ -14,6 +14,7 @@ import '../logic/recall.dart';
 import '../logic/snapshot.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart';
+import '../ui/record_header.dart';
 import '../ui/reaction_sheet.dart';
 import '../ui/theme.dart';
 
@@ -33,7 +34,11 @@ class ResultScreen extends StatefulWidget {
       this.letters = const {},
       this.recalls = const {},
       this.onFinished,
-      this.onFailed});
+      this.onFailed,
+      this.record});
+
+  /// 이 결과가 어느 복용 기록의 것인지 (있으면 위쪽 초록 띠에 병원·날짜를 보여준다)
+  final MedRecord? record;
 
   /// 조회 중 오류(네트워크 등)가 있어 결과를 믿을 수 없을 때 (자동 확인용)
   final VoidCallback? onFailed;
@@ -454,9 +459,8 @@ class _ResultScreenState extends State<ResultScreen> {
     int rank(DrugCheck c) => c.isDanger ? -1 : order.indexOf(c.status);
     final sorted = [..._checks]..sort((a, b) => rank(a).compareTo(rank(b)));
 
-    return Scaffold(
-      appBar: AppBar(title: KText(widget.title)),
-      body: ListView(
+    final rec = widget.record;
+    final list = ListView(
         padding: EdgeInsets.fromLTRB(
             16, 16, 16, 40 + MediaQuery.of(context).padding.bottom),
         children: [
@@ -509,7 +513,25 @@ class _ResultScreenState extends State<ResultScreen> {
           const SizedBox(height: 16),
           const _Sources(),
         ],
+      );
+    // 기록에서 열었으면 기록 화면과 같은 초록 띠로 어느 병원·언제 처방인지 보여준다
+    if (rec == null) {
+      return Scaffold(appBar: AppBar(title: KText(widget.title)), body: list);
+    }
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
+        surfaceTintColor: Colors.transparent,
+        title: KText(widget.title,
+            maxLines: 1,
+            style: const TextStyle(
+                fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.onPrimary)),
       ),
+      body: Column(children: [
+        RecordHeader(record: rec, person: widget.child),
+        Expanded(child: list),
+      ]),
     );
   }
 }
