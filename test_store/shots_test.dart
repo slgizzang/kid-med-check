@@ -21,11 +21,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 final _k = GlobalKey();
 
 Future<void> _loadFonts() async {
-  final pre = FontLoader('Pretendard');
-  for (final w in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
-    pre.addFont(rootBundle.load('assets/fonts/Pretendard-$w.otf'));
+  // 버튼 등 테마 글꼴을 따로 쓰는 곳(Roboto)도 Pretendard로 (실제 폰에서는 시스템 한글 글꼴이 쓰임)
+  for (final family in ['Pretendard', 'Roboto']) {
+    final l = FontLoader(family);
+    for (final w in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
+      l.addFont(rootBundle.load('assets/fonts/Pretendard-$w.otf'));
+    }
+    await l.load();
   }
-  await pre.load();
   final root = Platform.environment['FLUTTER_ROOT'] ?? '';
   final icons = File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
   if (icons.existsSync()) {
@@ -52,12 +55,16 @@ Widget _app(Widget home) => RepaintBoundary(
     );
 
 Future<void> _settle(WidgetTester t, [int ms = 1500]) async {
-  await t.runAsync(() async {
-    for (var i = 0; i < ms ~/ 100; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      await t.pump();
-    }
-  });
+  for (var i = 0; i < ms ~/ 100; i++) {
+    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+    await t.pump(const Duration(milliseconds: 100));
+  }
+}
+
+/// 화면을 닫고 남은 타이머(시작 화면 이동, 자동 확인 제한 시간 등)를 흘려보낸다
+Future<void> _close(WidgetTester t) async {
+  await t.pumpWidget(const SizedBox());
+  await t.pump(const Duration(minutes: 2));
 }
 
 Future<void> _shot(WidgetTester t, String name) async {
@@ -147,15 +154,12 @@ void main() {
   testWidgets('1 시작 화면', (t) async {
     _seed();
     await t.pumpWidget(_app(const SplashScreen()));
-    await t.runAsync(() async {
-      for (var i = 0; i < 9; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-        await t.pump();
-      }
-    });
+    // 로고가 다 나타난 뒤(0.7초 애니메이션), 다음 화면으로 넘어가기 전(2초)
+    for (var i = 0; i < 10; i++) {
+      await t.pump(const Duration(milliseconds: 100));
+    }
     await _shot(t, '1_splash');
-    await _settle(t, 3500);
-    await t.pumpWidget(const SizedBox());
+    await _close(t);
   });
 
   testWidgets('2·3 메인 화면', (t) async {
@@ -169,7 +173,7 @@ void main() {
     await t.drag(find.byType(CustomScrollView).first, const Offset(0, -620));
     await _settle(t, 800);
     await _shot(t, '3_home_claim');
-    await t.pumpWidget(const SizedBox());
+    await _close(t);
   });
 
   testWidgets('4 복용 기록', (t) async {
@@ -177,7 +181,7 @@ void main() {
     await t.pumpWidget(_app(RecordScreen(child: kid, record: records[0])));
     await _settle(t, 3000);
     await _shot(t, '4_record');
-    await t.pumpWidget(const SizedBox());
+    await _close(t);
   });
 
   testWidgets('5 안전 확인 결과', (t) async {
@@ -202,6 +206,6 @@ void main() {
     )));
     await _settle(t, 2500);
     await _shot(t, '5_result');
-    await t.pumpWidget(const SizedBox());
+    await _close(t);
   });
 }
