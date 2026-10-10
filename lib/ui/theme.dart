@@ -291,7 +291,8 @@ class KText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final asParagraph = flow || _multi.hasMatch(data);
+    // 문장이 하나뿐이면 flow여도 줄 길이를 고르게 맞춘다 (마지막 줄에 '있어요.'만 남는 일 없게)
+    final asParagraph = _multi.hasMatch(data);
     final text = ka(data);
     final plain = Text(text,
         style: style, textAlign: textAlign, maxLines: maxLines, overflow: overflow);

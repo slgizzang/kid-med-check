@@ -417,7 +417,7 @@ class _RecordScreenState extends State<RecordScreen> {
                           )
                         : null;
     if (g == null) {
-      return KText('병원이 실손24에 연계돼 있으면 서류 없이 바로 청구할 수 있어요.', flow: true, style: small);
+      return KText('병원이 실손24에 연계돼 있으면\n서류 없이 바로 청구할 수 있어요.', flow: true, style: small);
     }
     final (title, sub, level) = g;
     final (Color bg, Color fg, IconData icon) = switch (level) {
