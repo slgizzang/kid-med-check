@@ -356,7 +356,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           letterRecords:
                               _byRecord([for (final h in letterHits(_checkedRecords)) (h.record, h.drug)]),
                           onOpen: (r) => _openResult(context, r),
-                          checking: _pending.length,
+                          checking: _unchecked.where((r) => !_gaveUp(r.id)).length,
+                          failed: _unchecked.where((r) => _gaveUp(r.id)).length,
+                          onRetry: _retryFailed,
                         ),
                       if (_selected != null && kShowSilson24)
                         ClaimSummaryCard(
@@ -617,9 +619,39 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MedRecord> get _checkedRecords =>
       [for (final r in _myRecords) if (r.last != null && r.last!.matches(r.drugs)) r];
 
-  /// 자동 안전 확인: 기록을 추가하거나 불러오면 뒤에서 한 건씩 차례로 확인해 저장한다.
-  /// 이번 실행에서 확인에 실패한(인터넷·키 문제 등) 기록은 다시 시도하지 않는다.
-  final Set<String> _skip = {};
+  /// 자동 안전 확인: 기록을 추가하거나 불러오면 뒤에서 몇 건씩 동시에 확인해 저장한다.
+  /// 실패하거나(인터넷 등) 너무 오래 걸린 기록은 잠시 뒤 다시 시도하고, 3번 실패하면
+  /// '확인하지 못한 기록'으로 알려 사용자가 다시 확인을 누를 수 있게 한다.
+  static const _maxTries = 3;
+  final Map<String, int> _fails = {};
+  final Map<String, DateTime> _retryAt = {};
+
+  bool _gaveUp(String id) => (_fails[id] ?? 0) >= _maxTries;
+  bool _waiting(String id) => _retryAt[id]?.isAfter(DateTime.now()) ?? false;
+
+  void _failed(String id) {
+    if (!mounted) return;
+    setState(() {
+      final n = (_fails[id] ?? 0) + 1;
+      _fails[id] = n;
+      if (n < _maxTries) {
+        final wait = Duration(seconds: 10 * n);
+        _retryAt[id] = DateTime.now().add(wait);
+        Timer(wait + const Duration(milliseconds: 300), () {
+          if (mounted) setState(() {});
+        });
+      }
+    });
+  }
+
+  /// 확인하지 못한 기록을 다시 확인
+  void _retryFailed() => setState(() {
+        _fails.clear();
+        _retryAt.clear();
+      });
+
+  List<MedRecord> get _unchecked =>
+      [for (final r in _myRecords) if (r.drugs.isNotEmpty && !_fresh(r)) r];
 
   /// 첫 화면이 다 뜬 뒤에 자동 확인을 시작한다
   bool _autoReady = false;
@@ -628,7 +660,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<MedRecord> get _pending => [
         for (final r in _myRecords)
-          if (r.drugs.isNotEmpty && !_fresh(r) && !_skip.contains(r.id)) r
+          if (r.drugs.isNotEmpty && !_fresh(r) && !_gaveUp(r.id) && !_waiting(r.id)) r
       ];
 
   /// 동시에 확인하는 기록 수 (식약처 서버에 한꺼번에 너무 많이 묻지 않을 만큼)
@@ -651,9 +683,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // 너무 오래 걸리면 이 기록은 건너뛴다 (기록을 열면 직접 확인할 수 있음)
       _autoTimers.putIfAbsent(
           key,
-          () => Timer(const Duration(seconds: 60), () {
-                if (mounted) setState(() => _skip.add(r.id));
-              }));
+          () => Timer(const Duration(seconds: 90), () => _failed(r.id)));
       out.add(Positioned(
         left: 0,
         top: 0,
@@ -683,7 +713,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (mounted) setState(() {});
                     },
                     onFailed: () {
-                      if (mounted) setState(() => _skip.add(r.id));
+                      _failed(r.id);
                     },
                   ),
                 ),
@@ -757,7 +787,7 @@ class _HomeScreenState extends State<HomeScreen> {
   (String, Color)? _statusOf(MedRecord r) {
     if (r.drugs.isEmpty) return null;
     if (!_fresh(r)) {
-      return _skip.contains(r.id)
+      return _gaveUp(r.id)
           ? ('확인 못함', AppColors.sub)
           : ('확인 중', AppColors.sub);
     }

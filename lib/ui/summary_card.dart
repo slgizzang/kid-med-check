@@ -5,6 +5,9 @@ import '../logic/recall.dart' show recallRecordLabel;
 import 'dashboard.dart' show SafetyTiles;
 import 'theme.dart';
 
+/// 확인 중 안내: 잠깐 다른 앱을 봐도 계속 확인한다 (앱을 닫으면 다음에 이어서)
+const _bgNote = '잠깐 다른 앱을 보거나 알림창을 내려도 계속 확인해요. 앱을 완전히 닫으면 다음에 열 때 이어서 확인해요.';
+
 /// 메인 화면: 이 복용자의 모든 기록을 모아 본 안전 요약 (지난 확인 결과 기준)
 class SafetySummaryCard extends StatelessWidget {
   const SafetySummaryCard({
@@ -19,6 +22,8 @@ class SafetySummaryCard extends StatelessWidget {
     this.onOpenRecalls,
     this.onOpenLetters,
     this.checking = 0,
+    this.failed = 0,
+    this.onRetry,
   });
 
   /// 회수된 약 / 주의 알림 상세 화면 열기
@@ -27,6 +32,10 @@ class SafetySummaryCard extends StatelessWidget {
 
   /// 자동 안전 확인이 남은 기록 수 (0이면 모두 확인됨)
   final int checking;
+
+  /// 여러 번 시도해도 확인하지 못한 기록 수, 다시 확인
+  final int failed;
+  final VoidCallback? onRetry;
 
   final List<MedRecord> records;
   final ChildProfile person;
@@ -91,7 +100,7 @@ class SafetySummaryCard extends StatelessWidget {
       icon = Icons.hourglass_top_rounded;
       fg = AppColors.sub;
       head = busy ? '안전 확인 중이에요' : '아직 확인한 기록이 없어요';
-      sub = busy ? '잠시만 기다려 주세요' : '인터넷 연결을 확인한 뒤 앱을 다시 열어주세요';
+      sub = busy ? _bgNote : '인터넷 연결을 확인한 뒤 아래 "다시 확인"을 눌러주세요';
     } else {
       icon = Icons.check_circle;
       fg = const Color(0xFF1E7B3A);
@@ -162,14 +171,46 @@ class SafetySummaryCard extends StatelessWidget {
         if (busy && checked.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Row(children: [
-              const SizedBox(
-                  width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: SizedBox(
+                    width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
               const SizedBox(width: 8),
               Expanded(
-                child: KText('남은 기록 $checking건도 확인하는 중이에요',
-                    maxLines: 1, style: const TextStyle(fontSize: 12.5, color: AppColors.sub)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  KText('남은 기록 $checking건도 확인하는 중이에요',
+                      maxLines: 1, style: const TextStyle(fontSize: 12.5, color: AppColors.sub)),
+                  const KText(_bgNote,
+                      flow: true, style: TextStyle(fontSize: 12, color: AppColors.sub, height: 1.4)),
+                ]),
               ),
+            ]),
+          ),
+        // 여러 번 시도해도 확인하지 못한 기록이 있으면 알리고 다시 확인할 수 있게
+        if (!busy && failed > 0)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+            decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E8), borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              const Icon(Icons.wifi_off_rounded, size: 18, color: Color(0xFF9A3412)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: KText('확인하지 못한 기록이 $failed건 있어요',
+                    maxLines: 1,
+                    style: const TextStyle(
+                        fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF9A3412))),
+              ),
+              if (onRetry != null)
+                TextButton(
+                  onPressed: onRetry,
+                  style: TextButton.styleFrom(foregroundColor: const Color(0xFF9A3412)),
+                  child: const KText('다시 확인', maxLines: 1),
+                ),
             ]),
           ),
       ]),
