@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../logic/models.dart';
 import '../logic/recall.dart';
+import '../logic/silson24.dart';
 import '../logic/storage.dart';
 import '../ui/dashboard.dart' show kNoteBg, kNoteFg;
 import '../ui/recall_card.dart';
+import '../ui/claim_summary.dart';
 import '../ui/summary_card.dart';
 import '../ui/theme.dart';
 import 'child_edit_screen.dart';
@@ -63,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _load();
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _autoReady = true);
+      _runSilson();
     });
     _backfillPlaces();
     AppStorage.placesChanged.addListener(_onPlaces);
@@ -105,6 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _loading = false;
     });
     _loadRecalls(key);
+    if (_autoReady) _runSilson();
   }
 
   /// 식약처 회수 목록 (하루 한 번 받음)
@@ -345,6 +349,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           onOpen: (r) => _openResult(context, r),
                           checking: _pending.length,
                         ),
+                      if (_selected != null && kShowSilson24)
+                        ClaimSummaryCard(records: _myRecords, onOpen: _openRecord),
                       if (_selected != null && !_selecting) ...[
                         const SectionTitle('기록 추가'),
                         _addRow(),
@@ -576,6 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _RecordCard(
             record: r,
             status: _statusOf(r),
+            claim: _claimChip(r),
             selecting: _selecting,
             selected: _picked.contains(r.id),
             onTap: _selecting
@@ -668,6 +675,66 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       ),
     );
+  }
+
+  /// 기록 카드의 실손보험 청구 표시 (청구를 아직 안 한 것만)
+  (String, Color, Color)? _claimChip(MedRecord r) {
+    if (!kShowSilson24 || r.otc) return null;
+    if (r.fullyClaimed && r.claimLevel != null) {
+      return ('실손 청구 완료', AppColors.sub, const Color(0xFFF1F3F5));
+    }
+    return switch (r.claimLevel) {
+      0 => ('실손24 서류 없이 바로 청구 가능', AppColors.primaryDark, AppColors.primarySoft),
+      1 when !r.claimed => ('병원비만 서류 없이 청구 가능', const Color(0xFF9A3412), const Color(0xFFFFF4E8)),
+      _ => null,
+    };
+  }
+
+  /// 실손24 연계 여부를 뒤에서 기록마다 확인해 기록에 적는다 (청구 기한 3년 안, 아직 청구 안 한 것만)
+  bool _silsonRunning = false;
+  final Set<String> _silsonTried = {};
+
+  Future<void> _runSilson() async {
+    if (_silsonRunning || !kShowSilson24) return;
+    _silsonRunning = true;
+    try {
+      while (mounted) {
+        final cutoff = DateTime.now().subtract(const Duration(days: 365 * 3));
+        MedRecord? next;
+        for (final r in _records) {
+          if (r.otc || r.fullyClaimed || _silsonTried.contains(r.id)) continue;
+          if (!r.createdAt.isAfter(cutoff) || r.hospitalName.isEmpty) continue;
+          final needPharm =
+              r.silsonH == 'on' && !r.inHouse && r.pharmacy.isNotEmpty && r.silsonP.isEmpty;
+          if (r.silsonH.isEmpty || needPharm) {
+            next = r;
+            break;
+          }
+        }
+        if (next == null) break;
+        _silsonTried.add(next.id);
+        final changed = await updateRecordSilson(next)
+            .timeout(const Duration(seconds: 40), onTimeout: () => false);
+        if (!changed) continue;
+        // 그사이 다른 곳에서 바뀐 내용을 덮어쓰지 않도록 저장된 기록에 연계 결과만 옮겨 적는다
+        final saved = (await AppStorage.records()).where((x) => x.id == next!.id);
+        if (saved.isNotEmpty) {
+          final cur = saved.first
+            ..silsonH = next.silsonH
+            ..silsonP = next.silsonP;
+          await AppStorage.saveRecord(cur);
+        }
+        for (final x in _records.where((x) => x.id == next!.id)) {
+          x
+            ..silsonH = next.silsonH
+            ..silsonP = next.silsonP;
+        }
+        if (mounted) setState(() {});
+      }
+    } catch (_) {
+    } finally {
+      _silsonRunning = false;
+    }
   }
 
   /// 기록 카드의 안전 확인 상태 표시
@@ -925,6 +992,7 @@ class _RecordCard extends StatelessWidget {
     required this.record,
     required this.onTap,
     this.status,
+    this.claim,
     this.selecting = false,
     this.selected = false,
   });
@@ -933,6 +1001,9 @@ class _RecordCard extends StatelessWidget {
 
   /// 안전 확인 상태 (글자, 색)
   final (String, Color)? status;
+
+  /// 실손보험 청구 상태 (글자, 글자색, 배경색)
+  final (String, Color, Color)? claim;
   final VoidCallback onTap;
   final bool selecting;
   final bool selected;
@@ -1040,6 +1111,21 @@ class _RecordCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 13, color: AppColors.ink),
+                    ),
+                  ],
+                  if (claim case (final label, final fg, final bg)) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration:
+                          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.receipt_long_rounded, size: 14, color: fg),
+                        const SizedBox(width: 4),
+                        Text(label,
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w800, color: fg)),
+                      ]),
                     ),
                   ],
                 ],

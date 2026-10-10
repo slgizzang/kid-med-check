@@ -13,6 +13,7 @@ import 'package:http/http.dart' as http;
 import 'package:pointycastle/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'models.dart';
 import 'place_name.dart';
 
 enum SilsonState { enabled, notEnabled, unknown }
@@ -376,4 +377,45 @@ class Silson24 {
           }));
     } catch (_) {}
   }
+}
+
+
+String silsonStateCode(SilsonState s) =>
+    s == SilsonState.enabled ? 'on' : (s == SilsonState.notEnabled ? 'off' : '');
+
+/// 기록의 병원·약국이 실손24에 연계됐는지 확인해 기록에 적는다 (기록 카드·요약에서 바로 보이게).
+/// 바뀐 게 있으면 true.
+Future<bool> updateRecordSilson(MedRecord r, {Silson24? api}) async {
+  if (r.otc) return false;
+  final s = api ?? Silson24();
+  var changed = false;
+  final h = r.hospitalName;
+  if (h.isNotEmpty) {
+    final c = await s.check(h,
+        pharmacy: false,
+        addr: r.hospitalAddr,
+        code: r.hospitalCode,
+        at: r.hospitalPos,
+        near: r.pharmacyPos);
+    final v = silsonStateCode(c.state);
+    if (v.isNotEmpty && v != r.silsonH) {
+      r.silsonH = v;
+      changed = true;
+    }
+  }
+  // 병원이 미연계면 약국 연계와 상관없이 서류가 필요하므로 약국은 묻지 않는다
+  if (r.silsonH == 'on' && !r.inHouse && r.pharmacy.isNotEmpty) {
+    final c = await s.check(r.pharmacy,
+        pharmacy: true,
+        addr: r.pharmacyAddr,
+        code: r.pharmacyCode,
+        at: r.pharmacyPos,
+        near: r.hospitalPos);
+    final v = silsonStateCode(c.state);
+    if (v.isNotEmpty && v != r.silsonP) {
+      r.silsonP = v;
+      changed = true;
+    }
+  }
+  return changed;
 }

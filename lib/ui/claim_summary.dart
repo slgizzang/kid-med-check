@@ -1,0 +1,116 @@
+import 'package:flutter/material.dart';
+
+import '../logic/models.dart';
+import 'theme.dart';
+
+/// 메인 화면: 실손24로 서류 없이 바로 청구할 수 있는 기록을 한눈에 (아직 청구 안 한 것, 청구 기한 3년 안)
+class ClaimSummaryCard extends StatelessWidget {
+  const ClaimSummaryCard({super.key, required this.records, this.onOpen});
+
+  final List<MedRecord> records;
+  final ValueChanged<MedRecord>? onOpen;
+
+  static const _maxRows = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    final cutoff = DateTime.now().subtract(const Duration(days: 365 * 3));
+    final recent = [
+      for (final r in records)
+        if (!r.otc && r.createdAt.isAfter(cutoff)) r
+    ];
+    final all = [for (final r in recent) if (r.claimLevel == 0 && !r.fullyClaimed) r];
+    final hospOnly = [for (final r in recent) if (r.claimLevel == 1 && !r.claimed) r];
+    if (all.isEmpty && hospOnly.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const KText('실손보험 청구',
+            maxLines: 1,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.sub)),
+        const SizedBox(height: 6),
+        if (all.isNotEmpty)
+          _group(
+            icon: Icons.check_circle,
+            fg: AppColors.primaryDark,
+            bg: AppColors.primarySoft,
+            head: '서류 없이 바로 청구 가능 ${all.length}건',
+            sub: '병원·약국 모두 실손24에 연계돼 있어 병원비·약값을 한 번에 청구할 수 있어요.',
+            recs: all,
+          ),
+        if (all.isNotEmpty && hospOnly.isNotEmpty) const SizedBox(height: 8),
+        if (hospOnly.isNotEmpty)
+          _group(
+            icon: Icons.adjust_rounded,
+            fg: const Color(0xFF9A3412),
+            bg: const Color(0xFFFFF4E8),
+            head: '병원비만 서류 없이 청구 가능 ${hospOnly.length}건',
+            sub: '약값은 약국 영수증과 처방전(환자 보관용)으로 따로 청구해요.',
+            recs: hospOnly,
+          ),
+      ]),
+    );
+  }
+
+  Widget _group({
+    required IconData icon,
+    required Color fg,
+    required Color bg,
+    required String head,
+    required String sub,
+    required List<MedRecord> recs,
+  }) {
+    final shown = recs.take(_maxRows).toList();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, size: 22, color: fg),
+          const SizedBox(width: 8),
+          Expanded(
+            child: KText(head,
+                maxLines: 1,
+                style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: fg)),
+          ),
+        ]),
+        Padding(
+          padding: const EdgeInsets.only(left: 30, top: 2, right: 4, bottom: 4),
+          child: KText(sub, flow: true, style: TextStyle(fontSize: 12.5, color: fg, height: 1.4)),
+        ),
+        for (final r in shown)
+          InkWell(
+            onTap: onOpen == null ? null : () => onOpen!(r),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 30, top: 4, bottom: 4),
+              child: Row(children: [
+                Expanded(
+                  child: KText(
+                      '${formatDate(r.createdAt)} · ${r.hospitalName.isNotEmpty ? r.hospitalName : r.title}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.ink)),
+                ),
+                if (onOpen != null) Icon(Icons.chevron_right, size: 18, color: fg),
+              ]),
+            ),
+          ),
+        if (recs.length > shown.length)
+          Padding(
+            padding: const EdgeInsets.only(left: 30, top: 2),
+            child: KText('외 ${recs.length - shown.length}건은 아래 기록 목록에서 볼 수 있어요',
+                maxLines: 1, style: const TextStyle(fontSize: 12, color: AppColors.sub)),
+          ),
+      ]),
+    );
+  }
+}

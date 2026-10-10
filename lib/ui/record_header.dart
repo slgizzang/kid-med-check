@@ -3,16 +3,8 @@ import 'package:flutter/material.dart';
 import '../logic/models.dart';
 import 'theme.dart';
 
-/// 복용 기록의 병원 이름 (없으면 기록 이름에서 병원처럼 보이는 부분, 그것도 없으면 빈 문자열)
-String recordPlace(MedRecord r) {
-  if (r.otc) return r.pharmacy.trim();
-  if (r.hospital.trim().isNotEmpty) return r.hospital.trim();
-  final t = r.title
-      .replaceFirst(RegExp(r'^\s*\d{1,2}월\s*\d{1,2}일\s*'), '')
-      .replaceAll(RegExp(r'^(처방|약국 구입)$'), '')
-      .trim();
-  return RegExp(r'(의원|병원|센터|클리닉|보건소)').hasMatch(t) ? t : '';
-}
+/// 복용 기록의 병원 이름 (직접 산 약이면 약국 이름). 모르면 빈 문자열.
+String recordPlace(MedRecord r) => r.otc ? r.pharmacy.trim() : r.hospitalName;
 
 /// 기록 화면·안전 확인 결과 화면 위쪽 초록 띠: 어느 병원(약국)에서 언제 받은 약인지
 class RecordHeader extends StatelessWidget {

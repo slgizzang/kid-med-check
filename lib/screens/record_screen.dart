@@ -272,15 +272,8 @@ class _RecordScreenState extends State<RecordScreen> {
     if (picked != null && picked.isNotEmpty) _addNames(picked);
   }
 
-  /// 병원 이름: 고른 것, 없으면 기록 제목에서 ("9월 21일 써니이비인후과의원" → "써니이비인후과의원")
-  String get _place {
-    if (_r.hospital.trim().isNotEmpty) return _r.hospital.trim();
-    final t = _r.title
-        .replaceFirst(RegExp(r'^\s*\d{1,2}월\s*\d{1,2}일\s*'), '')
-        .replaceAll(RegExp(r'^(처방|약국 구입)$'), '')
-        .trim();
-    return RegExp(r'(의원|병원|센터|클리닉|보건소)').hasMatch(t) ? t : '';
-  }
+  /// 병원 이름: 고른 것, 없으면 기록 제목에서
+  String get _place => _r.hospitalName;
 
   /// 병원·약국 검색해서 고르기
   Future<bool> _pickPlace({required bool pharmacy}) async {
@@ -357,6 +350,15 @@ class _RecordScreenState extends State<RecordScreen> {
     setState(() {
       _silsonLoading.remove(pharmacy);
       _silson[pharmacy] = c;
+      // 메인 화면 기록 카드·요약에서도 바로 보이도록 기록에 적어 둔다
+      final code = silsonStateCode(c.state);
+      if (code.isNotEmpty) {
+        if (pharmacy) {
+          _r.silsonP = code;
+        } else {
+          _r.silsonH = code;
+        }
+      }
       // 실손24에서 확실히 찾은 곳의 위치를 기억해 두면 다음부터는 바로 그곳으로 맞춘다
       if (c.state != SilsonState.unknown && c.lat != null && c.lng != null) {
         if (pharmacy) {

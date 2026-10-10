@@ -95,4 +95,27 @@ void main() {
     expect(n, 900);
     expect(sw.elapsedMilliseconds, lessThan(1500));
   });
+
+  test('실손 청구 방법: 병원·약국 연계 결과로 정한다', () {
+    MedRecord rec({String h = '', String p = '', String pharmacy = '약국', bool inHouse = false}) =>
+        MedRecord(
+            id: 'x',
+            childId: 'c',
+            title: '9월 21일 써니이비인후과의원',
+            createdAt: DateTime(2026, 9, 21),
+            pharmacy: pharmacy,
+            inHouse: inHouse)
+          ..silsonH = h
+          ..silsonP = p;
+    expect(rec().hospitalName, '써니이비인후과의원');
+    expect(rec().claimLevel, isNull);
+    expect(rec(h: 'on', p: 'on').claimLevel, 0);
+    expect(rec(h: 'on', pharmacy: '').claimLevel, 0);
+    expect(rec(h: 'on', inHouse: true).claimLevel, 0);
+    expect(rec(h: 'on', p: 'off').claimLevel, 1);
+    expect(rec(h: 'on').claimLevel, 1);
+    expect(rec(h: 'off', p: 'on').claimLevel, 2);
+    final back = MedRecord.fromJson(rec(h: 'on', p: 'off').toJson());
+    expect((back.silsonH, back.silsonP), ('on', 'off'));
+  });
 }

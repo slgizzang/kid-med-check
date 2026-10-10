@@ -81,6 +81,8 @@ class MedRecord {
     this.pharmacyPos,
     this.claimedPharm = false,
     this.inHouse = false,
+    this.silsonH = '',
+    this.silsonP = '',
     List<RecordPhoto>? photos,
     Map<String, String>? safetyLetters,
   })  : drugs = drugs ?? [],
@@ -130,6 +132,32 @@ class MedRecord {
           ? ((v[0] as num).toDouble(), (v[1] as num).toDouble())
           : null;
 
+  /// 실손24 연계 여부 (마지막으로 확인한 결과): 'on' 연계 / 'off' 미연계 / '' 모름. 병원(H)·약국(P)
+  String silsonH;
+  String silsonP;
+
+  /// 병원 이름: 고른 것, 없으면 기록 제목에서 ("9월 21일 써니이비인후과의원" → "써니이비인후과의원")
+  String get hospitalName {
+    if (hospital.trim().isNotEmpty) return hospital.trim();
+    final t = title
+        .replaceFirst(RegExp(r'^\s*\d{1,2}월\s*\d{1,2}일\s*'), '')
+        .replaceAll(RegExp(r'^(처방|약국 구입)$'), '')
+        .trim();
+    return RegExp(r'(의원|병원|센터|클리닉|보건소)').hasMatch(t) ? t : '';
+  }
+
+  /// 실손24 청구 방법 (확인한 연계 결과 기준). null이면 아직 모름.
+  /// 0: 병원·약국 모두(또는 약국 없음) 연계 → 서류 없이 바로 청구
+  /// 1: 병원만 연계 → 병원비만 서류 없이
+  /// 2: 병원 미연계 → 서류 준비 필요
+  int? get claimLevel {
+    if (otc) return null;
+    final noPharm = inHouse || pharmacy.isEmpty;
+    if (silsonH == 'on') return noPharm || silsonP == 'on' ? 0 : 1;
+    if (silsonH == 'off') return 2;
+    return null;
+  }
+
   /// 병원비·약값 청구를 모두 마쳤는지 (약국을 모르면 병원비만 본다)
   bool get fullyClaimed => claimed && (claimedPharm || pharmacy.isEmpty || inHouse);
 
@@ -171,6 +199,8 @@ class MedRecord {
         if (pharmacyPos != null) 'pharmacyPos': _posJson(pharmacyPos),
         if (claimedPharm) 'claimedPharm': true,
         if (inHouse) 'inHouse': true,
+        if (silsonH.isNotEmpty) 'sH': silsonH,
+        if (silsonP.isNotEmpty) 'sP': silsonP,
         if (photos.isNotEmpty) 'photos': photos.map((p) => p.toJson()).toList(),
         if (safetyLetters.isNotEmpty) 'letters': safetyLetters,
       };
@@ -197,6 +227,8 @@ class MedRecord {
         pharmacyPos: _posOf(j['pharmacyPos']),
         claimedPharm: j['claimedPharm'] == true,
         inHouse: j['inHouse'] == true,
+        silsonH: '${j['sH'] ?? ''}',
+        silsonP: '${j['sP'] ?? ''}',
         photos: (j['photos'] as List? ?? const [])
             .map((e) => RecordPhoto.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList(),
