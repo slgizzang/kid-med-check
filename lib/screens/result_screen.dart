@@ -107,7 +107,14 @@ class _ResultScreenState extends State<ResultScreen> {
   void initState() {
     super.initState();
     _loadNotes();
-    if (widget.reuse == null) _run();
+    if (widget.reuse == null) {
+      _run();
+    } else {
+      // 지난 결과를 다시 보여줄 때도 기록에 결과를 저장해 메인 화면 요약에 반영되게
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _report();
+      });
+    }
   }
 
   Future<void> _loadNotes() async {

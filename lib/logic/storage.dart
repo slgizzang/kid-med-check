@@ -74,7 +74,13 @@ class AppStorage {
     return run;
   }
 
+  /// 기록 목록. 저장 중인 작업이 있으면 끝난 뒤에 읽는다 (방금 저장한 결과가 빠지지 않게).
   static Future<List<MedRecord>> records() async {
+    await _chain;
+    return _readRecords();
+  }
+
+  static Future<List<MedRecord>> _readRecords() async {
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_kRecords);
     if (raw == null || raw.isEmpty) return [];
@@ -95,7 +101,7 @@ class AppStorage {
 
   static Future<void> saveRecord(MedRecord r) async {
     return _locked(() async {
-    final list = await records();
+    final list = await _readRecords();
     final i = list.indexWhere((x) => x.id == r.id);
     if (i >= 0) {
       list[i] = r;
@@ -109,7 +115,7 @@ class AppStorage {
   /// 안전 확인 결과만 저장 (그사이 다른 곳에서 바뀐 내용은 그대로 둔다)
   static Future<void> saveSnapshot(String id, ResultSnapshot snap) async {
     return _locked(() async {
-    final list = await records();
+    final list = await _readRecords();
     var hit = false;
     for (final r in list.where((x) => x.id == id)) {
       r.last = snap;
@@ -124,7 +130,7 @@ class AppStorage {
     return _locked(() async {
     if (changed.isEmpty) return;
     final byId = {for (final r in changed) r.id: r};
-    final list = await records();
+    final list = await _readRecords();
     for (final r in list) {
       final c = byId[r.id];
       if (c == null) continue;
@@ -138,7 +144,7 @@ class AppStorage {
 
   static Future<void> deleteRecord(String id) async {
     return _locked(() async {
-    final list = await records();
+    final list = await _readRecords();
     for (final r in list.where((x) => x.id == id)) {
       _deletePhotos(r);
     }
@@ -167,7 +173,7 @@ class AppStorage {
     if (n > 0) {
       await _locked(() async {
         final byId = {for (final r in mine) r.id: r};
-        final fresh = await records();
+        final fresh = await _readRecords();
         for (final r in fresh) {
           final c = byId[r.id];
           if (c == null) continue;
@@ -198,7 +204,7 @@ class AppStorage {
       {required bool pharmacy, required PlaceHit hit}) async {
     return _locked(() async {
     String n(String x) => x.replaceAll(RegExp(r'\s'), '');
-    final list = await records();
+    final list = await _readRecords();
     var count = 0;
     for (final r in list.where((r) => r.childId == childId)) {
       final rn = pharmacy ? r.pharmacy : place.hospitalNameOf(r);
@@ -225,7 +231,7 @@ class AppStorage {
   /// 불러온 처방을 기록으로 저장. 이미 불러온 것은 건너뛴다. (새로 만든 수, 건너뛴 수)
   static Future<(int, int)> importVisits(String childId, List<ImportedVisit> visits) async {
     return _locked(() async {
-    final list = await records();
+    final list = await _readRecords();
     final have = {
       for (final r in list)
         if (r.childId == childId && r.importKey != null) r.importKey!
@@ -279,7 +285,7 @@ class AppStorage {
   /// 아이를 지우면 그 아이의 기록(처방·반응)도 지운다.
   static Future<void> deleteRecordsOfChild(String childId) async {
     return _locked(() async {
-    final list = await records();
+    final list = await _readRecords();
     for (final r in list.where((x) => x.childId == childId)) {
       _deletePhotos(r);
     }
