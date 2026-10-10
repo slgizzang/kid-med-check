@@ -13,8 +13,6 @@ class ClaimSummaryCard extends StatelessWidget {
   final bool checking;
   final ValueChanged<MedRecord>? onOpen;
 
-  static const _maxRows = 5;
-
   @override
   Widget build(BuildContext context) {
     final cutoff = DateTime.now().subtract(const Duration(days: 365 * 3));
@@ -91,29 +89,64 @@ class ClaimSummaryCard extends StatelessWidget {
     required String head,
     required String sub,
     required List<MedRecord> recs,
-  }) {
-    final shown = recs.take(_maxRows).toList();
+  }) =>
+      _ClaimGroup(icon: icon, fg: fg, bg: bg, head: head, sub: sub, recs: recs, onOpen: onOpen);
+}
+
+/// 청구 가능 기록 묶음: 모두 보여주되, 많으면 접어 두고 눌러서 펼친다
+class _ClaimGroup extends StatefulWidget {
+  const _ClaimGroup({
+    required this.icon,
+    required this.fg,
+    required this.bg,
+    required this.head,
+    required this.sub,
+    required this.recs,
+    this.onOpen,
+  });
+
+  final IconData icon;
+  final Color fg, bg;
+  final String head, sub;
+  final List<MedRecord> recs;
+  final ValueChanged<MedRecord>? onOpen;
+
+  @override
+  State<_ClaimGroup> createState() => _ClaimGroupState();
+}
+
+class _ClaimGroupState extends State<_ClaimGroup> {
+  /// 접었을 때 보여주는 수 (이보다 많으면 '모두 보기'로 펼친다)
+  static const _folded = 3;
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = widget;
+    final fg = w.fg;
+    final more = w.recs.length > _folded;
+    final shown = !more || _open ? w.recs : w.recs.take(_folded).toList();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: w.bg, borderRadius: BorderRadius.circular(14)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(icon, size: 22, color: fg),
+          Icon(w.icon, size: 22, color: fg),
           const SizedBox(width: 8),
           Expanded(
-            child: KText(head,
+            child: KText(w.head,
                 maxLines: 1,
                 style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: fg)),
           ),
         ]),
         Padding(
           padding: const EdgeInsets.only(left: 30, top: 2, right: 4, bottom: 4),
-          child: KText(sub, flow: true, style: TextStyle(fontSize: 12.5, color: fg, height: 1.4)),
+          child: KText(w.sub, flow: true, style: TextStyle(fontSize: 12.5, color: fg, height: 1.4)),
         ),
         for (final r in shown)
           InkWell(
-            onTap: onOpen == null ? null : () => onOpen!(r),
+            onTap: w.onOpen == null ? null : () => w.onOpen!(r),
             child: Padding(
               padding: const EdgeInsets.only(left: 30, top: 4, bottom: 4),
               child: Row(children: [
@@ -125,15 +158,22 @@ class ClaimSummaryCard extends StatelessWidget {
                       style: const TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.ink)),
                 ),
-                if (onOpen != null) Icon(Icons.chevron_right, size: 18, color: fg),
+                if (w.onOpen != null) Icon(Icons.chevron_right, size: 18, color: fg),
               ]),
             ),
           ),
-        if (recs.length > shown.length)
-          Padding(
-            padding: const EdgeInsets.only(left: 30, top: 2),
-            child: KText('외 ${recs.length - shown.length}건은 아래 기록 목록에서 볼 수 있어요',
-                maxLines: 1, style: const TextStyle(fontSize: 12, color: AppColors.sub)),
+        if (more)
+          InkWell(
+            onTap: () => setState(() => _open = !_open),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 30, top: 6, bottom: 2),
+              child: Row(children: [
+                KText(_open ? '접기' : '${w.recs.length - _folded}건 더 보기',
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: fg)),
+                Icon(_open ? Icons.expand_less : Icons.expand_more, size: 20, color: fg),
+              ]),
+            ),
           ),
       ]),
     );
