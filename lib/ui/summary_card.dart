@@ -146,6 +146,11 @@ class SafetySummaryCard extends StatelessWidget {
             mix: mixN,
             recall: recallCount,
             letter: letterCount,
+            label: [
+              for (final r in checked)
+                for (final d in r.last!.drugs)
+                  if (d.labelNote != null && !d.isDanger) d
+            ].length,
           ),
         ],
         if (lines.isNotEmpty) ...[

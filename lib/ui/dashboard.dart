@@ -45,7 +45,12 @@ class ResultDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final age = ageMonths ?? snap.ageMonths ?? person.ageInMonths();
-    final flagged = snap.drugs.where((d) => d.hasAny || _extra(d)).toList();
+    // 사용 연령 확인은 아래 참고 타일로만 보여주고, 확인이 필요한 약 목록에서는 뺀다
+    final flagged = snap.drugs
+        .where((d) =>
+            d.isDanger || d.nursing || d.needsPick || d.reaction != null || _extra(d))
+        .toList();
+    final labelN = snap.drugs.where((d) => d.labelNote != null && !d.isDanger).length;
     final pn = snap.pregnant || snap.nursing;
     final recallN = snap.drugs.where((d) => recalled.contains(d.query)).length;
     final letterN = snap.drugs.where((d) => letters.contains(d.query)).length;
@@ -91,6 +96,7 @@ class ResultDashboard extends StatelessWidget {
               mix: snap.mixPairs.length,
               recall: recallN,
               letter: letterN,
+              label: labelN,
             ),
             // 결과는 위 타일로 보여주므로 '…없음' 같은 문장은 쓰지 않는다. 문제가 있을 때만 무엇인지 짧게
             if (snap.allergyCount > 0)
@@ -123,11 +129,6 @@ class ResultDashboard extends StatelessWidget {
                 _DrugRow(d,
                     recalled: recalled.contains(d.query), letter: letters.contains(d.query)),
             ],
-            if (flagged.any((d) => d.labelNote != null && !d.isDanger)) ...[
-              const SizedBox(height: 10),
-              const KText('사용 연령 확인은 연령금기가 아니에요. 사용 연령 전이라도 의사 판단으로 처방될 수 있어요.',
-                  style: TextStyle(fontSize: 12, color: AppColors.sub)),
-            ],
             if (snap.reactionCount > 0) ...[
               const SizedBox(height: 10),
               const KText('지난 반응 기록이 있는 약은 처방받을 때 의사·약사에게 알려주세요.',
@@ -158,11 +159,15 @@ class SafetyTiles extends StatelessWidget {
     required this.mix,
     required this.recall,
     required this.letter,
+    this.label = 0,
     this.pregApplicable = true,
     this.pregSoft = false,
   });
 
   final int age, preg, mix, recall, letter;
+
+  /// 설명서상 사용 연령 전인 약 (금기 아님)
+  final int label;
 
   /// 임신·수유 중이 아니면 '대상 아님'
   final bool pregApplicable;
@@ -213,6 +218,11 @@ class SafetyTiles extends StatelessWidget {
             count: letter,
             icon: Icons.campaign_outlined,
             info: _infoLetter),
+        _NoteTile(
+            label: '사용 연령 확인',
+            count: label,
+            icon: Icons.menu_book_outlined,
+            info: _infoLabel),
       ]),
     ]);
   }
@@ -227,6 +237,9 @@ const _infoRecall = '품질 문제 등으로 제조사나 식약처가 회수한
     '집에 남은 약이 있으면 약국에서 회수 대상인지 확인하세요.';
 const _infoLetter = '새로 알려진 부작용 등을 식약처가 의사·약사에게 알린 안전성 서한이 있었던 약이에요. '
     '복용 금기는 아니고 참고 정보예요.';
+
+const _infoLabel = '약 설명서에 적힌 사용 연령보다 어린 경우예요. 연령금기는 아니고, '
+    '사용 연령 전이라도 의사 판단으로 처방될 수 있어요. 궁금하면 처방한 의사나 약사에게 물어보세요.';
 
 /// 타일을 누르면 이 항목이 무엇인지 짧게 알려준다
 void _showInfo(BuildContext context, String title, String body) {
@@ -398,7 +411,6 @@ class _DrugRow extends StatelessWidget {
       if (d.preg) const _Chip('임부금기', danger: true),
       if (d.mixWith.isNotEmpty) const _Chip('병용금기', danger: true),
       if (d.nursing) const _Chip('수유부 주의', danger: false),
-      if (d.labelNote != null) const _Chip('사용 연령 확인', danger: false),
       if (recalled) const _Chip('회수된 약', danger: true),
       if (letter) const _Chip('식약처 주의 알림', danger: false),
       if (d.needsPick) const _Chip('약 선택 필요', danger: false, gray: true),
