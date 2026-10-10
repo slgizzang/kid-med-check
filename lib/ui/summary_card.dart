@@ -103,7 +103,7 @@ class SafetySummaryCard extends StatelessWidget {
     if (issues > 0) {
       icon = hard > 0 ? Icons.error : Icons.info;
       fg = hard > 0 ? const Color(0xFFC62828) : const Color(0xFF9A3412);
-      head = '확인할 약이 $issues건 있어요';
+      head = '확인할 약이 있어요';
       sub = '아래 기록을 누르면 자세한 내용을 볼 수 있어요';
     } else if (checked.isEmpty) {
       icon = Icons.hourglass_top_rounded;
