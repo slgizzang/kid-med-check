@@ -222,43 +222,29 @@ class SafetyTiles extends StatelessWidget {
             style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.sub)),
       ),
       const SizedBox(height: 8),
-      Container(
-        decoration: BoxDecoration(color: _tileBg, borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias,
-        child: IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(
-              child: _NoteTile(
+      row([
+        _NoteTile(
                   label: '회수된 약',
                   items: lists['회수된 약'] ?? const [],
                   onOpen: onOpen,
                   count: recall,
                   icon: Icons.assignment_return_outlined,
                   info: _infoRecall),
-            ),
-            const VerticalDivider(width: 1, thickness: 1, indent: 14, endIndent: 14, color: Color(0xFFE3E6EA)),
-            Expanded(
-              child: _NoteTile(
+        _NoteTile(
                   label: '식약처 주의 알림',
                   items: lists['식약처 주의 알림'] ?? const [],
                   onOpen: onOpen,
                   count: letter,
                   icon: Icons.campaign_outlined,
                   info: _infoLetter),
-            ),
-            const VerticalDivider(width: 1, thickness: 1, indent: 14, endIndent: 14, color: Color(0xFFE3E6EA)),
-            Expanded(
-              child: _NoteTile(
+        _NoteTile(
                   label: '사용 연령 확인',
                   items: lists['사용 연령 확인'] ?? const [],
                   onOpen: onOpen,
                   count: label,
                   icon: Icons.menu_book_outlined,
                   info: _infoLabel),
-            ),
-          ]),
-        ),
-      ),
+      ]),
     ]);
   }
 }
@@ -398,6 +384,79 @@ class _InfoListState extends State<_InfoList> {
   }
 }
 
+
+/// 대시보드 타일 공통 모양: 흰 바탕 + 상태 색 테두리 + 옅은 그림자, 가운데에 아이콘·이름·결과
+Widget _outlineTile(
+  BuildContext context, {
+  required Color accent,
+  required IconData icon,
+  required String label,
+  required String value,
+  required Color valueColor,
+  required VoidCallback onTap,
+  bool big = true,
+}) {
+  final r = BorderRadius.circular(big ? 20 : 16);
+  return Container(
+    decoration: BoxDecoration(
+      borderRadius: r,
+      boxShadow: [BoxShadow(color: accent.withAlpha(28), blurRadius: 14, offset: const Offset(0, 5))],
+    ),
+    child: Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+          borderRadius: r, side: BorderSide(color: accent.withAlpha(150), width: 1.4)),
+      child: InkWell(
+        borderRadius: r,
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(6, big ? 14 : 10, 6, big ? 14 : 10),
+          child: Column(children: [
+            // 아이콘: 은은한 그라데이션 원 위에
+            Container(
+              width: big ? 46 : 34,
+              height: big ? 46 : 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [accent.withAlpha(40), accent.withAlpha(14)],
+                ),
+              ),
+              child: Icon(icon, size: big ? 24 : 18, color: accent),
+            ),
+            SizedBox(height: big ? 10 : 6),
+            SizedBox(
+              height: big ? 36 : 32,
+              child: Center(
+                child: Text(ka(label),
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: const Color(0xFF6B7684),
+                        fontWeight: FontWeight.w600,
+                        fontSize: big ? 13.5 : 12.5,
+                        height: 1.3)),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(value,
+                style: TextStyle(
+                    color: valueColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: big ? 20 : 16,
+                    letterSpacing: -0.3)),
+          ]),
+        ),
+      ),
+    ),
+  );
+}
+
+const _okAccent = Color(0xFF12A37A);
+const _naAccent = Color(0xFFB8C0C8);
+
 /// 참고 사항 타일 (회수·주의 알림): 금기 타일보다 작고 옅게, 한 줄로
 class _NoteTile extends StatelessWidget {
   const _NoteTile(
@@ -417,28 +476,14 @@ class _NoteTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hit = count > 0;
-    return InkWell(
-      onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 14, 10, 14),
-        child: Column(children: [
-          SizedBox(
-            height: 34,
-            child: Center(
-              child: Text(ka(label),
-                  maxLines: 2,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: AppColors.sub, fontWeight: FontWeight.w600, fontSize: 13, height: 1.3)),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(hit ? '$count건' : '없음',
-              style: TextStyle(
-                  color: hit ? _alert : _okInk, fontWeight: FontWeight.w800, fontSize: 17)),
-        ]),
-      ),
-    );
+    return _outlineTile(context,
+        accent: hit ? _alert : _okAccent,
+        icon: icon,
+        label: label,
+        value: hit ? '$count건' : '없음',
+        valueColor: hit ? _alert : AppColors.ink,
+        big: false,
+        onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen));
   }
 }
 
@@ -474,49 +519,13 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hit = count > 0 && !notApplicable;
-    // 해당 없음은 회색, 없으면 차분한 초록 글자, 있으면 연한 빨강 바탕 + 빨간 글자
-    final valueColor = notApplicable ? const Color(0xFF9AA3AD) : (hit ? _alert : _okInk);
-    return Material(
-      color: hit ? _alertBg : _tileBg,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 10, 14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(icon, size: 18, color: hit ? _alert : const Color(0xFF8B95A1)),
-              const Spacer(),
-              Icon(Icons.info_outline_rounded, size: 15, color: const Color(0xFFB0B8C1)),
-            ]),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 36,
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: Text(ka(label),
-                    maxLines: 2,
-                    style: TextStyle(
-                        color: hit ? _alert : const Color(0xFF4E5968),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        height: 1.3)),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              notApplicable ? '대상 아님' : (hit ? '$count$unit' : '없음'),
-              style: TextStyle(
-                  color: valueColor,
-                  fontWeight: FontWeight.w800,
-                  fontSize: notApplicable ? 16 : 22,
-                  letterSpacing: -0.3),
-            ),
-          ]),
-        ),
-      ),
-    );
+    return _outlineTile(context,
+        accent: notApplicable ? _naAccent : (hit ? _alert : _okAccent),
+        icon: icon,
+        label: label,
+        value: notApplicable ? '대상 아님' : (hit ? '$count$unit' : '없음'),
+        valueColor: notApplicable ? const Color(0xFF9AA3AD) : (hit ? _alert : AppColors.ink),
+        onTap: () => _showInfo(context, label, info, items: items, onOpen: onOpen));
   }
 }
 
