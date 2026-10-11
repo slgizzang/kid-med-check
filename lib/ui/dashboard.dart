@@ -414,32 +414,36 @@ Widget _statTile(
         padding: EdgeInsets.fromLTRB(12, big ? 11 : 9, 10, big ? 11 : 9),
         child: big
             ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // 이름은 칸 너비를 다 쓰고, 긴 이름은 뜻이 끊기지 않는 곳에서 미리 줄을 바꾼다
                 SizedBox(
                   height: 32,
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    // 긴 이름은 뜻이 끊기지 않는 곳에서 미리 줄을 바꾼다 ('임부·수유 / 부 금기' 방지)
-                    Expanded(
-                        child: Text(
-                            label.replaceFirst(RegExp(r' (?=금기$)'), '\n').split('\n').map(ka).join('\n'),
-                            maxLines: 2,
-                            style: labelStyle)),
-                    const SizedBox(width: 2),
-                    Icon(icon, size: 17, color: accent),
-                  ]),
+                  child: Text(
+                      label.replaceFirst(RegExp(r' (?=금기$)'), '\n').split('\n').map(ka).join('\n'),
+                      maxLines: 2,
+                      style: labelStyle),
                 ),
                 const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(value,
-                      maxLines: 1,
-                      style: TextStyle(
-                          color: valueColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 21,
-                          letterSpacing: -0.4,
-                          height: 1.2)),
-                ),
+                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(value,
+                          maxLines: 1,
+                          style: TextStyle(
+                              color: valueColor,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 21,
+                              letterSpacing: -0.4,
+                              height: 1.2)),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Icon(icon, size: 18, color: accent),
+                  ),
+                ]),
               ])
             : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 FittedBox(
@@ -449,18 +453,17 @@ Widget _statTile(
                 ),
                 const SizedBox(height: 3),
                 Row(children: [
-                  Icon(icon, size: 15, color: accent),
-                  const SizedBox(width: 5),
-                  Flexible(
+                  Expanded(
                     child: Text(value,
                         maxLines: 1,
                         style: TextStyle(
                             color: valueColor,
                             fontWeight: FontWeight.w800,
-                            fontSize: 15.5,
+                            fontSize: 16,
                             letterSpacing: -0.3,
                             height: 1.2)),
                   ),
+                  Icon(icon, size: 16, color: accent),
                 ]),
               ]),
       ),
