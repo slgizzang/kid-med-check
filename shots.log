@@ -1,0 +1,9 @@
+
+::group::✅ Passing tests
+✅ 1 시작 화면
+✅ 2·3 메인 화면
+✅ 4 복용 기록
+✅ 5 안전 확인 결과
+::endgroup::
+
+🎉 4 tests passed.
