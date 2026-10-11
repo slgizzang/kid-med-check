@@ -339,14 +339,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 28),
                       if (_selected != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: KText('${_selected!.name}님의 복용 기록',
-                              maxLines: 1,
-                              style: const TextStyle(
-                                  fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.ink)),
-                        ),
-                      if (_selected != null)
                         SafetySummaryCard(
                           records: _myRecords,
                           person: _selected!,
@@ -370,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         _addRow(),
                         const SizedBox(height: 28),
                       ],
-                      SectionTitle('기록 목록',
+                      SectionTitle(_selected == null ? '기록 목록' : '${_selected!.name}님의 복용 기록',
                           trailing: _selected == null || _myRecords.isEmpty
                               ? null
                               : TextButton(
