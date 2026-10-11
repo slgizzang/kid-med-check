@@ -80,6 +80,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       fontStyle: FontStyle.italic,
                       fontWeight: FontWeight.w700,
                       color: AppColors.brand)),
+              const SizedBox(height: 14),
+              const Text('복용 안전 확인부터\n실손24 연계 체크까지',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 14.5,
+                      height: 1.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.sub)),
               const SizedBox(height: 28),
               AnimatedOpacity(
                 opacity: _slow ? 1 : 0,
