@@ -417,7 +417,12 @@ Widget _statTile(
                 SizedBox(
                   height: 32,
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(child: Text(ka(label), maxLines: 2, style: labelStyle)),
+                    // 긴 이름은 뜻이 끊기지 않는 곳에서 미리 줄을 바꾼다 ('임부·수유 / 부 금기' 방지)
+                    Expanded(
+                        child: Text(
+                            label.replaceFirst(RegExp(r' (?=금기$)'), '\n').split('\n').map(ka).join('\n'),
+                            maxLines: 2,
+                            style: labelStyle)),
                     const SizedBox(width: 2),
                     Icon(icon, size: 17, color: accent),
                   ]),
