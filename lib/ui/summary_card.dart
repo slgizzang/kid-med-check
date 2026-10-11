@@ -104,7 +104,7 @@ class SafetySummaryCard extends StatelessWidget {
       icon = hard > 0 ? Icons.error : Icons.info;
       fg = hard > 0 ? const Color(0xFFC62828) : const Color(0xFF9A3412);
       head = '확인할 약이 있어요';
-      sub = '빨간 칸을 누르면 해당 기록을 볼 수 있어요';
+      sub = '칸을 누르면 설명과 해당 기록을 볼 수 있어요';
     } else if (checked.isEmpty) {
       icon = Icons.hourglass_top_rounded;
       fg = AppColors.sub;
@@ -130,27 +130,26 @@ class SafetySummaryCard extends StatelessWidget {
             maxLines: 1,
             style: const TextStyle(
                 fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.sub)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Row(children: [
           // 결론 아이콘: 연한 원 배경 위에
           Container(
-            width: 40,
-            height: 40,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(color: fg.withAlpha(24), shape: BoxShape.circle),
-            child: Icon(icon, color: fg, size: 24),
+            child: Icon(icon, color: fg, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
-            child: KText(head,
-                maxLines: 1,
-                style: TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.w800, color: fg, letterSpacing: -0.3)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              KText(head,
+                  maxLines: 1,
+                  style: TextStyle(
+                      fontSize: 17.5, fontWeight: FontWeight.w800, color: fg, letterSpacing: -0.3)),
+              KText(sub, style: const TextStyle(fontSize: 12, color: AppColors.sub)),
+            ]),
           ),
         ]),
-        Padding(
-          padding: const EdgeInsets.only(left: 52, top: 2),
-          child: KText(sub, style: const TextStyle(fontSize: 12.5, color: AppColors.sub)),
-        ),
         // 전체 기록 대시보드 (안전 확인 결과 화면과 같은 구성)
         if (checked.isNotEmpty) ...[
           const SizedBox(height: 12),

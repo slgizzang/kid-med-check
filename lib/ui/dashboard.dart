@@ -214,14 +214,14 @@ class SafetyTiles extends StatelessWidget {
             onOpen: onOpen, count: mix, unit: '쌍', icon: Icons.compare_arrows, info: _infoMix),
       ]),
       // 회수·주의 알림·사용 연령은 복용 금기가 아니라 참고 사항 — 한 묶음으로 작게
-      const SizedBox(height: 14),
+      const SizedBox(height: 12),
       const Align(
         alignment: Alignment.centerLeft,
         child: KText('참고 사항 · 복용 금기는 아니에요',
             maxLines: 1,
-            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.sub)),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.sub)),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 6),
       row([
         _NoteTile(
                   label: '회수된 약',
@@ -385,75 +385,86 @@ class _InfoListState extends State<_InfoList> {
 }
 
 
-/// 대시보드 타일 공통 모양: 흰 바탕 + 상태 색 테두리 + 옅은 그림자, 가운데에 아이콘·이름·결과
-Widget _outlineTile(
+/// 대시보드 타일 공통 모양: 옅은 면 색 카드 (테두리 없이), 문제가 있으면 붉은 면.
+/// 금기 타일(big)은 이름 두 줄 + 큰 결과, 참고 타일은 이름 한 줄 + 작은 결과로 낮게.
+Widget _statTile(
   BuildContext context, {
   required Color accent,
+  required Color bg,
   required IconData icon,
   required String label,
   required String value,
   required Color valueColor,
   required VoidCallback onTap,
   bool big = true,
+  bool hit = false,
 }) {
-  final r = BorderRadius.circular(big ? 20 : 16);
-  return Container(
-    decoration: BoxDecoration(
-      borderRadius: r,
-      boxShadow: [BoxShadow(color: accent.withAlpha(18), blurRadius: 10, spreadRadius: -2, offset: const Offset(0, 3))],
-    ),
-    child: Material(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-          borderRadius: r, side: BorderSide(color: accent.withAlpha(150), width: 1.4)),
-      child: InkWell(
+  final r = BorderRadius.circular(big ? 16 : 14);
+  const labelStyle = TextStyle(
+      color: Color(0xFF6B7684), fontWeight: FontWeight.w600, fontSize: 12.5, height: 1.25);
+  return Material(
+    color: bg,
+    shape: RoundedRectangleBorder(
         borderRadius: r,
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(6, big ? 14 : 10, 6, big ? 14 : 10),
-          child: Column(children: [
-            // 아이콘: 은은한 그라데이션 원 위에
-            Container(
-              width: big ? 46 : 34,
-              height: big ? 46 : 34,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [accent.withAlpha(40), accent.withAlpha(14)],
+        side: hit ? BorderSide(color: accent.withAlpha(70)) : BorderSide.none),
+    child: InkWell(
+      borderRadius: r,
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(12, big ? 11 : 9, 10, big ? 11 : 9),
+        child: big
+            ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                SizedBox(
+                  height: 32,
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: Text(ka(label), maxLines: 2, style: labelStyle)),
+                    const SizedBox(width: 2),
+                    Icon(icon, size: 17, color: accent),
+                  ]),
                 ),
-              ),
-              child: Icon(icon, size: big ? 24 : 18, color: accent),
-            ),
-            SizedBox(height: big ? 10 : 6),
-            SizedBox(
-              height: big ? 36 : 32,
-              child: Center(
-                child: Text(ka(label),
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: const Color(0xFF6B7684),
-                        fontWeight: FontWeight.w600,
-                        fontSize: big ? 13.5 : 12.5,
-                        height: 1.3)),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(value,
-                style: TextStyle(
-                    color: valueColor,
-                    fontWeight: FontWeight.w800,
-                    fontSize: big ? 20 : 16,
-                    letterSpacing: -0.3)),
-          ]),
-        ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(value,
+                      maxLines: 1,
+                      style: TextStyle(
+                          color: valueColor,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 21,
+                          letterSpacing: -0.4,
+                          height: 1.2)),
+                ),
+              ])
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(label, maxLines: 1, style: labelStyle.copyWith(fontSize: 12)),
+                ),
+                const SizedBox(height: 3),
+                Row(children: [
+                  Icon(icon, size: 15, color: accent),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(value,
+                        maxLines: 1,
+                        style: TextStyle(
+                            color: valueColor,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15.5,
+                            letterSpacing: -0.3,
+                            height: 1.2)),
+                  ),
+                ]),
+              ]),
       ),
     ),
   );
 }
 
+const _okBg = Color(0xFFF3F6F5);
+const _naBg = Color(0xFFF5F6F8);
 const _okAccent = Color(0xFF12A37A);
 const _naAccent = Color(0xFFB8C0C8);
 
@@ -476,8 +487,10 @@ class _NoteTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hit = count > 0;
-    return _outlineTile(context,
+    return _statTile(context,
         accent: hit ? _alert : _okAccent,
+        bg: hit ? _alertBg : _okBg,
+        hit: hit,
         icon: icon,
         label: label,
         value: hit ? '$count건' : '없음',
@@ -519,8 +532,10 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hit = count > 0 && !notApplicable;
-    return _outlineTile(context,
+    return _statTile(context,
         accent: notApplicable ? _naAccent : (hit ? _alert : _okAccent),
+        bg: notApplicable ? _naBg : (hit ? _alertBg : _okBg),
+        hit: hit,
         icon: icon,
         label: label,
         value: notApplicable ? '대상 아님' : (hit ? '$count$unit' : '없음'),

@@ -166,6 +166,7 @@ void main() {
     _seed();
     await t.pumpWidget(_app(const HomeScreen()));
     await _settle(t, 4000);
+    await _shot(t, '0_home_top');
     // 맨 위 소개 부분을 넘겨 안전 점검이 보이게
     await t.drag(find.byType(CustomScrollView).first, const Offset(0, -330));
     await _settle(t, 800);
